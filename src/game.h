@@ -6,6 +6,8 @@
 #include <memory>
 #include "shader.h"
 #include <entt/entt.hpp>
+#include <thread>
+#include <mutex>
 
 class Camera3D;
 
@@ -25,6 +27,13 @@ public:
     std::unique_ptr<Shader> menuShader;
     std::unique_ptr<Shader> worldShader;
 
+    void bindMenuGeometry(GLuint vbo, const float *data, size_t dataSize);
+    void bindMenuGeometryNoUpload(GLuint vbo);
+    void bindWorldGeometry(GLuint vbov, GLuint vbouv, const float *vdata, const float *uvdata, size_t vsize, size_t uvsize);
+    void bindWorldGeometryNoUpload(GLuint vbov, GLuint vbouv);
+
+    std::thread chunkUpdateThread;
+    std::mutex meshQueueMutex;
 
     void initializeShaders();
     void updateTime();

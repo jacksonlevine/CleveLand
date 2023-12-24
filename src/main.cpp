@@ -11,7 +11,7 @@ int main() {
     while(!glfwWindowShouldClose(game.window)) {
         game.runStep();
     }
-
+    
     glfwTerminate();
     glfwDestroyWindow(game.window);
 }
