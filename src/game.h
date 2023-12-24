@@ -1,8 +1,11 @@
 #ifndef GAME_H
 #define GAME_H
-#include "GLFW/glfw3.h"
-#include "camera.h"
+
 #include <gl/glew.h>
+#include "GLFW/glfw3.h"
+#include <memory>
+
+class Camera3D;
 
 class Game {
 public:
@@ -14,7 +17,7 @@ public:
     bool focused;
 
     GLFWwindow *window;
-    Camera3D camera;
+    Camera3D *camera;
 
     void updateTime();
     void runStep();
