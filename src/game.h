@@ -5,6 +5,7 @@
 #include "GLFW/glfw3.h"
 #include <memory>
 #include "shader.h"
+#include <entt/entt.hpp>
 
 class Camera3D;
 
@@ -19,14 +20,16 @@ public:
 
     GLFWwindow *window;
     Camera3D *camera;
+    entt::registry registry;
 
     std::unique_ptr<Shader> menuShader;
     std::unique_ptr<Shader> worldShader;
 
-    void initializeShaders();
 
+    void initializeShaders();
     void updateTime();
     void runStep();
+    void draw();
 
     void frameBufferSizeCallback(GLFWwindow *window, int width, int height);
     void mouseButtonCallback(GLFWwindow *window, int button, int action, int mods);

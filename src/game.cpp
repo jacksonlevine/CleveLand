@@ -20,6 +20,12 @@ Game::Game() : lastFrame(0), focused(false), camera(nullptr)
     initializeShaders();
 }
 
+void Game::draw() {
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glClearColor(0.0, 0.0, 0.0, 0.0);
+    glfwSwapBuffers(window);
+}
+
 void Game::updateTime() {
     double currentFrame = glfwGetTime();
     deltaTime = currentFrame - lastFrame;
@@ -28,6 +34,7 @@ void Game::updateTime() {
 
 void Game::runStep() {
     camera->updatePosition();
+    draw();
     glfwPollEvents();
     updateTime();
 }
