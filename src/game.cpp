@@ -1,6 +1,7 @@
 #include "camera.h"
 
-Game::Game() : lastFrame(0), camera(nullptr), focused(false) {
+Game::Game() : lastFrame(0), focused(false), camera(nullptr)
+{
     camera = new Camera3D(this);
     windowWidth = 1280;
     windowHeight = 720;
@@ -16,6 +17,7 @@ Game::Game() : lastFrame(0), camera(nullptr), focused(false) {
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glDepthFunc(GL_LESS);
+    initializeShaders();
 }
 
 void Game::updateTime() {
@@ -85,4 +87,68 @@ void Game::setFocused(bool focused) {
         glfwSetCursorPosCallback(window, NULL);
         glfwSetMouseButtonCallback(window, NULL);
     }
+}
+
+void Game::initializeShaders() {
+    menuShader = std::make_unique<Shader>(
+        R"glsl(
+            #version 330 core
+            layout (location = 0) in vec2 pos;
+            layout (location = 1) in vec2 texcoord;
+
+            out vec2 TexCoord;
+
+            void main()
+            {
+                gl_Position = vec4(pos, 0.0, 1.0);
+                TexCoord = texcoord;
+            }
+        )glsl",
+        R"glsl(
+            #version 330 core
+            out vec4 FragColor;
+            in vec2 TexCoord;
+            uniform sampler2D ourTexture;
+            void main() {
+                FragColor = texture(ourTexture, TexCoord);
+            }
+        )glsl",
+        "menuShader"
+    );
+    worldShader = std::make_unique<Shader>(
+        R"glsl(
+            #version 450 core
+            layout (location = 0) in vec3 position;
+            layout (location = 1) in vec2 uv;
+            out vec3 vertexColor;
+            out vec2 TexCoord;
+            out vec3 pos;
+            uniform mat4 mvp;
+            void main()
+            {
+                gl_Position = mvp * vec4(position, 1.0);
+                vertexColor = vec3(1.0, 1.0, 1.0);
+                TexCoord = uv;
+                pos = position;
+            }
+        )glsl",
+        R"glsl(
+            #version 450 core
+            in vec3 vertexColor;
+            in vec2 TexCoord;
+            in vec3 pos;
+            out vec4 FragColor;
+            uniform sampler2D ourTexture;
+            uniform vec3 camPos;
+            void main()
+            {
+                vec4 texColor = texture(ourTexture, TexCoord);
+                FragColor = texColor;
+                if(FragColor.a < 1.0) {
+                    discard;
+                }
+            }
+        )glsl",
+        "worldShader"
+    );
 }

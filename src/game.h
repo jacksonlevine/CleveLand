@@ -4,6 +4,7 @@
 #include <gl/glew.h>
 #include "GLFW/glfw3.h"
 #include <memory>
+#include "shader.h"
 
 class Camera3D;
 
@@ -18,6 +19,11 @@ public:
 
     GLFWwindow *window;
     Camera3D *camera;
+
+    std::unique_ptr<Shader> menuShader;
+    std::unique_ptr<Shader> worldShader;
+
+    void initializeShaders();
 
     void updateTime();
     void runStep();
