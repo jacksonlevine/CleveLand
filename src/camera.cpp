@@ -93,6 +93,11 @@ void Camera3D::updatePosition() {
 
 void Camera3D::setFocused(bool focused) {
     this->focused = focused;
+    if(focused) {
+        glfwSetInputMode(gs->window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    } else {
+        glfwSetInputMode(gs->window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+    }
 }
 
 void Camera3D::frameBufferSizeCallback(GLFWwindow *window, int width, int height) {

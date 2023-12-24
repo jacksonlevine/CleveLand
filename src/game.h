@@ -2,6 +2,7 @@
 #define GAME_H
 #include "GLFW/glfw3.h"
 #include "camera.h"
+#include <gl/glew.h>
 
 class Game {
 public:
@@ -9,6 +10,8 @@ public:
     int windowWidth;
     int windowHeight;
     double mouseSensitivity;
+
+    bool focused;
 
     GLFWwindow *window;
     Camera3D camera;
