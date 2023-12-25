@@ -4,6 +4,6 @@
 #include <vector>
 #include "../util/textureface.h"
 
-std::vector<float> createButton(float xOffset, float yOffset, const char *label, float manualWidth);
+std::vector<float> createButton(float xOffset, float yOffset, const char *label, float manualWidth, float elementID);
 
 #endif
