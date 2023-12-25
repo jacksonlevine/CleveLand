@@ -36,7 +36,15 @@ GUIButton::GUIButton(float xOffset, float yOffset, const char *label, float manu
 
     glm::vec2 letterStart(-totletwid/2 + xOffset, -letHeight/2 + yOffset);
 
-  
+    screenWidth = totwid/2;
+    screenHeight = tothei/2;
+    screenPos = glm::vec2(
+        0.5 + (leftStart.x/2),
+        0.5 - (tothei/2 + yOffset)/2
+    );
+
+
+
 
     GlyphFace glyph;
 

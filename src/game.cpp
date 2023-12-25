@@ -37,14 +37,40 @@ void Game::draw() {
 
     glUseProgram(menuShader->shaderID);
     glBindTexture(GL_TEXTURE_2D, menuTexture);
-    static GUIButton testButton(0.0f, 0.0f, "Test Label", 0.0f, 1.0f);
-    if(!testButton.uploaded) {
-        bindMenuGeometry(testButton.vbo, testButton.displayData.data(), testButton.displayData.size());
-        testButton.uploaded = true;
-    } else {
-        bindMenuGeometryNoUpload(testButton.vbo);
+
+    static std::vector<GUIButton> buttons = {
+        GUIButton(0.0f, 0.0f, "Test Label", 0.0f, 1.0f),
+        GUIButton(0.0f, -0.1f, "Other", 0.0f, 2.0f),
+        GUIButton(0.0f, -0.2f, "This thing", 0.0f, 3.0f),
+    };
+
+    mousedOverElement = 0.0f;
+
+    for(GUIButton& button : buttons) {
+        double xpos, ypos;
+        glfwGetCursorPos(window, &xpos, &ypos);
+        if(xpos > button.screenPos.x * windowWidth &&
+           xpos < (button.screenPos.x + button.screenWidth) * windowWidth &&
+           ypos > button.screenPos.y * windowHeight &&
+           ypos < (button.screenPos.y + button.screenHeight) * windowHeight)
+        {
+            mousedOverElement = button.elementID;
+        }
+
+        if(!button.uploaded) {
+            bindMenuGeometry(button.vbo, button.displayData.data(), button.displayData.size());
+            button.uploaded = true;
+        } else {
+            bindMenuGeometryNoUpload(button.vbo);
+        }
+        glDrawArrays(GL_TRIANGLES, 0, button.displayData.size() / 5);
     }
-    glDrawArrays(GL_TRIANGLES, 0, testButton.displayData.size() / 5);
+
+    GLuint moeLocation = glGetUniformLocation(menuShader->shaderID, "mousedOverElement");
+    glUniform1f(moeLocation, mousedOverElement);
+    GLuint coeLocation = glGetUniformLocation(menuShader->shaderID, "clickedOnElement");
+    glUniform1f(coeLocation, clickedOnElement);
+    
 
     glfwSwapBuffers(window);
 }
@@ -72,6 +98,11 @@ void Game::frameBufferSizeCallback(GLFWwindow *window, int width, int height) {
 void Game::mouseButtonCallback(GLFWwindow *window, int button, int action, int mods) {
     if(!focused) {
         setFocused(true);
+    }
+    if(action == GLFW_PRESS) {
+        clickedOnElement = mousedOverElement;
+    } else {
+        clickedOnElement = 0.0f;
     }
 }
 
@@ -112,10 +143,17 @@ void Game::setFocused(bool focused) {
                 instance->mouseButtonCallback(w, button, action, mods);
             }
         });
+        glfwSetFramebufferSizeCallback(window, [](GLFWwindow* w, int width, int height) {
+            Game* instance = static_cast<Game*>(glfwGetWindowUserPointer(w));
+            if (instance) {
+                instance->frameBufferSizeCallback(w, width, height);
+            }
+        });
     } else {
         glfwSetKeyCallback(window, NULL);
         glfwSetCursorPosCallback(window, NULL);
         glfwSetMouseButtonCallback(window, NULL);
+        glfwSetFramebufferSizeCallback(window, NULL);
     }
 }
 

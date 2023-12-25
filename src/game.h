@@ -39,6 +39,9 @@ public:
     GLuint menuTexture;
     GLuint worldTexture;
 
+    inline static float mousedOverElement = 0.0f;
+    inline static float clickedOnElement = 0.0f;
+
     void initializeShaders();
     void initializeTextures();
     void updateTime();
