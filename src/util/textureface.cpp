@@ -17,10 +17,10 @@ TextureFace::TextureFace(
     int x,
     int y
 ) :
-    br(glm::vec2(0.0f + onePixel + (oneOver16 * (float)x), 1.0f - ((float)y * oneOver16) - onePixel)),
-    tr(glm::vec2(0.0f + onePixel + (oneOver16 * (float)x), 1.0f - ((float)y * oneOver16) - textureWidth - onePixel)),
-    tl(glm::vec2(0.0f + onePixel + (oneOver16 * (float)x) + textureWidth, 1.0f - ((float)y * oneOver16) - textureWidth - onePixel)),
-    bl(glm::vec2(0.0f + onePixel + (oneOver16 * (float)x) + textureWidth, 1.0f - ((float)y * oneOver16) - onePixel))
+    bl(glm::vec2(0.0f + onePixel + (oneOver16 * (float)x), 1.0f - ((float)y * oneOver16) - onePixel)),
+    tl(glm::vec2(0.0f + onePixel + (oneOver16 * (float)x), 1.0f - ((float)y * oneOver16) - textureWidth - onePixel)),
+    tr(glm::vec2(0.0f + onePixel + (oneOver16 * (float)x) + textureWidth, 1.0f - ((float)y * oneOver16) - textureWidth - onePixel)),
+    br(glm::vec2(0.0f + onePixel + (oneOver16 * (float)x) + textureWidth, 1.0f - ((float)y * oneOver16) - onePixel))
 {
 
 }

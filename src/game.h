@@ -8,6 +8,7 @@
 #include <entt/entt.hpp>
 #include <thread>
 #include <mutex>
+#include "gui/guielement.h"
 
 class Camera3D;
 
@@ -35,7 +36,11 @@ public:
     std::thread chunkUpdateThread;
     std::mutex meshQueueMutex;
 
+    GLuint menuTexture;
+    GLuint worldTexture;
+
     void initializeShaders();
+    void initializeTextures();
     void updateTime();
     void runStep();
     void draw();

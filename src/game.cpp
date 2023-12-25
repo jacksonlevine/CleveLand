@@ -1,5 +1,9 @@
 #include "camera.h"
 
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb_image.h>
+
+
 Game::Game() : lastFrame(0), focused(false), camera(nullptr)
 {
     camera = new Camera3D(this);
@@ -18,11 +22,30 @@ Game::Game() : lastFrame(0), focused(false), camera(nullptr)
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glDepthFunc(GL_LESS);
     initializeShaders();
+    initializeTextures();
 }
 
 void Game::draw() {
+    static GLuint VAO = 0;
+    if(VAO == 0) {
+        glGenVertexArrays(1, &VAO);
+        glBindVertexArray(VAO);
+    }
+
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glClearColor(0.0, 0.0, 0.0, 0.0);
+
+    glUseProgram(menuShader->shaderID);
+    glBindTexture(GL_TEXTURE_2D, menuTexture);
+    static GUIButton testButton(0.0f, 0.0f, "Test Label", 0.0f, 1.0f);
+    if(!testButton.uploaded) {
+        bindMenuGeometry(testButton.vbo, testButton.displayData.data(), testButton.displayData.size());
+        testButton.uploaded = true;
+    } else {
+        bindMenuGeometryNoUpload(testButton.vbo);
+    }
+    glDrawArrays(GL_TRIANGLES, 0, testButton.displayData.size() / 5);
+
     glfwSwapBuffers(window);
 }
 
@@ -124,6 +147,9 @@ void Game::initializeShaders() {
             uniform float clickedOnElement;
             void main() {
                 FragColor = texture(ourTexture, TexCoord);
+                if(FragColor.a < 1.0) {
+                    discard;
+                }
                 if(mousedOverElement == elementID) {
                     FragColor = FragColor + vec4(0.3, 0.3, 0.3, 0.0);
                 }
@@ -242,4 +268,44 @@ void Game::bindWorldGeometryNoUpload(GLuint vbov, GLuint vbouv) {
     GLint uvAttrib = glGetAttribLocation(worldShader->shaderID, "uv");
     glEnableVertexAttribArray(uvAttrib);
     glVertexAttribPointer(uvAttrib, 2, GL_FLOAT, GL_FALSE, 0, 0);
+}
+
+void Game::initializeTextures() {
+    glGenTextures(1, &menuTexture);
+    glBindTexture(GL_TEXTURE_2D, menuTexture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+    int width, height, nrChannels;
+    unsigned char *data = stbi_load("assets/gui.png", &width, &height, &nrChannels, 0);
+    if (data)
+    {
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+        glGenerateMipmap(GL_TEXTURE_2D);
+    }
+    else
+    {
+        std::cout << "Failed to load texture menutexture" << std::endl;
+    }
+
+    glGenTextures(1, &worldTexture);
+    glBindTexture(GL_TEXTURE_2D, worldTexture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+    data = stbi_load("assets/world.png", &width, &height, &nrChannels, 0);
+    if (data)
+    {
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+        glGenerateMipmap(GL_TEXTURE_2D);
+    }
+    else
+    {
+        std::cout << "Failed to load texture worldtexture" << std::endl;
+    }
+    stbi_image_free(data);
 }
