@@ -225,7 +225,7 @@ void Game::bindWorldGeometry(GLuint vbov, GLuint vbouv, const float *vdata, cons
     {
         std::cerr << "Bind world geom err (vbouv): " << error << std::endl;
     }
-    GLint uvAttrib = glGetAttribLocation(worldShader->shaderID,"uv");
+    GLint uvAttrib = glGetAttribLocation(worldShader->shaderID, "uv");
     glEnableVertexAttribArray(uvAttrib);
     glVertexAttribPointer(uvAttrib, 2, GL_FLOAT, GL_FALSE, 0, 0);
 }
@@ -239,7 +239,7 @@ void Game::bindWorldGeometryNoUpload(GLuint vbov, GLuint vbouv) {
 
     glBindBuffer(GL_ARRAY_BUFFER, vbouv);
 
-    GLint uvAttrib = glGetAttribLocation(worldShader->shaderID,"uv");
+    GLint uvAttrib = glGetAttribLocation(worldShader->shaderID, "uv");
     glEnableVertexAttribArray(uvAttrib);
     glVertexAttribPointer(uvAttrib, 2, GL_FLOAT, GL_FALSE, 0, 0);
 }
