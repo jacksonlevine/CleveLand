@@ -5,8 +5,8 @@
 #include "../util/textureface.h"
 #include <gl/glew.h>
 #include <GLFW/glfw3.h>
-
-struct GUIButton {
+class GUIButton {
+public:
     glm::vec2 screenPos;
     float screenWidth;
     float screenHeight;
@@ -16,7 +16,14 @@ struct GUIButton {
     GLuint vbo;
     bool uploaded;
 
-    GUIButton(float xOffset, float yOffset, const char *label, float manualWidth, float elementID);
+    GUIButton(float xOffset, float yOffset, const char *label, float manualWidth, float elementID,
+    int windowWidth, int windowHeight);
+    void rebuildDisplayData(int windowWidth, int windowHeight);
+private:
+    float xOffset;
+    float yOffset;
+    const char *label;
+    float manualWidth;
 };
 
 #endif

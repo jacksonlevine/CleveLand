@@ -27,20 +27,17 @@ public:
 
     std::unique_ptr<Shader> menuShader;
     std::unique_ptr<Shader> worldShader;
-
-    void bindMenuGeometry(GLuint vbo, const float *data, size_t dataSize);
-    void bindMenuGeometryNoUpload(GLuint vbo);
-    void bindWorldGeometry(GLuint vbov, GLuint vbouv, const float *vdata, const float *uvdata, size_t vsize, size_t uvsize);
-    void bindWorldGeometryNoUpload(GLuint vbov, GLuint vbouv);
+    
+    GLuint menuTexture;
+    GLuint worldTexture;
 
     std::thread chunkUpdateThread;
     std::mutex meshQueueMutex;
 
-    GLuint menuTexture;
-    GLuint worldTexture;
-
     inline static float mousedOverElement = 0.0f;
     inline static float clickedOnElement = 0.0f;
+
+    inline static std::vector<GUIButton> *currentGuiButtons = nullptr;
 
     void initializeShaders();
     void initializeTextures();
@@ -48,13 +45,22 @@ public:
     void runStep();
     void draw();
 
+    void goToTestMenu();
+    void goToOtherTestMenu();
+    void closeTestMenu();
+
+    void bindMenuGeometry(GLuint vbo, const float *data, size_t dataSize);
+    void bindMenuGeometryNoUpload(GLuint vbo);
+    void bindWorldGeometry(GLuint vbov, GLuint vbouv, const float *vdata, const float *uvdata, size_t vsize, size_t uvsize);
+    void bindWorldGeometryNoUpload(GLuint vbov, GLuint vbouv);
+
     void frameBufferSizeCallback(GLFWwindow *window, int width, int height);
     void mouseButtonCallback(GLFWwindow *window, int button, int action, int mods);
     void mouseCallback(GLFWwindow *window, double xpos, double ypos);
     void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods);
 
     void setFocused(bool focused);
-
+    
     Game();
 private:
     double lastFrame;

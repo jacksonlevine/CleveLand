@@ -1,13 +1,27 @@
 #include "guielement.h"
 
-GUIButton::GUIButton(float xOffset, float yOffset, const char *label, float manualWidth, float elementID) :
+GUIButton::GUIButton(float xOffset, float yOffset, const char *label, float manualWidth, float elementID, int windowWidth, int windowHeight) :
     elementID(elementID),
     screenWidth(0),//TEMPORARY, FIX THESE
     screenHeight(0),//TEMPORARY, FIX THESE
     screenPos(glm::vec2(0,0)), //TEMPORARY, FIX THESE
     uploaded(false),
-    vbo(0)
+    vbo(0),
+    xOffset(xOffset),
+    yOffset(yOffset),
+    label(label),
+    manualWidth(manualWidth)
 {
+    rebuildDisplayData(windowWidth, windowHeight);
+}
+
+void GUIButton::rebuildDisplayData(int windowWidth, int windowHeight) {
+
+    float xOffset = this->xOffset*700 / windowWidth;
+    float yOffset = this->yOffset*700 / windowHeight;
+
+    displayData.clear();
+    glDeleteBuffers(1, &vbo);
     glGenBuffers(1, &vbo);
 
     TextureFace leftEnd(0,0);
@@ -18,11 +32,11 @@ GUIButton::GUIButton(float xOffset, float yOffset, const char *label, float manu
     middle.tl.x += textureWidth/2;
     
     float lettersCount = std::strlen(label);
-    float unitWidth = (32.0f/1280)*2;
-    float unitHeight = (32.0f/720)*2;
+    float unitWidth = (32.0f/windowWidth)*2;
+    float unitHeight = (32.0f/windowHeight)*2;
 
-    float letHeight = (32.0f/720);
-    float letWidth = (32.0f/1280);
+    float letHeight = (32.0f/windowHeight);
+    float letWidth = (32.0f/windowWidth);
 
     float totwid = unitWidth * 2 + letWidth * lettersCount;
     float tothei = unitHeight;
@@ -42,9 +56,6 @@ GUIButton::GUIButton(float xOffset, float yOffset, const char *label, float manu
         0.5 + (leftStart.x/2),
         0.5 - (tothei/2 + yOffset)/2
     );
-
-
-
 
     GlyphFace glyph;
 
