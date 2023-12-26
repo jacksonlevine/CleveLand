@@ -1,6 +1,7 @@
 #include "guielement.h"
 
-GUIButton::GUIButton(float xOffset, float yOffset, const char *label, float manualWidth, float elementID, int windowWidth, int windowHeight) :
+GUIButton::GUIButton(float xOffset, float yOffset, const char *label, float manualWidth, float elementID,
+    std::function<void()> function) :
     elementID(elementID),
     screenWidth(0),//TEMPORARY, FIX THESE
     screenHeight(0),//TEMPORARY, FIX THESE
@@ -10,12 +11,13 @@ GUIButton::GUIButton(float xOffset, float yOffset, const char *label, float manu
     xOffset(xOffset),
     yOffset(yOffset),
     label(label),
-    manualWidth(manualWidth)
+    manualWidth(manualWidth),
+    myFunction(function)
 {
-    rebuildDisplayData(windowWidth, windowHeight);
+    rebuildDisplayData();
 }
 
-void GUIButton::rebuildDisplayData(int windowWidth, int windowHeight) {
+void GUIButton::rebuildDisplayData() {
 
     float xOffset = this->xOffset*700 / windowWidth;
     float yOffset = this->yOffset*700 / windowHeight;

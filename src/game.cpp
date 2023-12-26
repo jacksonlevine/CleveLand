@@ -35,11 +35,11 @@ void Game::draw() {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glClearColor(0.0, 0.0, 0.0, 0.0);
 
-    glUseProgram(menuShader->shaderID);
-    glBindTexture(GL_TEXTURE_2D, menuTexture);
-
     
     if(currentGuiButtons != nullptr) {
+        glUseProgram(menuShader->shaderID);
+        glBindTexture(GL_TEXTURE_2D, menuTexture);
+
         mousedOverElement = 0.0f;
 
         for(GUIButton& button : *currentGuiButtons) {
@@ -68,17 +68,20 @@ void Game::draw() {
         glUniform1f(coeLocation, clickedOnElement);
     }
 
+
     glfwSwapBuffers(window);
 }
 
 void Game::goToTestMenu() {
     static std::vector<GUIButton> buttons = {
-        GUIButton(0.0f, 0.0f, "Test Label", 0.0f, 1.0f, windowWidth, windowHeight),
-        GUIButton(0.0f, -0.1f, "Other", 0.0f, 2.0f, windowWidth, windowHeight),
-        GUIButton(0.0f, -0.2f, "This thing", 0.0f, 3.0f, windowWidth, windowHeight),
+        GUIButton(0.0f, 0.0f, "To Other Menu", 0.0f, 1.0f, [this](){
+            this->goToOtherTestMenu();
+        }),
+        GUIButton(0.0f, -0.1f, "Other", 0.0f, 2.0f, [](){}),
+        GUIButton(0.0f, -0.2f, "This thing", 0.0f, 3.0f, [](){}),
     };
     for(GUIButton &button : buttons) {
-        button.rebuildDisplayData(windowWidth, windowHeight);
+        button.rebuildDisplayData();
         button.uploaded = false;
     }
     currentGuiButtons = &buttons;
@@ -86,14 +89,16 @@ void Game::goToTestMenu() {
 
 void Game::goToOtherTestMenu() {
     static std::vector<GUIButton> buttons = {
-        GUIButton(0.0f, 0.1f, "Hey", 0.0f, 1.0f, windowWidth, windowHeight),
-        GUIButton(0.0f, 0.0f, "Woo Other Menu", 0.0f, 2.0f, windowWidth, windowHeight),
-        GUIButton(0.0f, -0.1f, "Hello", 0.0f, 3.0f, windowWidth, windowHeight),
-        GUIButton(0.0f, -0.2f, "Fuck You", 0.0f, 4.0f, windowWidth, windowHeight),
-        GUIButton(0.0f, -0.3f, "What Is Up", 0.0f, 5.0f, windowWidth, windowHeight),
+        GUIButton(0.0f, 0.1f, "To First Menu", 0.0f, 1.0f, [this](){
+            this->goToTestMenu();
+        }),
+        GUIButton(0.0f, 0.0f, "Woo Other Menu", 0.0f, 2.0f, [](){}),
+        GUIButton(0.0f, -0.1f, "Hello", 0.0f, 3.0f, [](){}),
+        GUIButton(0.0f, -0.2f, "Tester", 0.0f, 4.0f, [](){}),
+        GUIButton(0.0f, -0.3f, "What Is Up", 0.0f, 5.0f, [](){}),
     };
     for(GUIButton &button : buttons) {
-        button.rebuildDisplayData(windowWidth, windowHeight);
+        button.rebuildDisplayData();
         button.uploaded = false;
     }
     currentGuiButtons = &buttons;
@@ -121,9 +126,13 @@ void Game::frameBufferSizeCallback(GLFWwindow *window, int width, int height) {
     windowHeight = height;
     glViewport(0, 0, windowWidth, windowHeight);
     camera->frameBufferSizeCallback(window, windowWidth, windowHeight);
+
+    GUIButton::windowWidth = windowWidth;
+    GUIButton::windowHeight = windowHeight;
+    
     if(currentGuiButtons != nullptr) {
         for(GUIButton &button : *currentGuiButtons) {
-            button.rebuildDisplayData(windowWidth, windowHeight);
+            button.rebuildDisplayData();
             button.uploaded = false;
         }
     }
@@ -136,6 +145,13 @@ void Game::mouseButtonCallback(GLFWwindow *window, int button, int action, int m
     if(action == GLFW_PRESS) {
         clickedOnElement = mousedOverElement;
     } else {
+        if(currentGuiButtons != nullptr) {
+            for(auto &button : *currentGuiButtons) {
+                if(button.elementID == clickedOnElement) {
+                    button.myFunction();
+                }
+            }
+        }
         clickedOnElement = 0.0f;
     }
 }
@@ -231,11 +247,10 @@ void Game::initializeShaders() {
                 if(FragColor.a < 1.0) {
                     discard;
                 }
-                if(mousedOverElement == elementID) {
-                    FragColor = FragColor + vec4(0.3, 0.3, 0.3, 0.0);
-                }
                 if(clickedOnElement == elementID) {
                     FragColor = vec4(vec3(1.0, 1.0, 1.0) - FragColor.rgb, 1.0);
+                } else if(mousedOverElement == elementID) {
+                    FragColor = FragColor + vec4(0.3, 0.3, 0.3, 0.0);
                 }
             }
         )glsl",
