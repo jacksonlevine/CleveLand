@@ -35,6 +35,9 @@ void Game::draw() {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glClearColor(0.0, 0.0, 0.0, 0.0);
 
+
+
+
     
     if(currentGuiButtons != nullptr) {
         glUseProgram(menuShader->shaderID);
@@ -66,6 +69,39 @@ void Game::draw() {
         glUniform1f(moeLocation, mousedOverElement);
         GLuint coeLocation = glGetUniformLocation(menuShader->shaderID, "clickedOnElement");
         glUniform1f(coeLocation, clickedOnElement);
+    }
+
+        if(!inGame) {
+        glUseProgram(menuShader->shaderID);
+        glBindTexture(GL_TEXTURE_2D, menuBackgroundTexture);
+        static GLuint backgroundVbo = 0;
+        if(backgroundVbo == 0) {
+            glGenBuffers(1, &backgroundVbo);
+        }
+        static int lastWindowWidth = 0;
+        static int lastWindowHeight = 0;
+
+        static std::vector<float> backgroundImageData;
+
+        if(lastWindowWidth != windowWidth || lastWindowHeight != windowHeight) {
+            lastWindowWidth = windowWidth;
+            lastWindowHeight = windowHeight;
+            backgroundImageData.clear();
+            //X, Y, U, V, ElementID
+            backgroundImageData.insert(backgroundImageData.end(), {
+                -1.0, -1.0,   0.0, 0.0,                                -1.0f,
+                -1.0, 1.0,    0.0, windowHeight/160.0f,                -1.0f,
+                1.0, 1.0,     windowWidth/160.0f, windowHeight/160.0f, -1.0f,
+
+                1.0, 1.0,     windowWidth/160.0f, windowHeight/160.0f, -1.0f,
+                1.0, -1.0,    windowWidth/160.0f, 0.0,                 -1.0f,
+                -1.0, -1.0,   0.0, 0.0,                                -1.0f
+            });
+            bindMenuGeometry(backgroundVbo, backgroundImageData.data(), backgroundImageData.size());
+        } else {
+            bindMenuGeometryNoUpload(backgroundVbo);
+        }
+        glDrawArrays(GL_TRIANGLES, 0, backgroundImageData.size() / 5);
     }
 
 
@@ -385,6 +421,7 @@ void Game::initializeTextures() {
     {
         std::cout << "Failed to load texture menutexture" << std::endl;
     }
+    stbi_image_free(data);
 
     glGenTextures(1, &worldTexture);
     glBindTexture(GL_TEXTURE_2D, worldTexture);
@@ -402,6 +439,25 @@ void Game::initializeTextures() {
     else
     {
         std::cout << "Failed to load texture worldtexture" << std::endl;
+    }
+    stbi_image_free(data);
+
+    glGenTextures(1, &menuBackgroundTexture);
+    glBindTexture(GL_TEXTURE_2D, menuBackgroundTexture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+    data = stbi_load("assets/background.png", &width, &height, &nrChannels, 0);
+    if (data)
+    {
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+        glGenerateMipmap(GL_TEXTURE_2D);
+    }
+    else
+    {
+        std::cout << "Failed to load texture menubackgroundtexture" << std::endl;
     }
     stbi_image_free(data);
 }

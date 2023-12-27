@@ -20,6 +20,7 @@ public:
     double mouseSensitivity;
 
     bool focused;
+    inline static bool inGame = false;
 
     GLFWwindow *window;
     Camera3D *camera;
@@ -29,6 +30,7 @@ public:
     std::unique_ptr<Shader> worldShader;
     
     GLuint menuTexture;
+    GLuint menuBackgroundTexture;
     GLuint worldTexture;
 
     std::thread chunkUpdateThread;
@@ -60,7 +62,7 @@ public:
     void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods);
 
     void setFocused(bool focused);
-    
+
     Game();
 private:
     double lastFrame;
