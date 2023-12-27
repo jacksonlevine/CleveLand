@@ -1,5 +1,5 @@
-#pragma once
-
+#ifndef PERLIN_H
+#define PERLIN_H
 #include <cmath>
 
 class Perlin {
@@ -16,3 +16,4 @@ private:
 	double lerp(double t, double a, double b);
 
 };
+#endif

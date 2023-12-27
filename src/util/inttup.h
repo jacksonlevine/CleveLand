@@ -1,3 +1,6 @@
+#ifndef INTTUP_H
+#define INTTUP_H
+
 #include <memory>
 
 struct IntTup {
@@ -21,3 +24,5 @@ IntTup operator+(IntTup first, const IntTup& second);
 struct IntTupHash {
     std::size_t operator()(const IntTup& tup) const;
 };
+
+#endif
