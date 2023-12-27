@@ -71,7 +71,7 @@ void Game::draw() {
         glUniform1f(coeLocation, clickedOnElement);
     }
 
-        if(!inGame) {
+    if(!inGame) {
         glUseProgram(menuShader->shaderID);
         glBindTexture(GL_TEXTURE_2D, menuBackgroundTexture);
         static GLuint backgroundVbo = 0;
