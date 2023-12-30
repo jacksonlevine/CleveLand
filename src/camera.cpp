@@ -11,7 +11,7 @@ Camera3D::Camera3D(Game *gs) : gs(gs), focused(false) {
     direction.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
     direction = glm::normalize(direction);
 
-    position = glm::vec3(0.0, 20.0, 0.0);
+    position = glm::vec3(0.0, 40.0, 0.0);
 
     right = glm::normalize(glm::cross(glm::vec3(0.0, 1.0, 0.0), direction));
     up = glm::cross(direction, right);
@@ -83,10 +83,20 @@ void Camera3D::keyCallback(GLFWwindow *window, int key, int scancode, int action
     if(key == forwardKey) {
         velocity -= ((glm::vec3(1.0, 0.0, 1.0) * direction) * static_cast<float>(gs->deltaTime)) * speedMulitplier;
     }
+
+    if(key == upKey) {
+        velocity += (glm::vec3(0.0, 1.0, 0.0) * static_cast<float>(gs->deltaTime)) * speedMulitplier;
+    }
+    if(key == downKey) {
+        velocity -= (glm::vec3(0.0, 1.0, 0.0) * static_cast<float>(gs->deltaTime)) * speedMulitplier;
+    }
+    view = glm::lookAt(position, position + direction, up);
+    mvp = projection * view * model;
 }
 
 void Camera3D::updatePosition() {
     position += velocity;
+    velocity /= 2.0f;
     view = glm::lookAt(position, position + direction, up);
     mvp = projection * view * model;
 }

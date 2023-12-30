@@ -5,12 +5,14 @@ void VoxelWorld::chunkUpdateThreadFunction() {
     
 
     static glm::vec3 lastCamPosDivided;
+    static bool first = true;
 
     static int loadRadius = 5;
     while(runChunkThread) {
         glm::vec3 currCamPosDivided = cameraPosition/10.0f;
-        if(currCamPosDivided != lastCamPosDivided) {
+        if(currCamPosDivided != lastCamPosDivided || first) {
             lastCamPosDivided = currCamPosDivided;
+            first = false;
 
             BlockCoord cameraBlockPos(std::round(cameraPosition.x), std::round(cameraPosition.y), std::round(cameraPosition.z));
             ChunkCoord cameraChunkPos(std::floor(static_cast<float>(cameraBlockPos.x)/chunkWidth), std::floor(static_cast<float>(cameraBlockPos.z)/chunkWidth));
@@ -48,6 +50,8 @@ void VoxelWorld::chunkUpdateThreadFunction() {
 
                 }
             }
+
+            meshQueueMutex.unlock();
         }
     }
 
@@ -62,6 +66,8 @@ void VoxelWorld::populateChunksAndNuggos(entt::registry &registry) {
 
             BlockChunk chunk;
             chunk.nuggoPoolIndex = nuggoPool.size();
+
+            chunks.push_back(chunk);
 
             nuggoPool.push_back(nuggo);
 
@@ -159,20 +165,30 @@ void VoxelWorld::rebuildChunk(BlockChunk &chunk) {
             for(int y = startY; y < startY + chunkHeight; ++y) {
                 BlockCoord coord(x,y,z);
                 int neighborIndex = 0;
-                for(BlockCoord &neigh : neighbors) {
-                    if(blockAt(coord + neigh) == 0) {
-                        verts.insert(verts.end(), faces[neighborIndex].begin(), faces[neighborIndex].end());
-                        uvs.insert(uvs.end() , {
-                            tex.bl.x, tex.bl.y,
-                            tex.br.x, tex.br.y,
-                            tex.tr.x, tex.tr.y,
+                if(blockAt(coord) != 0) {
+                    for(BlockCoord &neigh : neighbors) {
+                        if(blockAt(coord + neigh) == 0) {
+                            verts.insert(verts.end(), {
+                                faces[neighborIndex][0]+coord.x,faces[neighborIndex][1]+coord.y, faces[neighborIndex][2]+coord.z,
+                                faces[neighborIndex][3]+coord.x,faces[neighborIndex][4]+coord.y, faces[neighborIndex][5]+coord.z,
+                                faces[neighborIndex][6]+coord.x,faces[neighborIndex][7]+coord.y, faces[neighborIndex][8]+coord.z,
 
-                            tex.tr.x, tex.tr.y,
-                            tex.tl.x, tex.tl.y,
-                            tex.bl.x, tex.bl.y
-                        });
+                                faces[neighborIndex][9]+coord.x,faces[neighborIndex][10]+coord.y, faces[neighborIndex][11]+coord.z,
+                                faces[neighborIndex][12]+coord.x,faces[neighborIndex][13]+coord.y, faces[neighborIndex][14]+coord.z,
+                                faces[neighborIndex][15]+coord.x,faces[neighborIndex][16]+coord.y, faces[neighborIndex][17]+coord.z
+                            });
+                            uvs.insert(uvs.end() , {
+                                tex.bl.x, tex.bl.y,
+                                tex.br.x, tex.br.y,
+                                tex.tr.x, tex.tr.y,
+
+                                tex.tr.x, tex.tr.y,
+                                tex.tl.x, tex.tl.y,
+                                tex.bl.x, tex.bl.y
+                            });
+                        }
+                        neighborIndex++;
                     }
-                    neighborIndex++;
                 }
             }
         }
@@ -235,7 +251,7 @@ unsigned int VoxelWorld::blockAt(BlockCoord coord) {
 float VoxelWorld::noiseFunction(int x, int y, int z) {
     return 
     std::max(0.0f, (
-        20.0f + static_cast<float>(perlin.noise(((float)(x + seed))/15.35f, ((float)(y+seed))/15.35f, ((float)(z+seed))/15.35f)) * 10.0f
+        20.0f + static_cast<float>(perlin.noise(((float)(x))/15.35f, ((float)(y))/15.35f, ((float)(z))/15.35f)) * 10.0f
     ) - std::max(((float)y/5.0f), 0.0f));
 }
 

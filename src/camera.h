@@ -26,7 +26,10 @@ public:
     inline static int leftKey = GLFW_KEY_A;
     inline static int rightKey = GLFW_KEY_D;
     inline static int backKey = GLFW_KEY_S;
-    inline static float speedMulitplier = 2.0;
+    inline static int upKey = GLFW_KEY_SPACE;
+    inline static int downKey = GLFW_KEY_LEFT_SHIFT;
+
+    inline static float speedMulitplier = 10.0;
 
     inline static double far = 1500.0;
     inline static double near = 0.01;

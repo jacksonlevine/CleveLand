@@ -36,8 +36,9 @@ void Game::draw() {
         glBindVertexArray(VAO);
     }
 
+
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    glClearColor(0.0, 0.0, 0.0, 0.0);
+    glClearColor(1.0, 0.0, 0.0, 1.0);
 
 
 
@@ -110,6 +111,10 @@ void Game::draw() {
 
     if(inGame) {
         stepChunkDraw();
+        //std::cout << voxelWorld.nuggosToRebuild.size() << "\n";
+        //std::cout << "Camera: \n";
+        //std::cout << "  Dir: " << camera->direction.x << " " << camera->direction.y << " " << camera->direction.z << "\n";
+        //std::cout << "  Pos: " << camera->position.x << " " << camera->position.y << " " << camera->position.z << "\n";
     }
 
 
@@ -117,14 +122,10 @@ void Game::draw() {
 }
 
 void Game::stepChunkDraw() {
-    glBindTexture(GL_TEXTURE_2D, worldTexture);
+    
     glUseProgram(worldShader->shaderID);
+    glBindTexture(GL_TEXTURE_2D, worldTexture);
 
-    GLuint mvp_loc = glGetUniformLocation(worldShader->shaderID, "mvp");
-    glUniformMatrix4fv(mvp_loc, 1, GL_FALSE, glm::value_ptr(camera->mvp));
-
-    GLuint cam_pos_loc = glGetUniformLocation(worldShader->shaderID, "camPos");
-    glUniform3f(cam_pos_loc, camera->position.x, camera->position.y, camera->position.z);
 
     voxelWorld.cameraPosition = camera->position;
     voxelWorld.cameraDirection = camera->direction;
@@ -169,12 +170,19 @@ void Game::stepChunkDraw() {
     }
     for(const entt::entity e : meshesView) {
         MeshComponent &m = registry.get<MeshComponent>(e);
+        //std::cout << "ddrawing a chunk of size " << m.length << "\n";
         bindWorldGeometryNoUpload(
             m.vbov,
             m.vbouv
         );
         glDrawArrays(GL_TRIANGLES, 0, m.length);
     }
+        GLuint mvp_loc = glGetUniformLocation(worldShader->shaderID, "mvp");
+    glUniformMatrix4fv(mvp_loc, 1, GL_FALSE, glm::value_ptr(camera->mvp));
+
+    GLuint cam_pos_loc = glGetUniformLocation(worldShader->shaderID, "camPos");
+    glUniform3f(cam_pos_loc, camera->position.x, camera->position.y, camera->position.z);
+
 }
 
 void Game::goToMainMenu() {
@@ -237,6 +245,7 @@ void Game::goToSingleplayerWorld(const char *worldname) {
         voxelWorld.chunkUpdateThreadFunction();
         });
     voxelWorld.chunkUpdateThread.detach();
+    voxelWorld.runChunkThread = true;
 
     camera->setFocused(true);
 
@@ -276,6 +285,9 @@ void Game::frameBufferSizeCallback(GLFWwindow *window, int width, int height) {
 void Game::mouseButtonCallback(GLFWwindow *window, int button, int action, int mods) {
     if(!focused) {
         setFocused(true);
+        if(inGame) {
+            camera->setFocused(true);
+        }
     }
     if(action == GLFW_PRESS) {
         clickedOnElement = mousedOverElement;
@@ -303,6 +315,7 @@ void Game::keyCallback(GLFWwindow *window, int key, int scancode, int action, in
     }
     if(key == GLFW_KEY_ESCAPE) {
         setFocused(false);
+        camera->setFocused(false);
     }
 }
 
@@ -384,7 +397,7 @@ void Game::initializeShaders() {
     );
     worldShader = std::make_unique<Shader>(
         R"glsl(
-            #version 450 core
+            #version 330 core
             layout (location = 0) in vec3 position;
             layout (location = 1) in vec2 uv;
             out vec3 vertexColor;
@@ -400,7 +413,7 @@ void Game::initializeShaders() {
             }
         )glsl",
         R"glsl(
-            #version 450 core
+            #version 330 core
             in vec3 vertexColor;
             in vec2 TexCoord;
             in vec3 pos;
