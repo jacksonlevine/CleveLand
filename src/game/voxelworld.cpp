@@ -1,6 +1,251 @@
 #include "voxelworld.h"
 
+
+void VoxelWorld::chunkUpdateThreadFunction() {
+    
+
+    static glm::vec3 lastCamPosDivided;
+
+    static int loadRadius = 5;
+    while(runChunkThread) {
+        glm::vec3 currCamPosDivided = cameraPosition/10.0f;
+        if(currCamPosDivided != lastCamPosDivided) {
+            lastCamPosDivided = currCamPosDivided;
+
+            BlockCoord cameraBlockPos(std::round(cameraPosition.x), std::round(cameraPosition.y), std::round(cameraPosition.z));
+            ChunkCoord cameraChunkPos(std::floor(static_cast<float>(cameraBlockPos.x)/chunkWidth), std::floor(static_cast<float>(cameraBlockPos.z)/chunkWidth));
+            ChunkCoord cameraChunkPosAdjustedWithDirection(
+                static_cast<int>(std::floor(static_cast<float>(cameraBlockPos.x)/chunkWidth) + (cameraDirection.x * 4)), 
+                static_cast<int>(std::floor(static_cast<float>(cameraBlockPos.z)/chunkWidth) + (cameraDirection.z * 4))
+                );
+
+            std::sort(chunks.begin(), chunks.end(), [cameraChunkPosAdjustedWithDirection](BlockChunk& a, BlockChunk& b){
+                int adist = 
+                std::abs(a.position.x - cameraChunkPosAdjustedWithDirection.x) +
+                std::abs(a.position.z - cameraChunkPosAdjustedWithDirection.z);
+
+                int bdist = 
+                std::abs(b.position.x - cameraChunkPosAdjustedWithDirection.x) +
+                std::abs(b.position.z - cameraChunkPosAdjustedWithDirection.z);
+
+                return adist > bdist;
+            });
+
+            meshQueueMutex.lock();
+
+
+            int takenChunkIndex = 0;
+            for(int x = cameraChunkPos.x - loadRadius; x < cameraChunkPos.x + loadRadius; ++x) {
+                for(int z = cameraChunkPos.z - loadRadius; z < cameraChunkPos.z + loadRadius; ++z) {
+
+                    ChunkCoord thisChunkCoord(x,z);
+                    if(takenCareOfChunkSpots.find(thisChunkCoord) == takenCareOfChunkSpots.end()) {
+                        chunks[takenChunkIndex].position = thisChunkCoord;
+                        rebuildChunk(chunks[takenChunkIndex]);
+
+                        takenChunkIndex++;
+                    }
+
+                }
+            }
+        }
+    }
+
+}
+
+void VoxelWorld::populateChunksAndNuggos(entt::registry &registry) {
+    for(int i = 0; i < 50; ++i) {
+        for(int j = 0; j < 50; ++j) {
+
+            Nuggo nuggo;
+            nuggo.me = registry.create();
+
+            BlockChunk chunk;
+            chunk.nuggoPoolIndex = nuggoPool.size();
+
+            nuggoPool.push_back(nuggo);
+
+
+        }
+    }
+}
+
+
+void VoxelWorld::rebuildChunk(BlockChunk &chunk) {
+
+    if(takenCareOfChunkSpots.find(chunk.position) != takenCareOfChunkSpots.end()) {
+        takenCareOfChunkSpots.erase(chunk.position);
+    }
+    
+    int startX = chunk.position.x * chunkWidth;
+    int startZ = chunk.position.z * chunkWidth;
+    int startY = 0;
+
+    //left right forward backward up down
+    static std::vector<BlockCoord> neighbors = {
+        BlockCoord(-1, 0, 0),
+        BlockCoord(1, 0, 0),
+        BlockCoord(0, 0, 1),
+        BlockCoord(0, 0, -1),
+        BlockCoord(0, 1, 0),
+        BlockCoord(0, -1, 0),
+    };
+
+    static std::vector<std::vector<float>> faces = {
+           
+    {
+        -0.5f, -0.5f, 0.5f,
+        -0.5f, -0.5f, -0.5f,
+        -0.5f, 0.5f, -0.5f,
+
+        -0.5f, 0.5f, -0.5f,
+        -0.5f, 0.5f, 0.5f,
+        -0.5f, -0.5f, 0.5f
+    },
+    {
+        0.5f, -0.5f, -0.5f,
+        0.5f, -0.5f, 0.5f,
+        0.5f, 0.5f, 0.5f,
+
+        0.5f, 0.5f, 0.5f,
+        0.5f, 0.5f, -0.5f,
+        0.5f, -0.5f, -0.5f
+    },
+    {
+        0.5f, -0.5f, 0.5f,
+        -0.5f, -0.5f, 0.5f,
+        -0.5f, 0.5f, 0.5f,
+
+        -0.5f, 0.5f, 0.5f,
+        0.5f, 0.5f, 0.5f,
+        0.5f, -0.5f, 0.5f
+    },
+    {
+        -0.5f, -0.5f, -0.5f,
+        0.5f, -0.5f, -0.5f,
+        0.5f, 0.5f, -0.5f,
+
+        0.5f, 0.5f, -0.5f,
+        -0.5f, 0.5f, -0.5f,
+        -0.5f, -0.5f, -0.5f
+    },
+     {
+        -0.5f, 0.5f, -0.5f,
+        0.5f, 0.5f, -0.5f,
+        0.5f, 0.5f, 0.5f,
+
+        0.5f, 0.5f, 0.5f,
+        -0.5f, 0.5f, 0.5f,
+        -0.5f, 0.5f, -0.5f
+    },
+    {
+        0.5f, -0.5f, -0.5f,
+        -0.5f, -0.5f, -0.5f,
+        -0.5f, -0.5f, 0.5f,
+
+        -0.5f, -0.5f, 0.5f,
+        0.5f, -0.5f, 0.5f,
+        0.5f, -0.5f, -0.5f
+    }
+    };
+
+    TextureFace tex(0,0);
+
+    std::vector<float> verts;
+    std::vector<float> uvs;
+
+    for(int x = startX; x < startX + chunkWidth; ++x) {
+        for(int z = startZ; z < startZ + chunkWidth; ++z) {
+            for(int y = startY; y < startY + chunkHeight; ++y) {
+                BlockCoord coord(x,y,z);
+                int neighborIndex = 0;
+                for(BlockCoord &neigh : neighbors) {
+                    if(blockAt(coord + neigh) == 0) {
+                        verts.insert(verts.end(), faces[neighborIndex].begin(), faces[neighborIndex].end());
+                        uvs.insert(uvs.end() , {
+                            tex.bl.x, tex.bl.y,
+                            tex.br.x, tex.br.y,
+                            tex.tr.x, tex.tr.y,
+
+                            tex.tr.x, tex.tr.y,
+                            tex.tl.x, tex.tl.y,
+                            tex.bl.x, tex.bl.y
+                        });
+                    }
+                    neighborIndex++;
+                }
+            }
+        }
+    }
+
+    nuggoPool[chunk.nuggoPoolIndex].verts = verts;
+    nuggoPool[chunk.nuggoPoolIndex].uvs = uvs;
+
+    bool found = false;
+    for(int i : nuggosToRebuild) {
+        if(i == chunk.nuggoPoolIndex) {
+            found = true;
+        }
+    }
+
+    if(!found) {
+        nuggosToRebuild.push_back(chunk.nuggoPoolIndex);
+    }
+
+    if(takenCareOfChunkSpots.find(chunk.position) == takenCareOfChunkSpots.end()) {
+        takenCareOfChunkSpots.insert_or_assign(chunk.position, 0);
+    }
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+unsigned int VoxelWorld::blockAt(BlockCoord coord) {
+    ChunkCoord chunkcoord(
+        static_cast<int>(std::floor(static_cast<float>(coord.x)/chunkWidth)), 
+        static_cast<int>(std::floor(static_cast<float>(coord.z)/chunkWidth))
+    );
+    auto chunkit = userDataMap.find(chunkcoord);
+    if(chunkit != userDataMap.end()) {
+        auto blockit = chunkit->second.find(coord);
+        if(blockit != chunkit->second.end()) {
+            return blockit->second;
+        }
+    }
+    if(noiseFunction(coord.x, coord.y, coord.z) > 10) {
+        return 1; //replace this with a "getWorldBlock" function later
+    }
+    return 0;
+}
+
+float VoxelWorld::noiseFunction(int x, int y, int z) {
+    return 
+    std::max(0.0f, (
+        20.0f + static_cast<float>(perlin.noise(((float)(x + seed))/15.35f, ((float)(y+seed))/15.35f, ((float)(z+seed))/15.35f)) * 10.0f
+    ) - std::max(((float)y/5.0f), 0.0f));
+}
+
+bool VoxelWorld::saveExists(const char* path) {
+    return std::filesystem::exists(path);
+}
+
 void VoxelWorld::saveWorldToFile(const char *path) {
+    std::filesystem::create_directories(std::filesystem::path(path).parent_path());
+
     std::ofstream outputFile(path, std::ios::trunc);
     if(outputFile.is_open()) {
         outputFile << seed << '\n';

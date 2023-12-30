@@ -23,6 +23,10 @@ Game::Game() : lastFrame(0), focused(false), camera(nullptr)
     glDepthFunc(GL_LESS);
     initializeShaders();
     initializeTextures();
+
+    voxelWorld.populateChunksAndNuggos(registry);
+
+    goToMainMenu();
 }
 
 void Game::draw() {
@@ -104,17 +108,83 @@ void Game::draw() {
         glDrawArrays(GL_TRIANGLES, 0, backgroundImageData.size() / 5);
     }
 
+    if(inGame) {
+        stepChunkDraw();
+    }
+
 
     glfwSwapBuffers(window);
 }
 
-void Game::goToTestMenu() {
+void Game::stepChunkDraw() {
+    glBindTexture(GL_TEXTURE_2D, worldTexture);
+    glUseProgram(worldShader->shaderID);
+
+    GLuint mvp_loc = glGetUniformLocation(worldShader->shaderID, "mvp");
+    glUniformMatrix4fv(mvp_loc, 1, GL_FALSE, glm::value_ptr(camera->mvp));
+
+    GLuint cam_pos_loc = glGetUniformLocation(worldShader->shaderID, "camPos");
+    glUniform3f(cam_pos_loc, camera->position.x, camera->position.y, camera->position.z);
+
+    voxelWorld.cameraPosition = camera->position;
+    voxelWorld.cameraDirection = camera->direction;
+
+    auto meshesView = registry.view<MeshComponent>();
+    if(voxelWorld.nuggosToRebuild.size() > 0) {
+        if(voxelWorld.meshQueueMutex.try_lock()) {
+            Nuggo &nuggo = voxelWorld.nuggoPool[voxelWorld.nuggosToRebuild.back()];
+            if(!registry.all_of<MeshComponent>(nuggo.me)) {
+                MeshComponent m;
+                m.length = nuggo.verts.size();
+                bindWorldGeometry(
+                    m.vbov,
+                    m.vbouv,
+                    nuggo.verts.data(),
+                    nuggo.uvs.data(),
+                    nuggo.verts.size(),
+                    nuggo.uvs.size()
+                );
+                registry.emplace<MeshComponent>(nuggo.me, m);
+            } else {
+                MeshComponent &m = registry.get<MeshComponent>(nuggo.me);
+                glDeleteBuffers(1, &m.vbov);
+                glDeleteBuffers(1, &m.vbouv);
+                glGenBuffers(1, &m.vbov);
+                glGenBuffers(1, &m.vbouv);
+
+                m.length = nuggo.verts.size();
+                bindWorldGeometry(
+                    m.vbov,
+                    m.vbouv,
+                    nuggo.verts.data(),
+                    nuggo.uvs.data(),
+                    nuggo.verts.size(),
+                    nuggo.uvs.size()
+                );
+            }
+            voxelWorld.nuggosToRebuild.pop_back();
+            voxelWorld.meshQueueMutex.unlock();
+
+        }
+    }
+    for(const entt::entity e : meshesView) {
+        MeshComponent &m = registry.get<MeshComponent>(e);
+        bindWorldGeometryNoUpload(
+            m.vbov,
+            m.vbouv
+        );
+        glDrawArrays(GL_TRIANGLES, 0, m.length);
+    }
+}
+
+void Game::goToMainMenu() {
     static std::vector<GUIButton> buttons = {
-        GUIButton(0.0f, 0.0f, "To Other Menu", 0.0f, 1.0f, [this](){
-            this->goToOtherTestMenu();
+        GUIButton(0.0f, 0.0f, "Singleplayer", 0.0f, 1.0f, [this](){
+            this->goToSingleplayerWorldsMenu();
         }),
-        GUIButton(0.0f, -0.1f, "Other", 0.0f, 2.0f, [](){}),
-        GUIButton(0.0f, -0.2f, "This thing", 0.0f, 3.0f, [](){}),
+        GUIButton(0.0f, -0.1f, "Quit Game", 0.0f, 2.0f, [this](){
+            glfwSetWindowShouldClose(this->window, GLFW_TRUE);
+        }),
     };
     for(GUIButton &button : buttons) {
         button.rebuildDisplayData();
@@ -123,15 +193,26 @@ void Game::goToTestMenu() {
     currentGuiButtons = &buttons;
 }
 
-void Game::goToOtherTestMenu() {
+void Game::goToSingleplayerWorldsMenu() {
     static std::vector<GUIButton> buttons = {
-        GUIButton(0.0f, 0.1f, "To First Menu", 0.0f, 1.0f, [this](){
-            this->goToTestMenu();
+        GUIButton(0.0f, 0.2f, "World 1", 0.0f, 1.0f, [this](){
+            goToSingleplayerWorld("world1");
         }),
-        GUIButton(0.0f, 0.0f, "Woo Other Menu", 0.0f, 2.0f, [](){}),
-        GUIButton(0.0f, -0.1f, "Hello", 0.0f, 3.0f, [](){}),
-        GUIButton(0.0f, -0.2f, "Tester", 0.0f, 4.0f, [](){}),
-        GUIButton(0.0f, -0.3f, "What Is Up", 0.0f, 5.0f, [](){}),
+        GUIButton(0.0f, 0.1f, "World 2", 0.0f, 2.0f, [this](){
+            goToSingleplayerWorld("world2");
+        }),
+        GUIButton(0.0f, 0.0f, "World 3", 0.0f, 3.0f, [this](){
+            goToSingleplayerWorld("world3");
+        }),
+        GUIButton(0.0f, -0.1f, "World 4", 0.0f, 4.0f, [this](){
+            goToSingleplayerWorld("world4");
+        }),
+        GUIButton(0.0f, -0.2f, "World 5", 0.0f, 5.0f, [this](){
+            goToSingleplayerWorld("world5");
+        }),
+        GUIButton(0.0f, -0.3f, "Back to main menu", 0.0f, 6.0f, [this](){
+            this->goToMainMenu();
+        }),
     };
     for(GUIButton &button : buttons) {
         button.rebuildDisplayData();
@@ -140,8 +221,26 @@ void Game::goToOtherTestMenu() {
     currentGuiButtons = &buttons;
 }
 
-void Game::closeTestMenu() {
+void Game::goToSingleplayerWorld(const char *worldname) {
     currentGuiButtons = nullptr;
+
+    const char* worldpath = (std::string("saves/") + std::string(worldname) + "/world.save").c_str();
+
+    if(voxelWorld.saveExists(worldpath)) {
+        voxelWorld.loadWorldFromFile(worldpath);
+    } else {
+        voxelWorld.seed = time(NULL);
+        voxelWorld.saveWorldToFile(worldpath);
+    }
+
+    voxelWorld.chunkUpdateThread = std::thread([this](){
+        voxelWorld.chunkUpdateThreadFunction();
+        });
+    voxelWorld.chunkUpdateThread.detach();
+
+    camera->setFocused(true);
+
+    inGame = true;
 }
 
 void Game::updateTime() {
@@ -204,15 +303,6 @@ void Game::keyCallback(GLFWwindow *window, int key, int scancode, int action, in
     }
     if(key == GLFW_KEY_ESCAPE) {
         setFocused(false);
-    }
-    if(key == GLFW_KEY_O) {
-        goToTestMenu();
-    }
-    if(key == GLFW_KEY_P) {
-        closeTestMenu();
-    }
-    if(key == GLFW_KEY_I) {
-        goToOtherTestMenu();
     }
 }
 

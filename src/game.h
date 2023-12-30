@@ -3,12 +3,13 @@
 
 #include <gl/glew.h>
 #include "GLFW/glfw3.h"
+#include <glm/gtc/type_ptr.hpp>
 #include <memory>
 #include "shader.h"
 #include <entt/entt.hpp>
-#include <thread>
-#include <mutex>
 #include "gui/guielement.h"
+#include "game/voxelworld.h"
+#include "util/meshcomponent.h"
 
 class Camera3D;
 
@@ -33,8 +34,7 @@ public:
     GLuint menuBackgroundTexture;
     GLuint worldTexture;
 
-    std::thread chunkUpdateThread;
-    std::mutex meshQueueMutex;
+    VoxelWorld voxelWorld;
 
     inline static float mousedOverElement = 0.0f;
     inline static float clickedOnElement = 0.0f;
@@ -47,9 +47,12 @@ public:
     void runStep();
     void draw();
 
-    void goToTestMenu();
-    void goToOtherTestMenu();
-    void closeTestMenu();
+    void goToMainMenu();
+    void goToSingleplayerWorldsMenu();
+
+    void goToSingleplayerWorld(const char *worldname);
+
+    void stepChunkDraw();
 
     void bindMenuGeometry(GLuint vbo, const float *data, size_t dataSize);
     void bindMenuGeometryNoUpload(GLuint vbo);
