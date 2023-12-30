@@ -38,7 +38,7 @@ void Game::draw() {
 
 
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    glClearColor(1.0, 0.0, 0.0, 1.0);
+    glClearColor(0.0, 0.0, 1.0, 0.5);
 
 
 
@@ -126,6 +126,11 @@ void Game::stepChunkDraw() {
     glUseProgram(worldShader->shaderID);
     glBindTexture(GL_TEXTURE_2D, worldTexture);
 
+    GLuint mvp_loc = glGetUniformLocation(worldShader->shaderID, "mvp");
+    glUniformMatrix4fv(mvp_loc, 1, GL_FALSE, glm::value_ptr(camera->mvp));
+
+    GLuint cam_pos_loc = glGetUniformLocation(worldShader->shaderID, "camPos");
+    glUniform3f(cam_pos_loc, camera->position.x, camera->position.y, camera->position.z);
 
     voxelWorld.cameraPosition = camera->position;
     voxelWorld.cameraDirection = camera->direction;
@@ -177,11 +182,7 @@ void Game::stepChunkDraw() {
         );
         glDrawArrays(GL_TRIANGLES, 0, m.length);
     }
-        GLuint mvp_loc = glGetUniformLocation(worldShader->shaderID, "mvp");
-    glUniformMatrix4fv(mvp_loc, 1, GL_FALSE, glm::value_ptr(camera->mvp));
 
-    GLuint cam_pos_loc = glGetUniformLocation(worldShader->shaderID, "camPos");
-    glUniform3f(cam_pos_loc, camera->position.x, camera->position.y, camera->position.z);
 
 }
 
