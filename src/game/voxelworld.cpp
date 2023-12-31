@@ -24,15 +24,15 @@ void VoxelWorld::chunkUpdateThreadFunction() {
         glm::vec3 currCamPosDivided = cameraPosition/10.0f;
         if(currCamPosDivided != lastCamPosDivided || first || shouldTryReload) {
             lastCamPosDivided = currCamPosDivided;
-            first = false;
+
             shouldTryReload = false;
 
             BlockCoord cameraBlockPos(std::round(cameraPosition.x), std::round(cameraPosition.y), std::round(cameraPosition.z));
             ChunkCoord cameraChunkPos(std::floor(static_cast<float>(cameraBlockPos.x)/chunkWidth), std::floor(static_cast<float>(cameraBlockPos.z)/chunkWidth));
-            // ChunkCoord cameraChunkPosAdjustedWithDirection(
-            //     static_cast<int>(std::floor(static_cast<float>(cameraBlockPos.x)/chunkWidth) + (cameraDirection.x * 4)), 
-            //     static_cast<int>(std::floor(static_cast<float>(cameraBlockPos.z)/chunkWidth) + (cameraDirection.z * 4))
-            //     );
+            ChunkCoord cameraChunkPosAdjustedWithDirection(
+                static_cast<int>(std::floor(static_cast<float>(cameraBlockPos.x)/chunkWidth) + (cameraDirection.x * 4)), 
+                static_cast<int>(std::floor(static_cast<float>(cameraBlockPos.z)/chunkWidth) + (cameraDirection.z * 4))
+                );
 
             // std::sort(chunks.begin(), chunks.end(), [cameraChunkPosAdjustedWithDirection](BlockChunk& a, BlockChunk& b){
             //     int adist = 
@@ -46,38 +46,42 @@ void VoxelWorld::chunkUpdateThreadFunction() {
             //     return adist > bdist;
             // });
 
-            std::partition(chunks.begin(), chunks.end(), [cameraChunkPos](BlockChunk &chunk) {
+            //MAYBE SWITCH BACK TO NON-ADJUSTED CAMERA CHUNK POS HERE VVV
+
+            std::partition(chunks.begin(), chunks.end(), [cameraChunkPosAdjustedWithDirection](BlockChunk &chunk) {
                 
                 if(!chunk.used) {
                     return true;
                 }
 
                 int dist = 
-                std::abs(chunk.position.x - cameraChunkPos.x) +
-                std::abs(chunk.position.z - cameraChunkPos.z);
+                std::abs(chunk.position.x - cameraChunkPosAdjustedWithDirection.x) +
+                std::abs(chunk.position.z - cameraChunkPosAdjustedWithDirection.z);
 
                 return dist >= loadRadius;
             });
 
-            meshQueueMutex.lock();
+            if(meshQueueMutex.try_lock()) {
 
 
-            int takenChunkIndex = 0;
-            for(int x = cameraChunkPos.x - loadRadius; x < cameraChunkPos.x + loadRadius; ++x) {
-                for(int z = cameraChunkPos.z - loadRadius; z < cameraChunkPos.z + loadRadius; ++z) {
+                int takenChunkIndex = 0;
+                for(int x = cameraChunkPos.x - loadRadius; x < cameraChunkPos.x + loadRadius; ++x) {
+                    for(int z = cameraChunkPos.z - loadRadius; z < cameraChunkPos.z + loadRadius; ++z) {
 
-                    ChunkCoord thisChunkCoord(x,z);
-                    if(takenCareOfChunkSpots.find(thisChunkCoord) == takenCareOfChunkSpots.end()) {
-                        
-                        rebuildChunk(chunks[takenChunkIndex], thisChunkCoord);
+                        ChunkCoord thisChunkCoord(x,z);
+                        if(takenCareOfChunkSpots.find(thisChunkCoord) == takenCareOfChunkSpots.end()) {
 
-                        takenChunkIndex++;
+                            rebuildChunk(chunks[takenChunkIndex], thisChunkCoord);
+
+                            takenChunkIndex++;
+                        }
+
                     }
-
                 }
-            }
 
-            meshQueueMutex.unlock();
+                meshQueueMutex.unlock();
+            }
+            first = false;
         }
     }
 
@@ -105,7 +109,7 @@ void VoxelWorld::populateChunksAndNuggos(entt::registry &registry) {
 }
 
 
-void VoxelWorld::rebuildChunk(BlockChunk &chunk, ChunkCoord newPosition) {
+void VoxelWorld::rebuildChunk(BlockChunk chunk, ChunkCoord newPosition) {
 
     if(takenCareOfChunkSpots.find(chunk.position) != takenCareOfChunkSpots.end()) {
         takenCareOfChunkSpots.erase(chunk.position);
@@ -272,10 +276,38 @@ void VoxelWorld::rebuildChunk(BlockChunk &chunk, ChunkCoord newPosition) {
         }
     }
 
-    nuggoPool[chunk.nuggoPoolIndex].verts = verts;
-    nuggoPool[chunk.nuggoPoolIndex].uvs = uvs;
-    nuggoPool[chunk.nuggoPoolIndex].tverts = tverts;
-    nuggoPool[chunk.nuggoPoolIndex].tuvs = tuvs;
+    try {
+        nuggoPool.at(chunk.nuggoPoolIndex).verts = verts;
+    }
+    catch (std::exception e) {
+        std::cout << e.what() << "\n";
+        std::cout << "index: " << chunk.nuggoPoolIndex << "\n";
+        std::cout << "size: " << nuggoPool.size() << "\n";
+    }
+    try {
+    nuggoPool.at(chunk.nuggoPoolIndex).uvs = uvs;
+    }
+    catch (std::exception e) {
+        std::cout << e.what() << "\n";
+        std::cout << "index: " << chunk.nuggoPoolIndex << "\n";
+        std::cout << "size: " << nuggoPool.size() << "\n";
+    }
+    try {
+    nuggoPool.at(chunk.nuggoPoolIndex).tverts = tverts;
+    }
+    catch (std::exception e) {
+        std::cout << e.what() << "\n";
+        std::cout << "index: " << chunk.nuggoPoolIndex << "\n";
+        std::cout << "size: " << nuggoPool.size() << "\n";
+    }
+    try {
+    nuggoPool.at(chunk.nuggoPoolIndex).tuvs = tuvs;
+    }
+    catch (std::exception e) {
+        std::cout << e.what() << "\n";
+        std::cout << "index: " << chunk.nuggoPoolIndex << "\n";
+        std::cout << "size: " << nuggoPool.size() << "\n";
+    }
 
     bool found = false;
     for(int i : nuggosToRebuild) {
@@ -289,7 +321,7 @@ void VoxelWorld::rebuildChunk(BlockChunk &chunk, ChunkCoord newPosition) {
     }
 
     if(takenCareOfChunkSpots.find(chunk.position) == takenCareOfChunkSpots.end()) {
-        takenCareOfChunkSpots.insert_or_assign(chunk.position, 0);
+        takenCareOfChunkSpots.insert_or_assign(chunk.position, chunk);
     }
 
 }

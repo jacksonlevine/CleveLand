@@ -10,6 +10,7 @@
 #include "gui/guielement.h"
 #include "game/voxelworld.h"
 #include "util/meshcomponent.h"
+#include "util/raycast.h"
 
 class Camera3D;
 
@@ -73,6 +74,9 @@ public:
     void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods);
 
     void setFocused(bool focused);
+
+
+    void castBreakRay();
 
     Game();
 private:

@@ -404,6 +404,10 @@ void Game::mouseButtonCallback(GLFWwindow *window, int button, int action, int m
         }
     }
     if(action == GLFW_PRESS) {
+        if(inGame) {
+            castBreakRay();
+        }
+
         clickedOnElement = mousedOverElement;
     } else {
         if(currentGuiButtons != nullptr) {
@@ -415,6 +419,39 @@ void Game::mouseButtonCallback(GLFWwindow *window, int button, int action, int m
         }
         clickedOnElement = 0.0f;
     }
+}
+
+void Game::castBreakRay() {
+    voxelWorld.meshQueueMutex.lock();
+    RayCastResult rayResult = rayCast(
+        voxelWorld.chunkWidth,
+        camera->position,
+        camera->direction,
+        [this](BlockCoord coord){
+            return voxelWorld.blockAt(coord) != 0;
+        },
+        true
+    );
+    if(rayResult.hit) {
+        if(rayResult.chunksToRebuild.size() > 0) {
+            if(voxelWorld.userDataMap.find(rayResult.chunksToRebuild.front()) == voxelWorld.userDataMap.end()) {
+                voxelWorld.userDataMap.insert_or_assign(rayResult.chunksToRebuild.front(), 
+                std::unordered_map<BlockCoord, unsigned int, IntTupHash>());
+            }
+            voxelWorld.userDataMap.at(rayResult.chunksToRebuild.front()).insert_or_assign(rayResult.blockHit, 0);
+
+
+                for(ChunkCoord& ccoord : rayResult.chunksToRebuild) {
+                    auto chunkIt = voxelWorld.takenCareOfChunkSpots.find(ccoord);
+                    if(chunkIt != voxelWorld.takenCareOfChunkSpots.end()) {
+                      //  std::cout << "fucking index:" << chunkIt->second.nuggoPoolIndex << "\n";
+                        voxelWorld.rebuildChunk(chunkIt->second, chunkIt->second.position);
+                    }
+                }
+        }
+
+    }
+    voxelWorld.meshQueueMutex.unlock();
 }
 
 void Game::mouseCallback(GLFWwindow *window, double xpos, double ypos) {
