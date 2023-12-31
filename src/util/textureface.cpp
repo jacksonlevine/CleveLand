@@ -1,7 +1,7 @@
 #include "textureface.h"
 
-const float onePixel = 0.0018382352941176;     // 1/544      Padding
-const float textureWidth = 0.0588235294117647; // 1/17       32 pixel texture width
+const float onePixel = 0.0034722222222222222222;     // 1/288      Padding
+const float textureWidth = 0.0555555555555555555555; // 16/288       16 pixel texture width
 const float oneOver16 = 0.0625;
 
 TextureFace::TextureFace(

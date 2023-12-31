@@ -146,7 +146,7 @@ void Game::stepChunkDraw() {
     voxelWorld.cameraPosition = camera->position;
     voxelWorld.cameraDirection = camera->direction;
 
-    auto meshesView = registry.view<MeshComponent>();
+
     if(voxelWorld.nuggosToRebuild.size() > 0) {
         if(voxelWorld.meshQueueMutex.try_lock()) {
             Nuggo &nuggo = voxelWorld.nuggoPool[voxelWorld.nuggosToRebuild.back()];
@@ -161,6 +161,16 @@ void Game::stepChunkDraw() {
                     nuggo.verts.size(),
                     nuggo.uvs.size()
                 );
+                //Transparent stuff
+                m.tlength = nuggo.tverts.size();
+                bindWorldGeometry(
+                    m.tvbov,
+                    m.tvbouv,
+                    nuggo.tverts.data(),
+                    nuggo.tuvs.data(),
+                    nuggo.tverts.size(),
+                    nuggo.tuvs.size()
+                );
                 registry.emplace<MeshComponent>(nuggo.me, m);
             } else {
                 MeshComponent &m = registry.get<MeshComponent>(nuggo.me);
@@ -168,6 +178,7 @@ void Game::stepChunkDraw() {
                 glDeleteBuffers(1, &m.vbouv);
                 glGenBuffers(1, &m.vbov);
                 glGenBuffers(1, &m.vbouv);
+
 
                 m.length = nuggo.verts.size();
                 bindWorldGeometry(
@@ -178,12 +189,28 @@ void Game::stepChunkDraw() {
                     nuggo.verts.size(),
                     nuggo.uvs.size()
                 );
+                //Transparent stuff
+                glDeleteBuffers(1, &m.tvbov);
+                glDeleteBuffers(1, &m.tvbouv);
+                glGenBuffers(1, &m.tvbov);
+                glGenBuffers(1, &m.tvbouv);
+
+                m.tlength = nuggo.tverts.size();
+                bindWorldGeometry(
+                    m.tvbov,
+                    m.tvbouv,
+                    nuggo.tverts.data(),
+                    nuggo.tuvs.data(),
+                    nuggo.tverts.size(),
+                    nuggo.tuvs.size()
+                );
             }
             voxelWorld.nuggosToRebuild.pop_back();
             voxelWorld.meshQueueMutex.unlock();
 
         }
     }
+        auto meshesView = registry.view<MeshComponent>();
     for(const entt::entity e : meshesView) {
         MeshComponent &m = registry.get<MeshComponent>(e);
         //std::cout << "ddrawing a chunk of size " << m.length << "\n";
@@ -193,8 +220,41 @@ void Game::stepChunkDraw() {
         );
         glDrawArrays(GL_TRIANGLES, 0, m.length);
     }
+    for(const entt::entity e : meshesView) {
+        MeshComponent &m = registry.get<MeshComponent>(e);
+        //std::cout << "ddrawing a chunk of size " << m.length << "\n";
+        bindWorldGeometryNoUpload(
+            m.tvbov,
+            m.tvbouv
+        );
+        glDrawArrays(GL_TRIANGLES, 0, m.tlength);
+    }
 
 
+}
+
+void Game::displayEscapeMenu() {
+    static std::vector<GUIButton> buttons = {
+        GUIButton(0.0f, 0.0f, "Save and exit to main menu", 0.0f, 1.0f, [this](){
+            
+            inGame = false;
+            voxelWorld.runChunkThread = false;
+            //voxelWorld.chunkUpdateThread.join();
+            voxelWorld.saveWorldToFile(currentSingleplayerWorldPath.c_str());
+            camera->setFocused(false);
+            goToMainMenu();
+        }),
+        GUIButton(0.0f, -0.1f, "Back to game", 0.0f, 2.0f, [this](){
+            camera->firstMouse = true;
+            camera->setFocused(true);
+            currentGuiButtons = nullptr;
+        }),
+    };
+    for(GUIButton &button : buttons) {
+        button.rebuildDisplayData();
+        button.uploaded = false;
+    }
+    currentGuiButtons = &buttons;
 }
 
 void Game::goToMainMenu() {
@@ -242,22 +302,48 @@ void Game::goToSingleplayerWorldsMenu() {
 }
 
 void Game::goToSingleplayerWorld(const char *worldname) {
-    currentGuiButtons = nullptr;
 
-    const char* worldpath = (std::string("saves/") + std::string(worldname) + "/world.save").c_str();
 
-    if(voxelWorld.saveExists(worldpath)) {
-        voxelWorld.loadWorldFromFile(worldpath);
-    } else {
-        voxelWorld.seed = time(NULL);
-        voxelWorld.saveWorldToFile(worldpath);
+    voxelWorld.userDataMap.clear();
+    voxelWorld.nuggosToRebuild.clear();
+    voxelWorld.takenCareOfChunkSpots.clear();
+    voxelWorld.nuggoPool.clear();
+    voxelWorld.chunks.clear();
+
+
+    auto meshesView = registry.view<MeshComponent>();
+    for(const entt::entity e : meshesView) {
+        MeshComponent &m = registry.get<MeshComponent>(e);
+        glDeleteBuffers(1, &m.vbov);
+        glDeleteBuffers(1, &m.vbouv);
+        glDeleteBuffers(1, &m.tvbov);
+        glDeleteBuffers(1, &m.tvbouv);
     }
 
+    registry.clear();
+
+    voxelWorld.populateChunksAndNuggos(registry);
+
+
+
+    currentGuiButtons = nullptr;
+
+    currentSingleplayerWorldPath = std::string("saves/") + std::string(worldname) + "/world.save";
+
+
+    if(voxelWorld.saveExists(currentSingleplayerWorldPath.c_str())) {
+        voxelWorld.loadWorldFromFile(currentSingleplayerWorldPath.c_str());
+    } else {
+        voxelWorld.seed = time(NULL);
+        voxelWorld.saveWorldToFile(currentSingleplayerWorldPath.c_str());
+    }
+    
+    voxelWorld.runChunkThread = true;
     voxelWorld.chunkUpdateThread = std::thread([this](){
         voxelWorld.chunkUpdateThreadFunction();
         });
     voxelWorld.chunkUpdateThread.detach();
-    voxelWorld.runChunkThread = true;
+
 
     camera->setFocused(true);
 
@@ -271,10 +357,24 @@ void Game::updateTime() {
 }
 
 void Game::runStep() {
+
     camera->updatePosition();
     draw();
+
     glfwPollEvents();
     updateTime();
+
+    if(inGame) {
+        static float textureAnimInterval = 0.1f;
+        static float textureAnimTimer = 0.0f;
+        if(textureAnimTimer > textureAnimInterval) {
+            textureAnimTimer = 0.0f;
+            stepTextureAnim();
+        } else {
+            textureAnimTimer += deltaTime;
+        }
+    }
+
 }
 
 void Game::frameBufferSizeCallback(GLFWwindow *window, int width, int height) {
@@ -326,8 +426,11 @@ void Game::keyCallback(GLFWwindow *window, int key, int scancode, int action, in
         camera->keyCallback(window, key, scancode, action, mods);
     }
     if(key == GLFW_KEY_ESCAPE) {
-        setFocused(false);
-        camera->setFocused(false);
+        if(inGame) {
+            camera->setFocused(false);
+            displayEscapeMenu();
+        }
+
     }
 }
 
@@ -530,6 +633,41 @@ void Game::bindWorldGeometryNoUpload(GLuint vbov, GLuint vbouv) {
     glVertexAttribPointer(uvAttrib, 2, GL_FLOAT, GL_FALSE, 0, 0);
 }
 
+void Game::stepTextureAnim() {
+
+    int width = 288;
+    int chans = 4;
+
+
+    static float timer = 0.0f;
+    if(timer < 100) {
+        timer += deltaTime*20;
+    } else {
+        timer = 0;
+    }
+
+    //Water
+    glm::ivec4 baseColor(0, 40, 254, 180);
+    glm::ivec2 coord(0,0);
+    int startY = 270, startX = 18, squareSize = 18;
+    for(int y = startY; y < startY + squareSize; ++y) {
+        for(int x = startX; x < startX + squareSize; ++x) {
+            int i = (y * width + x) * chans;
+            float addedNoise = std::max(static_cast<float>(voxelWorld.perlin.noise(
+                static_cast<float>(coord.x/4.0f), timer, static_cast<float>(coord.y/4.0f))) * 200, -10.0f);
+
+            worldTexturePixels[i]   = std::min(std::max(baseColor.r + static_cast<int>(addedNoise), 0), 254);
+            worldTexturePixels[i+1] = std::min(std::max(baseColor.g + static_cast<int>(addedNoise), 0), 254);
+            worldTexturePixels[i+2] = std::min(std::max(baseColor.b + static_cast<int>(addedNoise), 0), 254);
+            worldTexturePixels[i+3] = std::min(std::max(baseColor.a, 0), 254);
+            coord.x++;
+        }
+        coord.y++;
+    }
+    glBindTexture(GL_TEXTURE_2D, worldTexture);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, width, GL_RGBA, GL_UNSIGNED_BYTE, worldTexturePixels);
+}
+
 void Game::initializeTextures() {
     glGenTextures(1, &menuTexture);
     glBindTexture(GL_TEXTURE_2D, menuTexture);
@@ -558,17 +696,16 @@ void Game::initializeTextures() {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
-    data = stbi_load("assets/world.png", &width, &height, &nrChannels, 0);
-    if (data)
+    worldTexturePixels = stbi_load("assets/world.png", &width, &height, &nrChannels, 0);
+    if (worldTexturePixels)
     {
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, worldTexturePixels);
         glGenerateMipmap(GL_TEXTURE_2D);
     }
     else
     {
         std::cout << "Failed to load texture worldtexture" << std::endl;
     }
-    stbi_image_free(data);
 
     glGenTextures(1, &menuBackgroundTexture);
     glBindTexture(GL_TEXTURE_2D, menuBackgroundTexture);

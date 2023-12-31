@@ -16,21 +16,34 @@ void VoxelWorld::chunkUpdateThreadFunction() {
 
             BlockCoord cameraBlockPos(std::round(cameraPosition.x), std::round(cameraPosition.y), std::round(cameraPosition.z));
             ChunkCoord cameraChunkPos(std::floor(static_cast<float>(cameraBlockPos.x)/chunkWidth), std::floor(static_cast<float>(cameraBlockPos.z)/chunkWidth));
-            ChunkCoord cameraChunkPosAdjustedWithDirection(
-                static_cast<int>(std::floor(static_cast<float>(cameraBlockPos.x)/chunkWidth) + (cameraDirection.x * 4)), 
-                static_cast<int>(std::floor(static_cast<float>(cameraBlockPos.z)/chunkWidth) + (cameraDirection.z * 4))
-                );
+            // ChunkCoord cameraChunkPosAdjustedWithDirection(
+            //     static_cast<int>(std::floor(static_cast<float>(cameraBlockPos.x)/chunkWidth) + (cameraDirection.x * 4)), 
+            //     static_cast<int>(std::floor(static_cast<float>(cameraBlockPos.z)/chunkWidth) + (cameraDirection.z * 4))
+            //     );
 
-            std::sort(chunks.begin(), chunks.end(), [cameraChunkPosAdjustedWithDirection](BlockChunk& a, BlockChunk& b){
-                int adist = 
-                std::abs(a.position.x - cameraChunkPosAdjustedWithDirection.x) +
-                std::abs(a.position.z - cameraChunkPosAdjustedWithDirection.z);
+            // std::sort(chunks.begin(), chunks.end(), [cameraChunkPosAdjustedWithDirection](BlockChunk& a, BlockChunk& b){
+            //     int adist = 
+            //     std::abs(a.position.x - cameraChunkPosAdjustedWithDirection.x) +
+            //     std::abs(a.position.z - cameraChunkPosAdjustedWithDirection.z);
 
-                int bdist = 
-                std::abs(b.position.x - cameraChunkPosAdjustedWithDirection.x) +
-                std::abs(b.position.z - cameraChunkPosAdjustedWithDirection.z);
+            //     int bdist = 
+            //     std::abs(b.position.x - cameraChunkPosAdjustedWithDirection.x) +
+            //     std::abs(b.position.z - cameraChunkPosAdjustedWithDirection.z);
 
-                return adist > bdist;
+            //     return adist > bdist;
+            // });
+
+            std::partition(chunks.begin(), chunks.end(), [cameraChunkPos](BlockChunk &chunk) {
+                
+                if(!chunk.used) {
+                    return true;
+                }
+
+                int dist = 
+                std::abs(chunk.position.x - cameraChunkPos.x) +
+                std::abs(chunk.position.z - cameraChunkPos.z);
+
+                return dist >= loadRadius*2;
             });
 
             meshQueueMutex.lock();
@@ -55,6 +68,8 @@ void VoxelWorld::chunkUpdateThreadFunction() {
         }
     }
 
+    meshQueueMutex.unlock();
+
 }
 
 void VoxelWorld::populateChunksAndNuggos(entt::registry &registry) {
@@ -66,7 +81,7 @@ void VoxelWorld::populateChunksAndNuggos(entt::registry &registry) {
 
             BlockChunk chunk;
             chunk.nuggoPoolIndex = nuggoPool.size();
-
+            chunk.used = false;
             chunks.push_back(chunk);
 
             nuggoPool.push_back(nuggo);
@@ -83,6 +98,7 @@ void VoxelWorld::rebuildChunk(BlockChunk &chunk, ChunkCoord newPosition) {
         takenCareOfChunkSpots.erase(chunk.position);
     }
     chunk.position = newPosition;
+    chunk.used = true;
     
     int startX = chunk.position.x * chunkWidth;
     int startZ = chunk.position.z * chunkWidth;
@@ -156,40 +172,88 @@ void VoxelWorld::rebuildChunk(BlockChunk &chunk, ChunkCoord newPosition) {
     }
     };
 
-    TextureFace tex(0,0);
+    static std::vector<TextureFace> texs = {
+        TextureFace(0,0), //0 placeholder
+        TextureFace(0,0),
+        TextureFace(1,0)
+    };
+
+
 
     std::vector<float> verts;
     std::vector<float> uvs;
+
+    std::vector<float> tverts;
+    std::vector<float> tuvs;
 
     for(int x = startX; x < startX + chunkWidth; ++x) {
         for(int z = startZ; z < startZ + chunkWidth; ++z) {
             for(int y = startY; y < startY + chunkHeight; ++y) {
                 BlockCoord coord(x,y,z);
                 int neighborIndex = 0;
-                if(blockAt(coord) != 0) {
-                    for(BlockCoord &neigh : neighbors) {
-                        if(blockAt(coord + neigh) == 0) {
-                            verts.insert(verts.end(), {
-                                faces[neighborIndex][0]+coord.x,faces[neighborIndex][1]+coord.y, faces[neighborIndex][2]+coord.z, faces[neighborIndex][3],
-                                faces[neighborIndex][4]+coord.x,faces[neighborIndex][5]+coord.y, faces[neighborIndex][6]+coord.z, faces[neighborIndex][7],
-                                faces[neighborIndex][8]+coord.x,faces[neighborIndex][9]+coord.y, faces[neighborIndex][10]+coord.z, faces[neighborIndex][11],
+                unsigned int block = blockAt(coord);
+                if(block != 0) {
+                    
 
-                                faces[neighborIndex][12]+coord.x,faces[neighborIndex][13]+coord.y, faces[neighborIndex][14]+coord.z, faces[neighborIndex][15],
-                                faces[neighborIndex][16]+coord.x,faces[neighborIndex][17]+coord.y, faces[neighborIndex][18]+coord.z, faces[neighborIndex][19],
-                                faces[neighborIndex][20]+coord.x,faces[neighborIndex][21]+coord.y, faces[neighborIndex][22]+coord.z, faces[neighborIndex][23],
-                            });
-                            uvs.insert(uvs.end() , {
-                                tex.bl.x, tex.bl.y,
-                                tex.br.x, tex.br.y,
-                                tex.tr.x, tex.tr.y,
+                    if(block == 2) {
 
-                                tex.tr.x, tex.tr.y,
-                                tex.tl.x, tex.tl.y,
-                                tex.bl.x, tex.bl.y
-                            });
+                        for(BlockCoord &neigh : neighbors) {
+                            unsigned int neighblock = blockAt(coord + neigh);
+                            if(neighblock == 0) {
+                                tverts.insert(tverts.end(), {
+                                    faces[neighborIndex][0]+coord.x,faces[neighborIndex][1]+coord.y, faces[neighborIndex][2]+coord.z, faces[neighborIndex][3],
+                                    faces[neighborIndex][4]+coord.x,faces[neighborIndex][5]+coord.y, faces[neighborIndex][6]+coord.z, faces[neighborIndex][7],
+                                    faces[neighborIndex][8]+coord.x,faces[neighborIndex][9]+coord.y, faces[neighborIndex][10]+coord.z, faces[neighborIndex][11],
+
+                                    faces[neighborIndex][12]+coord.x,faces[neighborIndex][13]+coord.y, faces[neighborIndex][14]+coord.z, faces[neighborIndex][15],
+                                    faces[neighborIndex][16]+coord.x,faces[neighborIndex][17]+coord.y, faces[neighborIndex][18]+coord.z, faces[neighborIndex][19],
+                                    faces[neighborIndex][20]+coord.x,faces[neighborIndex][21]+coord.y, faces[neighborIndex][22]+coord.z, faces[neighborIndex][23],
+                                });
+                                tuvs.insert(tuvs.end() , {
+                                    texs[block].bl.x, texs[block].bl.y,
+                                    texs[block].br.x, texs[block].br.y,
+                                    texs[block].tr.x, texs[block].tr.y,
+
+                                    texs[block].tr.x, texs[block].tr.y,
+                                    texs[block].tl.x, texs[block].tl.y,
+                                    texs[block].bl.x, texs[block].bl.y
+                                });
+                            }
+                            neighborIndex++;
                         }
-                        neighborIndex++;
+
+                    }else {
+
+
+                        for(BlockCoord &neigh : neighbors) {
+                            unsigned int neighblock = blockAt(coord + neigh);
+                            bool solidNeighboringWater = (neighblock == 2 && block != 2);
+                            if(neighblock == 0 || solidNeighboringWater) {
+                                verts.insert(verts.end(), {
+                                    faces[neighborIndex][0]+coord.x,faces[neighborIndex][1]+coord.y, faces[neighborIndex][2]+coord.z, faces[neighborIndex][3],
+                                    faces[neighborIndex][4]+coord.x,faces[neighborIndex][5]+coord.y, faces[neighborIndex][6]+coord.z, faces[neighborIndex][7],
+                                    faces[neighborIndex][8]+coord.x,faces[neighborIndex][9]+coord.y, faces[neighborIndex][10]+coord.z, faces[neighborIndex][11],
+
+                                    faces[neighborIndex][12]+coord.x,faces[neighborIndex][13]+coord.y, faces[neighborIndex][14]+coord.z, faces[neighborIndex][15],
+                                    faces[neighborIndex][16]+coord.x,faces[neighborIndex][17]+coord.y, faces[neighborIndex][18]+coord.z, faces[neighborIndex][19],
+                                    faces[neighborIndex][20]+coord.x,faces[neighborIndex][21]+coord.y, faces[neighborIndex][22]+coord.z, faces[neighborIndex][23],
+                                });
+                                uvs.insert(uvs.end() , {
+                                    texs[block].bl.x, texs[block].bl.y,
+                                    texs[block].br.x, texs[block].br.y,
+                                    texs[block].tr.x, texs[block].tr.y,
+
+                                    texs[block].tr.x, texs[block].tr.y,
+                                    texs[block].tl.x, texs[block].tl.y,
+                                    texs[block].bl.x, texs[block].bl.y
+                                });
+                            }
+                            neighborIndex++;
+                        }
+
                     }
+
+
                 }
             }
         }
@@ -197,6 +261,8 @@ void VoxelWorld::rebuildChunk(BlockChunk &chunk, ChunkCoord newPosition) {
 
     nuggoPool[chunk.nuggoPoolIndex].verts = verts;
     nuggoPool[chunk.nuggoPoolIndex].uvs = uvs;
+    nuggoPool[chunk.nuggoPoolIndex].tverts = tverts;
+    nuggoPool[chunk.nuggoPoolIndex].tuvs = tuvs;
 
     bool found = false;
     for(int i : nuggosToRebuild) {

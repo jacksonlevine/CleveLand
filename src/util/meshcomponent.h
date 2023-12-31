@@ -10,6 +10,10 @@ public:
     GLuint vbov;
     GLuint vbouv;
     int length;
+
+    GLuint tvbov;
+    GLuint tvbouv;
+    int tlength;
     MeshComponent();
 };
 

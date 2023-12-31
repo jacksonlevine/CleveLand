@@ -32,6 +32,9 @@ public:
     
     GLuint menuTexture;
     GLuint menuBackgroundTexture;
+
+    unsigned char *worldTexturePixels;
+
     GLuint worldTexture;
 
     VoxelWorld voxelWorld;
@@ -40,6 +43,8 @@ public:
     inline static float clickedOnElement = 0.0f;
 
     inline static std::vector<GUIButton> *currentGuiButtons = nullptr;
+
+    std::string currentSingleplayerWorldPath;
 
     void initializeShaders();
     void initializeTextures();
@@ -50,9 +55,12 @@ public:
     void goToMainMenu();
     void goToSingleplayerWorldsMenu();
 
+    void displayEscapeMenu();
+
     void goToSingleplayerWorld(const char *worldname);
 
     void stepChunkDraw();
+    void stepTextureAnim();
 
     void bindMenuGeometry(GLuint vbo, const float *data, size_t dataSize);
     void bindMenuGeometryNoUpload(GLuint vbo);
