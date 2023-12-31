@@ -246,14 +246,17 @@ unsigned int VoxelWorld::blockAt(BlockCoord coord) {
     if(noiseFunction(coord.x, coord.y, coord.z) > 10) {
         return 1; //replace this with a "getWorldBlock" function later
     }
+    if(coord.y < 20) {
+        return 2;
+    }
     return 0;
 }
 
 float VoxelWorld::noiseFunction(int x, int y, int z) {
     return 
     std::max(0.0f, (
-        20.0f + static_cast<float>(perlin.noise((static_cast<float>(x))/15.35f, (static_cast<float>(y+(seed/100)))/15.35f, (static_cast<float>(z))/15.35f)) * 10.0f
-    ) - std::max(((float)y/3.0f), 0.0f));
+        20.0f + static_cast<float>(perlin.noise((static_cast<float>(x))/20.35f, (static_cast<float>(y+(seed/100)))/20.35f, (static_cast<float>(z))/20.35f)) * 5.0f
+    ) - std::max(((float)y/2.0f) + static_cast<float>(perlin.noise(x/65.0f, z/65.0f)) * 10.0f, 0.0f));
 }
 
 bool VoxelWorld::saveExists(const char* path) {

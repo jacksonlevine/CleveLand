@@ -29,7 +29,7 @@ Camera3D::Camera3D(Game *gs) : gs(gs), focused(false) {
 
 void Camera3D::mouseCallback(GLFWwindow *window, double xpos, double ypos) {
 
-    static bool firstMouse = true;
+
     static double lastMouseX = 0;
     static double lastMouseY = 0;
 

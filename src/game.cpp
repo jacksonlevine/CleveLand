@@ -362,8 +362,8 @@ void Game::setFocused(bool focused) {
     } else {
         glfwSetKeyCallback(window, NULL);
         glfwSetCursorPosCallback(window, NULL);
-        glfwSetMouseButtonCallback(window, NULL);
         glfwSetFramebufferSizeCallback(window, NULL);
+        camera->firstMouse = true;
     }
 }
 
@@ -437,7 +437,7 @@ void Game::initializeShaders() {
             {
                 vec4 texColor = texture(ourTexture, TexCoord);
                 FragColor = texColor * vec4(vertexColor, 1.0);
-                if(FragColor.a < 1.0) {
+                if(FragColor.a < 0.4) {
                     discard;
                 }
             }

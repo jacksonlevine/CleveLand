@@ -38,6 +38,8 @@ public:
     inline static int upKey = GLFW_KEY_SPACE;
     inline static int downKey = GLFW_KEY_LEFT_SHIFT;
 
+    inline static bool firstMouse = true;
+
     inline static float speedMulitplier = 10.0;
 
     inline static float far = 1500.0f;
