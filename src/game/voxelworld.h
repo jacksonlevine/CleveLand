@@ -51,7 +51,7 @@ public:
 
     void populateChunksAndNuggos(entt::registry &registry);
 
-    void rebuildChunk(BlockChunk &chunk);
+    void rebuildChunk(BlockChunk &chunk, ChunkCoord newPosition);
 
     void chunkUpdateThreadFunction();
 

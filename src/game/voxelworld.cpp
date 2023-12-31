@@ -7,7 +7,7 @@ void VoxelWorld::chunkUpdateThreadFunction() {
     static glm::vec3 lastCamPosDivided;
     static bool first = true;
 
-    static int loadRadius = 5;
+    static int loadRadius = 7;
     while(runChunkThread) {
         glm::vec3 currCamPosDivided = cameraPosition/10.0f;
         if(currCamPosDivided != lastCamPosDivided || first) {
@@ -42,8 +42,8 @@ void VoxelWorld::chunkUpdateThreadFunction() {
 
                     ChunkCoord thisChunkCoord(x,z);
                     if(takenCareOfChunkSpots.find(thisChunkCoord) == takenCareOfChunkSpots.end()) {
-                        chunks[takenChunkIndex].position = thisChunkCoord;
-                        rebuildChunk(chunks[takenChunkIndex]);
+                        
+                        rebuildChunk(chunks[takenChunkIndex], thisChunkCoord);
 
                         takenChunkIndex++;
                     }
@@ -58,8 +58,8 @@ void VoxelWorld::chunkUpdateThreadFunction() {
 }
 
 void VoxelWorld::populateChunksAndNuggos(entt::registry &registry) {
-    for(int i = 0; i < 50; ++i) {
-        for(int j = 0; j < 50; ++j) {
+    for(int i = 0; i < 20; ++i) {
+        for(int j = 0; j < 20; ++j) {
 
             Nuggo nuggo;
             nuggo.me = registry.create();
@@ -77,11 +77,12 @@ void VoxelWorld::populateChunksAndNuggos(entt::registry &registry) {
 }
 
 
-void VoxelWorld::rebuildChunk(BlockChunk &chunk) {
+void VoxelWorld::rebuildChunk(BlockChunk &chunk, ChunkCoord newPosition) {
 
     if(takenCareOfChunkSpots.find(chunk.position) != takenCareOfChunkSpots.end()) {
         takenCareOfChunkSpots.erase(chunk.position);
     }
+    chunk.position = newPosition;
     
     int startX = chunk.position.x * chunkWidth;
     int startZ = chunk.position.z * chunkWidth;
@@ -100,58 +101,58 @@ void VoxelWorld::rebuildChunk(BlockChunk &chunk) {
     static std::vector<std::vector<float>> faces = {
            
     {
-        -0.5f, -0.5f, 0.5f,
-        -0.5f, -0.5f, -0.5f,
-        -0.5f, 0.5f, -0.5f,
+        -0.5f, -0.5f, 0.5f, 10.0f,
+        -0.5f, -0.5f, -0.5f, 10.0f,
+        -0.5f, 0.5f, -0.5f, 10.0f,
 
-        -0.5f, 0.5f, -0.5f,
-        -0.5f, 0.5f, 0.5f,
-        -0.5f, -0.5f, 0.5f
+        -0.5f, 0.5f, -0.5f, 10.0f,
+        -0.5f, 0.5f, 0.5f, 10.0f,
+        -0.5f, -0.5f, 0.5f, 10.0f
     },
     {
-        0.5f, -0.5f, -0.5f,
-        0.5f, -0.5f, 0.5f,
-        0.5f, 0.5f, 0.5f,
+        0.5f, -0.5f, -0.5f, 10.0f,
+        0.5f, -0.5f, 0.5f, 10.0f,
+        0.5f, 0.5f, 0.5f, 10.0f,
 
-        0.5f, 0.5f, 0.5f,
-        0.5f, 0.5f, -0.5f,
-        0.5f, -0.5f, -0.5f
+        0.5f, 0.5f, 0.5f, 10.0f,
+        0.5f, 0.5f, -0.5f, 10.0f,
+        0.5f, -0.5f, -0.5f, 10.0f
     },
     {
-        0.5f, -0.5f, 0.5f,
-        -0.5f, -0.5f, 0.5f,
-        -0.5f, 0.5f, 0.5f,
+        0.5f, -0.5f, 0.5f, 14.0f,
+        -0.5f, -0.5f, 0.5f, 14.0f,
+        -0.5f, 0.5f, 0.5f, 14.0f,
 
-        -0.5f, 0.5f, 0.5f,
-        0.5f, 0.5f, 0.5f,
-        0.5f, -0.5f, 0.5f
+        -0.5f, 0.5f, 0.5f, 14.0f,
+        0.5f, 0.5f, 0.5f, 14.0f,
+        0.5f, -0.5f, 0.5f, 14.0f
     },
     {
-        -0.5f, -0.5f, -0.5f,
-        0.5f, -0.5f, -0.5f,
-        0.5f, 0.5f, -0.5f,
+        -0.5f, -0.5f, -0.5f,  14.0f,
+        0.5f, -0.5f, -0.5f, 14.0f,
+        0.5f, 0.5f, -0.5f, 14.0f,
 
-        0.5f, 0.5f, -0.5f,
-        -0.5f, 0.5f, -0.5f,
-        -0.5f, -0.5f, -0.5f
+        0.5f, 0.5f, -0.5f, 14.0f,
+        -0.5f, 0.5f, -0.5f, 14.0f,
+        -0.5f, -0.5f, -0.5f, 14.0f
     },
      {
-        -0.5f, 0.5f, -0.5f,
-        0.5f, 0.5f, -0.5f,
-        0.5f, 0.5f, 0.5f,
+        -0.5f, 0.5f, -0.5f, 16.0f,
+        0.5f, 0.5f, -0.5f, 16.0f,
+        0.5f, 0.5f, 0.5f, 16.0f,
 
-        0.5f, 0.5f, 0.5f,
-        -0.5f, 0.5f, 0.5f,
-        -0.5f, 0.5f, -0.5f
+        0.5f, 0.5f, 0.5f, 16.0f,
+        -0.5f, 0.5f, 0.5f, 16.0f,
+        -0.5f, 0.5f, -0.5f, 16.0f,
     },
     {
-        0.5f, -0.5f, -0.5f,
-        -0.5f, -0.5f, -0.5f,
-        -0.5f, -0.5f, 0.5f,
+        0.5f, -0.5f, -0.5f, 7.0f,
+        -0.5f, -0.5f, -0.5f, 7.0f,
+        -0.5f, -0.5f, 0.5f, 7.0f,
 
-        -0.5f, -0.5f, 0.5f,
-        0.5f, -0.5f, 0.5f,
-        0.5f, -0.5f, -0.5f
+        -0.5f, -0.5f, 0.5f, 7.0f,
+        0.5f, -0.5f, 0.5f, 7.0f,
+        0.5f, -0.5f, -0.5f,  7.0f
     }
     };
 
@@ -169,13 +170,13 @@ void VoxelWorld::rebuildChunk(BlockChunk &chunk) {
                     for(BlockCoord &neigh : neighbors) {
                         if(blockAt(coord + neigh) == 0) {
                             verts.insert(verts.end(), {
-                                faces[neighborIndex][0]+coord.x,faces[neighborIndex][1]+coord.y, faces[neighborIndex][2]+coord.z,
-                                faces[neighborIndex][3]+coord.x,faces[neighborIndex][4]+coord.y, faces[neighborIndex][5]+coord.z,
-                                faces[neighborIndex][6]+coord.x,faces[neighborIndex][7]+coord.y, faces[neighborIndex][8]+coord.z,
+                                faces[neighborIndex][0]+coord.x,faces[neighborIndex][1]+coord.y, faces[neighborIndex][2]+coord.z, faces[neighborIndex][3],
+                                faces[neighborIndex][4]+coord.x,faces[neighborIndex][5]+coord.y, faces[neighborIndex][6]+coord.z, faces[neighborIndex][7],
+                                faces[neighborIndex][8]+coord.x,faces[neighborIndex][9]+coord.y, faces[neighborIndex][10]+coord.z, faces[neighborIndex][11],
 
-                                faces[neighborIndex][9]+coord.x,faces[neighborIndex][10]+coord.y, faces[neighborIndex][11]+coord.z,
-                                faces[neighborIndex][12]+coord.x,faces[neighborIndex][13]+coord.y, faces[neighborIndex][14]+coord.z,
-                                faces[neighborIndex][15]+coord.x,faces[neighborIndex][16]+coord.y, faces[neighborIndex][17]+coord.z
+                                faces[neighborIndex][12]+coord.x,faces[neighborIndex][13]+coord.y, faces[neighborIndex][14]+coord.z, faces[neighborIndex][15],
+                                faces[neighborIndex][16]+coord.x,faces[neighborIndex][17]+coord.y, faces[neighborIndex][18]+coord.z, faces[neighborIndex][19],
+                                faces[neighborIndex][20]+coord.x,faces[neighborIndex][21]+coord.y, faces[neighborIndex][22]+coord.z, faces[neighborIndex][23],
                             });
                             uvs.insert(uvs.end() , {
                                 tex.bl.x, tex.bl.y,

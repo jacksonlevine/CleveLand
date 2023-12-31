@@ -411,7 +411,8 @@ void Game::initializeShaders() {
         R"glsl(
             #version 330 core
             layout (location = 0) in vec3 position;
-            layout (location = 1) in vec2 uv;
+            layout (location = 1) in float brightness;
+            layout (location = 2) in vec2 uv;
             out vec3 vertexColor;
             out vec2 TexCoord;
             out vec3 pos;
@@ -419,7 +420,7 @@ void Game::initializeShaders() {
             void main()
             {
                 gl_Position = mvp * vec4(position, 1.0);
-                vertexColor = vec3(1.0, 1.0, 1.0);
+                vertexColor = vec3(brightness/16.0, brightness/16.0, brightness/16.0);
                 TexCoord = uv;
                 pos = position;
             }
@@ -435,7 +436,7 @@ void Game::initializeShaders() {
             void main()
             {
                 vec4 texColor = texture(ourTexture, TexCoord);
-                FragColor = texColor;
+                FragColor = texColor * vec4(vertexColor, 1.0);
                 if(FragColor.a < 1.0) {
                     discard;
                 }
@@ -489,7 +490,13 @@ void Game::bindWorldGeometry(GLuint vbov, GLuint vbouv, const float *vdata, cons
     }
     GLint posAttrib = glGetAttribLocation(worldShader->shaderID, "position");
     glEnableVertexAttribArray(posAttrib);
-    glVertexAttribPointer(posAttrib, 3, GL_FLOAT, GL_FALSE, 0, 0);
+    glVertexAttribPointer(posAttrib, 3, GL_FLOAT, GL_FALSE, 4 * sizeof(float), 0);
+
+    // Vertex brightness attribute
+    GLint brightnessAttrib = glGetAttribLocation(worldShader->shaderID, "brightness");
+    glEnableVertexAttribArray(brightnessAttrib);
+    glVertexAttribPointer(brightnessAttrib, 1, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(3 * sizeof(float)));
+
 
     glBindBuffer(GL_ARRAY_BUFFER, vbouv);
     glBufferData(GL_ARRAY_BUFFER, uvsize * sizeof(float), uvdata, GL_STATIC_DRAW);
@@ -508,7 +515,13 @@ void Game::bindWorldGeometryNoUpload(GLuint vbov, GLuint vbouv) {
 
     GLint posAttrib = glGetAttribLocation(worldShader->shaderID, "position");
     glEnableVertexAttribArray(posAttrib);
-    glVertexAttribPointer(posAttrib, 3, GL_FLOAT, GL_FALSE, 0, 0);
+    glVertexAttribPointer(posAttrib, 3, GL_FLOAT, GL_FALSE,  4 * sizeof(float), 0);
+
+    // Vertex brightness attribute
+    GLint brightnessAttrib = glGetAttribLocation(worldShader->shaderID, "brightness");
+    glEnableVertexAttribArray(brightnessAttrib);
+    glVertexAttribPointer(brightnessAttrib, 1, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(3 * sizeof(float)));
+
 
     glBindBuffer(GL_ARRAY_BUFFER, vbouv);
 
