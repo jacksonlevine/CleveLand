@@ -58,7 +58,7 @@ public:
     std::vector<unsigned int> nuggosToRebuild;
 
 
-
+    inline static bool shouldTryReload = false;
 
 
     std::thread chunkUpdateThread;
@@ -66,6 +66,8 @@ public:
 
     float noiseFunction(int x, int y, int z);
     unsigned int blockAt(BlockCoord coord);
+
+    void runStep(float deltaTime);
     
     bool saveExists(const char* path);
     void saveWorldToFile(const char *path) noexcept(false);

@@ -337,7 +337,7 @@ void Game::goToSingleplayerWorld(const char *worldname) {
         voxelWorld.seed = time(NULL);
         voxelWorld.saveWorldToFile(currentSingleplayerWorldPath.c_str());
     }
-    
+
     voxelWorld.runChunkThread = true;
     voxelWorld.chunkUpdateThread = std::thread([this](){
         voxelWorld.chunkUpdateThreadFunction();
@@ -365,6 +365,8 @@ void Game::runStep() {
     updateTime();
 
     if(inGame) {
+        voxelWorld.runStep(deltaTime);
+
         static float textureAnimInterval = 0.1f;
         static float textureAnimTimer = 0.0f;
         if(textureAnimTimer > textureAnimInterval) {

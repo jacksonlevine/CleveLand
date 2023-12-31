@@ -1,5 +1,17 @@
 #include "voxelworld.h"
 
+void VoxelWorld::runStep(float deltaTime) {
+    static float timer = 0.0f;
+
+    if(timer > 5.0f) {
+        shouldTryReload = true;
+
+        timer = 0.0f;
+    } else {
+        timer += deltaTime;
+    }
+}
+
 
 void VoxelWorld::chunkUpdateThreadFunction() {
     
@@ -10,9 +22,10 @@ void VoxelWorld::chunkUpdateThreadFunction() {
     static int loadRadius = 7;
     while(runChunkThread) {
         glm::vec3 currCamPosDivided = cameraPosition/10.0f;
-        if(currCamPosDivided != lastCamPosDivided || first) {
+        if(currCamPosDivided != lastCamPosDivided || first || shouldTryReload) {
             lastCamPosDivided = currCamPosDivided;
             first = false;
+            shouldTryReload = false;
 
             BlockCoord cameraBlockPos(std::round(cameraPosition.x), std::round(cameraPosition.y), std::round(cameraPosition.z));
             ChunkCoord cameraChunkPos(std::floor(static_cast<float>(cameraBlockPos.x)/chunkWidth), std::floor(static_cast<float>(cameraBlockPos.z)/chunkWidth));
@@ -43,7 +56,7 @@ void VoxelWorld::chunkUpdateThreadFunction() {
                 std::abs(chunk.position.x - cameraChunkPos.x) +
                 std::abs(chunk.position.z - cameraChunkPos.z);
 
-                return dist >= loadRadius*2;
+                return dist >= loadRadius;
             });
 
             meshQueueMutex.lock();
