@@ -444,7 +444,7 @@ void Game::castBreakRay() {
                 for(ChunkCoord& ccoord : rayResult.chunksToRebuild) {
                     auto chunkIt = voxelWorld.takenCareOfChunkSpots.find(ccoord);
                     if(chunkIt != voxelWorld.takenCareOfChunkSpots.end()) {
-                        std::cout << "it's here" << "\n";
+                        //std::cout << "it's here" << "\n";
                       //  std::cout << "fucking index:" << chunkIt->second.nuggoPoolIndex << "\n";
                         voxelWorld.rebuildChunk(chunkIt->second, chunkIt->second.position);
                     }

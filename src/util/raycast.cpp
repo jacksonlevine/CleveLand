@@ -15,8 +15,8 @@ RayCastResult rayCast(int chunkwidth, glm::vec3 origin, glm::vec3 dir, std::func
                 std::floor(static_cast<float>(here.z)/chunkwidth)
             );
             result.chunksToRebuild.push_back(chunkHere);
-            std::cout << "Chunk: " << "\n" <<
-            "   Position: " << chunkHere.x << ", " << chunkHere.z << "\n";
+            // std::cout << "Chunk: " << "\n" <<
+            // "   Position: " << chunkHere.x << ", " << chunkHere.z << "\n";
             if(includeSideChunks) {
                 result.chunksToRebuild.insert(result.chunksToRebuild.end(), {
                     chunkHere + ChunkCoord(1,0),
