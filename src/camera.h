@@ -7,9 +7,9 @@
 
 class Camera3D {
 public:
-    double yaw;
-    double pitch;
-    double fov;
+    float yaw;
+    float pitch;
+    float fov;
     glm::vec3 direction;
     glm::vec3 position;
     glm::vec3 right;
@@ -31,8 +31,8 @@ public:
 
     inline static float speedMulitplier = 10.0;
 
-    inline static double far = 1500.0;
-    inline static double near = 0.01;
+    inline static float far = 1500.0f;
+    inline static float near = 0.01f;
 
     bool focused;
 

@@ -6,9 +6,10 @@
 
 Game::Game() : lastFrame(0), focused(false), camera(nullptr)
 {
-    camera = new Camera3D(this);
+
     windowWidth = 1280;
     windowHeight = 720;
+    camera = new Camera3D(this);
     mouseSensitivity = 0.1;
 
     glfwInit();
@@ -125,6 +126,16 @@ void Game::stepChunkDraw() {
     
     glUseProgram(worldShader->shaderID);
     glBindTexture(GL_TEXTURE_2D, worldTexture);
+
+    // const float* matrixData = glm::value_ptr(camera->mvp);
+
+    // std::cout << "Matrix:" << std::endl;
+    // for (int i = 0; i < 4; ++i) {
+    //     for (int j = 0; j < 4; ++j) {
+    //         std::cout << matrixData[i + j * 4] << "\t";
+    //     }
+    //     std::cout << std::endl;
+    // }
 
     GLuint mvp_loc = glGetUniformLocation(worldShader->shaderID, "mvp");
     glUniformMatrix4fv(mvp_loc, 1, GL_FALSE, glm::value_ptr(camera->mvp));
