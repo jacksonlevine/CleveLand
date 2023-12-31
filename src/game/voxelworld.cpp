@@ -251,8 +251,8 @@ unsigned int VoxelWorld::blockAt(BlockCoord coord) {
 float VoxelWorld::noiseFunction(int x, int y, int z) {
     return 
     std::max(0.0f, (
-        20.0f + static_cast<float>(perlin.noise(((float)(x))/15.35f, ((float)(y))/15.35f, ((float)(z))/15.35f)) * 10.0f
-    ) - std::max(((float)y/5.0f), 0.0f));
+        20.0f + static_cast<float>(perlin.noise((static_cast<float>(x))/15.35f, (static_cast<float>(y+(seed/100)))/15.35f, (static_cast<float>(z))/15.35f)) * 10.0f
+    ) - std::max(((float)y/3.0f), 0.0f));
 }
 
 bool VoxelWorld::saveExists(const char* path) {

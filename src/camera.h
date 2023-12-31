@@ -22,6 +22,15 @@ public:
 
     glm::vec3 velocity;
 
+
+    inline static int forwardPressed = false;
+    inline static int leftPressed = false;
+    inline static int rightPressed = false;
+    inline static int backPressed = false;
+    inline static int upPressed = false;
+    inline static int downPressed = false;
+
+
     inline static int forwardKey = GLFW_KEY_W;
     inline static int leftKey = GLFW_KEY_A;
     inline static int rightKey = GLFW_KEY_D;

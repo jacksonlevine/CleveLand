@@ -67,6 +67,34 @@ void Camera3D::mouseCallback(GLFWwindow *window, double xpos, double ypos) {
 
 
 void Camera3D::updatePosition() {
+
+    if(forwardPressed) {
+        velocity += ((glm::vec3(1.0, 0.0, 1.0) * direction) * static_cast<float>(gs->deltaTime)) * speedMulitplier;
+    }
+    if(leftPressed) {
+        velocity += ((glm::vec3(1.0, 0.0, 1.0) * right) * static_cast<float>(gs->deltaTime)) * speedMulitplier;
+    }
+    if(rightPressed) {
+        velocity -= ((glm::vec3(1.0, 0.0, 1.0) * right) * static_cast<float>(gs->deltaTime)) * speedMulitplier;
+    }
+    if(backPressed) {
+        velocity -= ((glm::vec3(1.0, 0.0, 1.0) * direction) * static_cast<float>(gs->deltaTime)) * speedMulitplier;
+    }
+
+    if(upPressed) {
+        velocity += (glm::vec3(0.0, 1.0, 0.0) * static_cast<float>(gs->deltaTime)) * speedMulitplier;
+    }
+    if(downPressed) {
+        velocity -= (glm::vec3(0.0, 1.0, 0.0) * static_cast<float>(gs->deltaTime)) * speedMulitplier;
+    }
+
+
+
+
+
+
+
+
     position += velocity;
     velocity /= 2.0f;
     view = glm::lookAt(position, position + direction, up);
@@ -97,22 +125,21 @@ void Camera3D::setFocused(bool focused) {
 
 void Camera3D::keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods) {
     if(key == forwardKey) {
-        velocity += ((glm::vec3(1.0, 0.0, 1.0) * direction) * static_cast<float>(gs->deltaTime)) * speedMulitplier;
+        forwardPressed = action;
     }
     if(key == leftKey) {
-        velocity += ((glm::vec3(1.0, 0.0, 1.0) * right) * static_cast<float>(gs->deltaTime)) * speedMulitplier;
+        leftPressed = action;
     }
     if(key == rightKey) {
-        velocity -= ((glm::vec3(1.0, 0.0, 1.0) * right) * static_cast<float>(gs->deltaTime)) * speedMulitplier;
+        rightPressed = action;
     }
     if(key == backKey) {
-        velocity -= ((glm::vec3(1.0, 0.0, 1.0) * direction) * static_cast<float>(gs->deltaTime)) * speedMulitplier;
+        backPressed = action;
     }
-
     if(key == upKey) {
-        velocity += (glm::vec3(0.0, 1.0, 0.0) * static_cast<float>(gs->deltaTime)) * speedMulitplier;
+       upPressed = action;
     }
     if(key == downKey) {
-        velocity -= (glm::vec3(0.0, 1.0, 0.0) * static_cast<float>(gs->deltaTime)) * speedMulitplier;
+        downPressed = action;
     }
 }
