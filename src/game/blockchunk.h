@@ -5,7 +5,7 @@
 
 struct BlockChunk {
     unsigned int nuggoPoolIndex;
-    ChunkCoord position;
+    ChunkCoord position = ChunkCoord(999999,999999);
     bool used;
 };
 
