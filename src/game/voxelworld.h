@@ -27,7 +27,7 @@ public:
 
     std::unordered_map<
         ChunkCoord,
-        BlockChunk,
+        BlockChunk&,
         IntTupHash
     >                   takenCareOfChunkSpots;
 
@@ -51,7 +51,7 @@ public:
 
     void populateChunksAndNuggos(entt::registry &registry);
 
-    void rebuildChunk(BlockChunk chunk, ChunkCoord newPosition);
+    void rebuildChunk(BlockChunk &chunk, ChunkCoord newPosition);
 
     void chunkUpdateThreadFunction();
 

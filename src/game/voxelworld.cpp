@@ -48,15 +48,22 @@ void VoxelWorld::chunkUpdateThreadFunction() {
 
             //MAYBE SWITCH BACK TO NON-ADJUSTED CAMERA CHUNK POS HERE VVV
 
-            std::partition(chunks.begin(), chunks.end(), [cameraChunkPosAdjustedWithDirection](BlockChunk &chunk) {
+           std::vector<BlockChunk*> sortedChunkPtrs;
+
+            // Fill the vector with pointers to the elements of chunks
+            for (auto& chunk : chunks) {
+                sortedChunkPtrs.push_back(&chunk);
+            }
+
+            std::partition(sortedChunkPtrs.begin(), sortedChunkPtrs.end(), [cameraChunkPosAdjustedWithDirection](BlockChunk *chunk) {
                 
-                if(!chunk.used) {
+                if(!chunk->used) {
                     return true;
                 }
 
                 int dist = 
-                std::abs(chunk.position.x - cameraChunkPosAdjustedWithDirection.x) +
-                std::abs(chunk.position.z - cameraChunkPosAdjustedWithDirection.z);
+                std::abs(chunk->position.x - cameraChunkPosAdjustedWithDirection.x) +
+                std::abs(chunk->position.z - cameraChunkPosAdjustedWithDirection.z);
 
                 return dist >= loadRadius;
             });
@@ -71,7 +78,7 @@ void VoxelWorld::chunkUpdateThreadFunction() {
                         ChunkCoord thisChunkCoord(x,z);
                         if(takenCareOfChunkSpots.find(thisChunkCoord) == takenCareOfChunkSpots.end()) {
 
-                            rebuildChunk(chunks[takenChunkIndex], thisChunkCoord);
+                            rebuildChunk(*sortedChunkPtrs[takenChunkIndex], thisChunkCoord);
 
                             takenChunkIndex++;
                         }
@@ -109,7 +116,7 @@ void VoxelWorld::populateChunksAndNuggos(entt::registry &registry) {
 }
 
 
-void VoxelWorld::rebuildChunk(BlockChunk chunk, ChunkCoord newPosition) {
+void VoxelWorld::rebuildChunk(BlockChunk &chunk, ChunkCoord newPosition) {
 
     if(takenCareOfChunkSpots.find(chunk.position) != takenCareOfChunkSpots.end()) {
         takenCareOfChunkSpots.erase(chunk.position);
