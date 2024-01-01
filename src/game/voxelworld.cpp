@@ -15,15 +15,19 @@ void VoxelWorld::runStep(float deltaTime) {
 
 void VoxelWorld::chunkUpdateThreadFunction() {
     
-
-    static glm::vec3 lastCamPosDivided;
-    static bool first = true;
+    std::cout << "Thread started \n";
+    glm::vec3 lastCamPosDivided;
+    bool first = true;
 
     static int loadRadius = 7;
     while(runChunkThread) {
         glm::vec3 currCamPosDivided = cameraPosition/10.0f;
         if(currCamPosDivided != lastCamPosDivided || first || shouldTryReload) {
             lastCamPosDivided = currCamPosDivided;
+
+            if(first) {
+                std::cout << "First \n";
+            }
 
             shouldTryReload = false;
 
@@ -92,23 +96,22 @@ void VoxelWorld::chunkUpdateThreadFunction() {
         }
     }
 
-    meshQueueMutex.unlock();
-
+    std::cout << "Thread ended \n";
 }
 
-void VoxelWorld::populateChunksAndNuggos(entt::registry &registry) {
+void VoxelWorld::populateChunksAndGeometryStores(entt::registry &registry) {
     for(int i = 0; i < 20; ++i) {
         for(int j = 0; j < 20; ++j) {
 
-            Nuggo nuggo;
-            nuggo.me = registry.create();
+            GeometryStore geometryStore;
+            geometryStore.me = registry.create();
 
             BlockChunk chunk;
-            chunk.nuggoPoolIndex = nuggoPool.size();
+            chunk.geometryStorePoolIndex = geometryStorePool.size();
             chunk.used = false;
             chunks.push_back(chunk);
 
-            nuggoPool.push_back(nuggo);
+            geometryStorePool.push_back(geometryStore);
 
 
         }
@@ -284,47 +287,47 @@ void VoxelWorld::rebuildChunk(BlockChunk &chunk, ChunkCoord newPosition) {
     }
 
     try {
-        nuggoPool.at(chunk.nuggoPoolIndex).verts = verts;
+        geometryStorePool.at(chunk.geometryStorePoolIndex).verts = verts;
     }
     catch (std::exception e) {
         std::cout << e.what() << "\n";
-        std::cout << "index: " << chunk.nuggoPoolIndex << "\n";
-        std::cout << "size: " << nuggoPool.size() << "\n";
+        std::cout << "index: " << chunk.geometryStorePoolIndex << "\n";
+        std::cout << "size: " << geometryStorePool.size() << "\n";
     }
     try {
-    nuggoPool.at(chunk.nuggoPoolIndex).uvs = uvs;
+    geometryStorePool.at(chunk.geometryStorePoolIndex).uvs = uvs;
     }
     catch (std::exception e) {
         std::cout << e.what() << "\n";
-        std::cout << "index: " << chunk.nuggoPoolIndex << "\n";
-        std::cout << "size: " << nuggoPool.size() << "\n";
+        std::cout << "index: " << chunk.geometryStorePoolIndex << "\n";
+        std::cout << "size: " << geometryStorePool.size() << "\n";
     }
     try {
-    nuggoPool.at(chunk.nuggoPoolIndex).tverts = tverts;
+    geometryStorePool.at(chunk.geometryStorePoolIndex).tverts = tverts;
     }
     catch (std::exception e) {
         std::cout << e.what() << "\n";
-        std::cout << "index: " << chunk.nuggoPoolIndex << "\n";
-        std::cout << "size: " << nuggoPool.size() << "\n";
+        std::cout << "index: " << chunk.geometryStorePoolIndex << "\n";
+        std::cout << "size: " << geometryStorePool.size() << "\n";
     }
     try {
-    nuggoPool.at(chunk.nuggoPoolIndex).tuvs = tuvs;
+    geometryStorePool.at(chunk.geometryStorePoolIndex).tuvs = tuvs;
     }
     catch (std::exception e) {
         std::cout << e.what() << "\n";
-        std::cout << "index: " << chunk.nuggoPoolIndex << "\n";
-        std::cout << "size: " << nuggoPool.size() << "\n";
+        std::cout << "index: " << chunk.geometryStorePoolIndex << "\n";
+        std::cout << "size: " << geometryStorePool.size() << "\n";
     }
 
     bool found = false;
-    for(int i : nuggosToRebuild) {
-        if(i == chunk.nuggoPoolIndex) {
+    for(int i : geometryStoresToRebuild) {
+        if(i == chunk.geometryStorePoolIndex) {
             found = true;
         }
     }
 
     if(!found) {
-        nuggosToRebuild.push_back(chunk.nuggoPoolIndex);
+        geometryStoresToRebuild.push_back(chunk.geometryStorePoolIndex);
     }
 
     if(takenCareOfChunkSpots.find(chunk.position) == takenCareOfChunkSpots.end()) {
@@ -378,13 +381,18 @@ float VoxelWorld::noiseFunction(int x, int y, int z) {
 }
 
 bool VoxelWorld::saveExists(const char* path) {
-    return std::filesystem::exists(path);
+    std::string worldPath(path);
+    worldPath += "/world.save";
+    return std::filesystem::exists(worldPath);
 }
 
 void VoxelWorld::saveWorldToFile(const char *path) {
-    std::filesystem::create_directories(std::filesystem::path(path).parent_path());
+    std::string worldPath(path);
+    worldPath += "/world.save";
 
-    std::ofstream outputFile(path, std::ios::trunc);
+    std::filesystem::create_directories(std::filesystem::path(worldPath).parent_path());
+
+    std::ofstream outputFile(worldPath, std::ios::trunc);
     if(outputFile.is_open()) {
         outputFile << seed << '\n';
         for(auto &[chunkcoord, map] : userDataMap) {
@@ -402,7 +410,9 @@ void VoxelWorld::saveWorldToFile(const char *path) {
 
 void VoxelWorld::loadWorldFromFile(const char *path) {
     userDataMap.clear();
-    std::ifstream file(path);
+    std::string worldPath(path);
+    worldPath += "/world.save";
+    std::ifstream file(worldPath);
     if(file.is_open()) {
         std::string line;
         ChunkCoord currentChunkCoord;
@@ -453,6 +463,7 @@ void VoxelWorld::loadWorldFromFile(const char *path) {
             }
             lineNumber++;
         }
+        file.close();
     } else {
         throw std::exception("Could not open world file.");
     }

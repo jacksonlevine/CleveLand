@@ -59,6 +59,9 @@ public:
     void displayEscapeMenu();
 
     void goToSingleplayerWorld(const char *worldname);
+    
+    void loadOrCreateSaveGame(const char* path);
+    void saveGame(const char* path);
 
     void stepChunkDraw();
     void stepTextureAnim();

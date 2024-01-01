@@ -25,7 +25,7 @@ Game::Game() : lastFrame(0), focused(false), camera(nullptr)
     initializeShaders();
     initializeTextures();
 
-    voxelWorld.populateChunksAndNuggos(registry);
+    voxelWorld.populateChunksAndGeometryStores(registry);
 
     goToMainMenu();
 }
@@ -112,7 +112,7 @@ void Game::draw() {
 
     if(inGame) {
         stepChunkDraw();
-        //std::cout << voxelWorld.nuggosToRebuild.size() << "\n";
+        //std::cout << voxelWorld.geometryStoresToRebuild.size() << "\n";
         //std::cout << "Camera: \n";
         //std::cout << "  Dir: " << camera->direction.x << " " << camera->direction.y << " " << camera->direction.z << "\n";
         //std::cout << "  Pos: " << camera->position.x << " " << camera->position.y << " " << camera->position.z << "\n";
@@ -147,47 +147,47 @@ void Game::stepChunkDraw() {
     voxelWorld.cameraDirection = camera->direction;
 
 
-    if(voxelWorld.nuggosToRebuild.size() > 0) {
+    if(voxelWorld.geometryStoresToRebuild.size() > 0) {
         if(voxelWorld.meshQueueMutex.try_lock()) {
-            Nuggo &nuggo = voxelWorld.nuggoPool[voxelWorld.nuggosToRebuild.back()];
-            if(!registry.all_of<MeshComponent>(nuggo.me)) {
+            GeometryStore &geometryStore = voxelWorld.geometryStorePool[voxelWorld.geometryStoresToRebuild.back()];
+            if(!registry.all_of<MeshComponent>(geometryStore.me)) {
                 MeshComponent m;
-                m.length = nuggo.verts.size();
+                m.length = geometryStore.verts.size();
                 bindWorldGeometry(
                     m.vbov,
                     m.vbouv,
-                    nuggo.verts.data(),
-                    nuggo.uvs.data(),
-                    nuggo.verts.size(),
-                    nuggo.uvs.size()
+                    geometryStore.verts.data(),
+                    geometryStore.uvs.data(),
+                    geometryStore.verts.size(),
+                    geometryStore.uvs.size()
                 );
                 //Transparent stuff
-                m.tlength = nuggo.tverts.size();
+                m.tlength = geometryStore.tverts.size();
                 bindWorldGeometry(
                     m.tvbov,
                     m.tvbouv,
-                    nuggo.tverts.data(),
-                    nuggo.tuvs.data(),
-                    nuggo.tverts.size(),
-                    nuggo.tuvs.size()
+                    geometryStore.tverts.data(),
+                    geometryStore.tuvs.data(),
+                    geometryStore.tverts.size(),
+                    geometryStore.tuvs.size()
                 );
-                registry.emplace<MeshComponent>(nuggo.me, m);
+                registry.emplace<MeshComponent>(geometryStore.me, m);
             } else {
-                MeshComponent &m = registry.get<MeshComponent>(nuggo.me);
+                MeshComponent &m = registry.get<MeshComponent>(geometryStore.me);
                 glDeleteBuffers(1, &m.vbov);
                 glDeleteBuffers(1, &m.vbouv);
                 glGenBuffers(1, &m.vbov);
                 glGenBuffers(1, &m.vbouv);
 
 
-                m.length = nuggo.verts.size();
+                m.length = geometryStore.verts.size();
                 bindWorldGeometry(
                     m.vbov,
                     m.vbouv,
-                    nuggo.verts.data(),
-                    nuggo.uvs.data(),
-                    nuggo.verts.size(),
-                    nuggo.uvs.size()
+                    geometryStore.verts.data(),
+                    geometryStore.uvs.data(),
+                    geometryStore.verts.size(),
+                    geometryStore.uvs.size()
                 );
                 //Transparent stuff
                 glDeleteBuffers(1, &m.tvbov);
@@ -195,17 +195,17 @@ void Game::stepChunkDraw() {
                 glGenBuffers(1, &m.tvbov);
                 glGenBuffers(1, &m.tvbouv);
 
-                m.tlength = nuggo.tverts.size();
+                m.tlength = geometryStore.tverts.size();
                 bindWorldGeometry(
                     m.tvbov,
                     m.tvbouv,
-                    nuggo.tverts.data(),
-                    nuggo.tuvs.data(),
-                    nuggo.tverts.size(),
-                    nuggo.tuvs.size()
+                    geometryStore.tverts.data(),
+                    geometryStore.tuvs.data(),
+                    geometryStore.tverts.size(),
+                    geometryStore.tuvs.size()
                 );
             }
-            voxelWorld.nuggosToRebuild.pop_back();
+            voxelWorld.geometryStoresToRebuild.pop_back();
             voxelWorld.meshQueueMutex.unlock();
 
         }
@@ -240,8 +240,29 @@ void Game::displayEscapeMenu() {
             inGame = false;
             voxelWorld.runChunkThread = false;
             //voxelWorld.chunkUpdateThread.join();
-            voxelWorld.saveWorldToFile(currentSingleplayerWorldPath.c_str());
+            saveGame(currentSingleplayerWorldPath.c_str());
             camera->setFocused(false);
+
+            voxelWorld.userDataMap.clear();
+            voxelWorld.geometryStoresToRebuild.clear();
+            voxelWorld.takenCareOfChunkSpots.clear();
+            voxelWorld.geometryStorePool.clear();
+            voxelWorld.chunks.clear();
+
+
+            auto meshesView = registry.view<MeshComponent>();
+            for(const entt::entity e : meshesView) {
+                MeshComponent &m = registry.get<MeshComponent>(e);
+                glDeleteBuffers(1, &m.vbov);
+                glDeleteBuffers(1, &m.vbouv);
+                glDeleteBuffers(1, &m.tvbov);
+                glDeleteBuffers(1, &m.tvbouv);
+                registry.erase<MeshComponent>(e);
+                registry.destroy(e);
+            }
+
+            registry.clear();
+
             goToMainMenu();
         }),
         GUIButton(0.0f, -0.1f, "Back to game", 0.0f, 2.0f, [this](){
@@ -301,42 +322,129 @@ void Game::goToSingleplayerWorldsMenu() {
     currentGuiButtons = &buttons;
 }
 
+void Game::loadOrCreateSaveGame(const char* path) {
+    if(voxelWorld.saveExists(path)) {
+        voxelWorld.loadWorldFromFile(path);
+    } else {
+        voxelWorld.seed = time(NULL);
+        voxelWorld.saveWorldToFile(path);
+    }
+    
+    std::string playerInfoPath = std::string(path) + "/player.save";
+    if(!std::filesystem::exists(playerInfoPath)) {
+        std::ofstream playerFile(playerInfoPath, std::ios::trunc);
+        if(playerFile.is_open()) {
+            playerFile << camera->initialPosition.x << " " << camera->initialPosition.y << " " <<
+            camera->initialPosition.z << "\n";
+
+            playerFile << camera->initialDirection.x << " " << camera->initialDirection.y << " " <<
+            camera->initialDirection.z << "\n";
+
+            playerFile << "0.0" << " " << "0.0" << "\n";
+        } else {
+            std::cerr << "Couldn't open player file when initializing. \n";
+        }
+        playerFile.close();
+    }
+
+    glm::vec3 loadedPosition;
+    glm::vec3 loadedDirection;
+    float loadedYaw = 0.0f;
+    float loadedPitch = 0.0f;
+
+    std::ifstream playerFile(playerInfoPath);
+    if(playerFile.is_open()) {
+        std::string line;
+        int lineIndex = 0;
+        while(std::getline(playerFile, line)) {
+            std::istringstream linestream(line);
+            std::string word;
+            int localIndex = 0;
+            while(linestream >> word) {
+                if(lineIndex == 0) {
+
+                    if(localIndex == 0) {
+                        loadedPosition.x = std::stof(word);
+                    }
+                    if(localIndex == 1) {
+                        loadedPosition.y = std::stof(word);
+                    }
+                    if(localIndex == 2) {
+                        loadedPosition.z = std::stof(word);
+                    }
+                }
+                if(lineIndex == 1) {
+
+                    if(localIndex == 0) {
+                        loadedDirection.x = std::stof(word);
+                    }
+                    if(localIndex == 1) {
+                        loadedDirection.y = std::stof(word);
+                    }
+                    if(localIndex == 2) {
+                        loadedDirection.z = std::stof(word);
+                    }
+                }
+                if(lineIndex == 2) {
+
+                    if(localIndex == 0) {
+                        loadedYaw = std::stof(word);
+                    }
+                    if(localIndex == 1) {
+                        loadedPitch = std::stof(word);
+                    }
+                }
+                localIndex++;
+            }
+            lineIndex++;
+        }
+    playerFile.close();
+    } else {
+        std::cerr << "Couldn't open player file when loading. \n";
+    }
+    camera->yaw = loadedYaw;
+    camera->pitch = loadedPitch;
+    camera->position = loadedPosition;
+    camera->direction = loadedDirection;
+    camera->firstMouse = true;
+    camera->right = glm::normalize(glm::cross(glm::vec3(0.0f, 1.0f, 0.0f), camera->direction));
+    camera->up = glm::cross(camera->direction, camera->right);
+    camera->updatePosition();
+}
+
+void Game::saveGame(const char* path) {
+    voxelWorld.saveWorldToFile(path);
+    std::string playerInfoPath = std::string(path) + "/player.save";
+    std::ofstream playerFile(playerInfoPath, std::ios::trunc);
+    if(playerFile.is_open()) {
+        playerFile << camera->position.x << " " << camera->position.y << " " <<
+        camera->position.z << "\n";
+
+        playerFile << camera->direction.x << " " << camera->direction.y << " " <<
+        camera->direction.z << "\n";
+
+        playerFile << camera->yaw << " " << camera->pitch << "\n";
+    } else {
+        std::cerr << "Couldn't open player file when saving. \n";
+    }
+    playerFile.close();
+}
+
 void Game::goToSingleplayerWorld(const char *worldname) {
 
 
-    voxelWorld.userDataMap.clear();
-    voxelWorld.nuggosToRebuild.clear();
-    voxelWorld.takenCareOfChunkSpots.clear();
-    voxelWorld.nuggoPool.clear();
-    voxelWorld.chunks.clear();
 
 
-    auto meshesView = registry.view<MeshComponent>();
-    for(const entt::entity e : meshesView) {
-        MeshComponent &m = registry.get<MeshComponent>(e);
-        glDeleteBuffers(1, &m.vbov);
-        glDeleteBuffers(1, &m.vbouv);
-        glDeleteBuffers(1, &m.tvbov);
-        glDeleteBuffers(1, &m.tvbouv);
-    }
-
-    registry.clear();
-
-    voxelWorld.populateChunksAndNuggos(registry);
+    voxelWorld.populateChunksAndGeometryStores(registry);
 
 
 
     currentGuiButtons = nullptr;
 
-    currentSingleplayerWorldPath = std::string("saves/") + std::string(worldname) + "/world.save";
+    currentSingleplayerWorldPath = std::string("saves/") + std::string(worldname);
 
+    loadOrCreateSaveGame(currentSingleplayerWorldPath.c_str());
 
-    if(voxelWorld.saveExists(currentSingleplayerWorldPath.c_str())) {
-        voxelWorld.loadWorldFromFile(currentSingleplayerWorldPath.c_str());
-    } else {
-        voxelWorld.seed = time(NULL);
-        voxelWorld.saveWorldToFile(currentSingleplayerWorldPath.c_str());
-    }
 
     voxelWorld.runChunkThread = true;
     voxelWorld.chunkUpdateThread = std::thread([this](){
@@ -445,7 +553,7 @@ void Game::castBreakRay() {
                     auto chunkIt = voxelWorld.takenCareOfChunkSpots.find(ccoord);
                     if(chunkIt != voxelWorld.takenCareOfChunkSpots.end()) {
                         //std::cout << "it's here" << "\n";
-                      //  std::cout << "fucking index:" << chunkIt->second.nuggoPoolIndex << "\n";
+                      //  std::cout << "fucking index:" << chunkIt->second.geometryStorePoolIndex << "\n";
                         voxelWorld.rebuildChunk(chunkIt->second, chunkIt->second.position);
                     }
                 }

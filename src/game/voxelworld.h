@@ -12,7 +12,7 @@
 #include <thread>
 #include <mutex>
 #include "blockchunk.h"
-#include "nuggo.h"
+#include "geometrystore.h"
 #include "../util/textureface.h"
 
 
@@ -46,16 +46,16 @@ public:
 
 
     std::vector<BlockChunk> chunks;
-    std::vector<Nuggo> nuggoPool;
+    std::vector<GeometryStore> geometryStorePool;
 
 
-    void populateChunksAndNuggos(entt::registry &registry);
+    void populateChunksAndGeometryStores(entt::registry &registry);
 
     void rebuildChunk(BlockChunk &chunk, ChunkCoord newPosition);
 
     void chunkUpdateThreadFunction();
 
-    std::vector<unsigned int> nuggosToRebuild;
+    std::vector<unsigned int> geometryStoresToRebuild;
 
 
     inline static bool shouldTryReload = false;

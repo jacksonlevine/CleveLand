@@ -45,6 +45,8 @@ public:
     inline static float far = 1500.0f;
     inline static float near = 0.01f;
 
+    inline static glm::vec3 initialPosition = glm::vec3(0, 40, 0);
+    inline static glm::vec3 initialDirection = glm::vec3(0, 0, 1);
     bool focused;
 
     Camera3D(Game *gs);
