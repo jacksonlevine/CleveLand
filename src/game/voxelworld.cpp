@@ -131,6 +131,15 @@ void VoxelWorld::rebuildChunk(BlockChunk &chunk, ChunkCoord newPosition) {
     int startZ = chunk.position.z * chunkWidth;
     int startY = 0;
 
+    enum Neighbors  {
+        LEFT,
+        RIGHT,
+        FRONT,
+        BACK,
+        TOP,
+        BOTTOM
+    };
+
     //left right forward backward up down
     static std::vector<BlockCoord> neighbors = {
         BlockCoord(-1, 0, 0),
@@ -199,10 +208,31 @@ void VoxelWorld::rebuildChunk(BlockChunk &chunk, ChunkCoord newPosition) {
     }
     };
 
-    static std::vector<TextureFace> texs = {
-        TextureFace(0,0), //0 placeholder
+    static std::vector<std::vector<TextureFace>> texs = {
+        {TextureFace(0,0),//top
+        TextureFace(0,0),//sides
+        TextureFace(0,0),//bottom
+        }, 
+        {TextureFace(0,0),
         TextureFace(0,0),
-        TextureFace(1,0)
+        TextureFace(0,0),
+        }, 
+        {TextureFace(1,0),
+        TextureFace(1,0),
+        TextureFace(1,0),
+        }, 
+        {TextureFace(3,1),
+        TextureFace(3,0),
+        TextureFace(2,0),
+        }, 
+        {TextureFace(2,0),
+        TextureFace(2,0),
+        TextureFace(2,0),
+        },
+        {TextureFace(4,0),
+        TextureFace(4,0),
+        TextureFace(4,0),
+        }
     };
 
 
@@ -236,15 +266,37 @@ void VoxelWorld::rebuildChunk(BlockChunk &chunk, ChunkCoord newPosition) {
                                     faces[neighborIndex][16]+coord.x,faces[neighborIndex][17]+coord.y, faces[neighborIndex][18]+coord.z, faces[neighborIndex][19],
                                     faces[neighborIndex][20]+coord.x,faces[neighborIndex][21]+coord.y, faces[neighborIndex][22]+coord.z, faces[neighborIndex][23],
                                 });
-                                tuvs.insert(tuvs.end() , {
-                                    texs[block].bl.x, texs[block].bl.y,
-                                    texs[block].br.x, texs[block].br.y,
-                                    texs[block].tr.x, texs[block].tr.y,
+                                if(neighborIndex == TOP) {
+                                    tuvs.insert(tuvs.end() , {
+                                        texs[block][0].bl.x, texs[block][0].bl.y,
+                                        texs[block][0].br.x, texs[block][0].br.y,
+                                        texs[block][0].tr.x, texs[block][0].tr.y,
 
-                                    texs[block].tr.x, texs[block].tr.y,
-                                    texs[block].tl.x, texs[block].tl.y,
-                                    texs[block].bl.x, texs[block].bl.y
-                                });
+                                        texs[block][0].tr.x, texs[block][0].tr.y,
+                                        texs[block][0].tl.x, texs[block][0].tl.y,
+                                        texs[block][0].bl.x, texs[block][0].bl.y
+                                    });
+                                } else if(neighborIndex == BOTTOM) {
+                                    tuvs.insert(tuvs.end() , {
+                                        texs[block][2].bl.x, texs[block][2].bl.y,
+                                        texs[block][2].br.x, texs[block][2].br.y,
+                                        texs[block][2].tr.x, texs[block][2].tr.y,
+
+                                        texs[block][2].tr.x, texs[block][2].tr.y,
+                                        texs[block][2].tl.x, texs[block][2].tl.y,
+                                        texs[block][2].bl.x, texs[block][2].bl.y
+                                    });
+                                } else {
+                                    tuvs.insert(tuvs.end() , {
+                                        texs[block][1].bl.x, texs[block][1].bl.y,
+                                        texs[block][1].br.x, texs[block][1].br.y,
+                                        texs[block][1].tr.x, texs[block][1].tr.y,
+
+                                        texs[block][1].tr.x, texs[block][1].tr.y,
+                                        texs[block][1].tl.x, texs[block][1].tl.y,
+                                        texs[block][1].bl.x, texs[block][1].bl.y
+                                    });
+                                }
                             }
                             neighborIndex++;
                         }
@@ -265,15 +317,37 @@ void VoxelWorld::rebuildChunk(BlockChunk &chunk, ChunkCoord newPosition) {
                                     faces[neighborIndex][16]+coord.x,faces[neighborIndex][17]+coord.y, faces[neighborIndex][18]+coord.z, faces[neighborIndex][19],
                                     faces[neighborIndex][20]+coord.x,faces[neighborIndex][21]+coord.y, faces[neighborIndex][22]+coord.z, faces[neighborIndex][23],
                                 });
-                                uvs.insert(uvs.end() , {
-                                    texs[block].bl.x, texs[block].bl.y,
-                                    texs[block].br.x, texs[block].br.y,
-                                    texs[block].tr.x, texs[block].tr.y,
+                                if(neighborIndex == TOP) {
+                                    uvs.insert(uvs.end() , {
+                                        texs[block][0].bl.x, texs[block][0].bl.y,
+                                        texs[block][0].br.x, texs[block][0].br.y,
+                                        texs[block][0].tr.x, texs[block][0].tr.y,
 
-                                    texs[block].tr.x, texs[block].tr.y,
-                                    texs[block].tl.x, texs[block].tl.y,
-                                    texs[block].bl.x, texs[block].bl.y
-                                });
+                                        texs[block][0].tr.x, texs[block][0].tr.y,
+                                        texs[block][0].tl.x, texs[block][0].tl.y,
+                                        texs[block][0].bl.x, texs[block][0].bl.y
+                                    });
+                                } else if(neighborIndex == BOTTOM) {
+                                    uvs.insert(uvs.end() , {
+                                        texs[block][2].bl.x, texs[block][2].bl.y,
+                                        texs[block][2].br.x, texs[block][2].br.y,
+                                        texs[block][2].tr.x, texs[block][2].tr.y,
+
+                                        texs[block][2].tr.x, texs[block][2].tr.y,
+                                        texs[block][2].tl.x, texs[block][2].tl.y,
+                                        texs[block][2].bl.x, texs[block][2].bl.y
+                                    });
+                                } else {
+                                    uvs.insert(uvs.end() , {
+                                        texs[block][1].bl.x, texs[block][1].bl.y,
+                                        texs[block][1].br.x, texs[block][1].br.y,
+                                        texs[block][1].tr.x, texs[block][1].tr.y,
+
+                                        texs[block][1].tr.x, texs[block][1].tr.y,
+                                        texs[block][1].tl.x, texs[block][1].tl.y,
+                                        texs[block][1].bl.x, texs[block][1].bl.y
+                                    });
+                                }
                             }
                             neighborIndex++;
                         }
@@ -353,6 +427,7 @@ void VoxelWorld::rebuildChunk(BlockChunk &chunk, ChunkCoord newPosition) {
 
 
 unsigned int VoxelWorld::blockAt(BlockCoord coord) {
+    static int waterLevel = 20;
     ChunkCoord chunkcoord(
         static_cast<int>(std::floor(static_cast<float>(coord.x)/chunkWidth)), 
         static_cast<int>(std::floor(static_cast<float>(coord.z)/chunkWidth))
@@ -365,9 +440,19 @@ unsigned int VoxelWorld::blockAt(BlockCoord coord) {
         }
     }
     if(noiseFunction(coord.x, coord.y, coord.z) > 10) {
-        return 1; //replace this with a "getWorldBlock" function later
+        if(noiseFunction(coord.x, coord.y+10, coord.z) > 10) {
+            return 5;
+        }
+        if(coord.y > waterLevel + 2 || noiseFunction(coord.x, coord.y+5, coord.z) > 10) {
+            if(noiseFunction(coord.x, coord.y+1, coord.z) < 10) {
+                        return 3;
+                    }
+            return 4;
+        } else {
+            return 1;
+        }
     }
-    if(coord.y < 20) {
+    if(coord.y < waterLevel) {
         return 2;
     }
     return 0;
