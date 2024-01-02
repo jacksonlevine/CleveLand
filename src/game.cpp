@@ -19,6 +19,9 @@ Game::Game() : lastFrame(0), focused(false), camera(nullptr)
     glewInit();
     glViewport(0, 0, windowWidth, windowHeight);
     glEnable(GL_DEPTH_TEST);
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_BACK);
+    glFrontFace(GL_CW);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glDepthFunc(GL_LESS);
@@ -960,7 +963,7 @@ void Game::drawSky(float top_r, float top_g, float top_b, float top_a,
             " {\n"
             " uint idx = gl_VertexID;\n"
             
-            " gl_Position = vec4(idx & 1, (idx >> 1), 0.0, 0.5) * 4.0 - 1.0;\n"
+            " gl_Position = vec4((idx >> 1), idx & 1, 0.0, 0.5) * 4.0 - 1.0;\n"
             "v_uv = vec2(gl_Position.xy  + 1.0 +(cpitch/100));\n"
             "}";
 
