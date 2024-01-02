@@ -19,7 +19,7 @@ void VoxelWorld::chunkUpdateThreadFunction() {
     glm::vec3 lastCamPosDivided;
     bool first = true;
 
-    static int loadRadius = 9;
+    static int loadRadius = 12;
     while(runChunkThread) {
         glm::vec3 currCamPosDivided = cameraPosition/10.0f;
         if(currCamPosDivided != lastCamPosDivided || first || shouldTryReload) {
@@ -100,8 +100,8 @@ void VoxelWorld::chunkUpdateThreadFunction() {
 }
 
 void VoxelWorld::populateChunksAndGeometryStores(entt::registry &registry) {
-    for(int i = 0; i < 20; ++i) {
-        for(int j = 0; j < 20; ++j) {
+    for(int i = 0; i < 25; ++i) {
+        for(int j = 0; j < 25; ++j) {
 
             GeometryStore geometryStore;
             geometryStore.me = registry.create();
