@@ -39,10 +39,10 @@ void Game::draw() {
 
 
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    glClearColor(0.0, 0.0, 1.0, 0.5);
+    glClearColor(0.639, 0.71, 1.0, 0.5);
 
 
-
+    drawSky(0.4f, 0.4f, 1.0f, 1.0f,    0.41f, 0.412f, 1.0f, 0.5f, camera->pitch);
 
     
     if(currentGuiButtons != nullptr) {
@@ -795,14 +795,14 @@ void Game::stepTextureAnim() {
     }
 
     //Water
-    glm::ivec4 baseColor(0, 40, 254, 180);
+    glm::ivec4 baseColor(0, 45, 100, 210);
     glm::ivec2 coord(0,0);
     int startY = 270, startX = 18, squareSize = 18;
     for(int y = startY; y < startY + squareSize; ++y) {
         for(int x = startX; x < startX + squareSize; ++x) {
             int i = (y * width + x) * chans;
             float addedNoise = std::max(static_cast<float>(voxelWorld.perlin.noise(
-                static_cast<float>(coord.x/4.0f), timer, static_cast<float>(coord.y/4.0f))) * 200, -10.0f);
+                static_cast<float>(coord.x/4.0f), timer, static_cast<float>(coord.y/32.0f))) * 70, -10.0f);
 
             worldTexturePixels[i]   = std::min(std::max(baseColor.r + static_cast<int>(addedNoise), 0), 254);
             worldTexturePixels[i+1] = std::min(std::max(baseColor.g + static_cast<int>(addedNoise), 0), 254);
@@ -873,4 +873,93 @@ void Game::initializeTextures() {
         std::cout << "Failed to load texture menubackgroundtexture" << std::endl;
     }
     stbi_image_free(data);
+}
+
+void Game::drawSky(float top_r, float top_g, float top_b, float top_a,
+    float bot_r, float bot_g, float bot_b, float bot_a, float cameraPitch)
+{
+    glDisable(GL_DEPTH_TEST);
+
+    static GLuint background_vao = 0;
+    static GLuint background_shader = 0;
+
+    if (background_vao == 0)
+    {
+        glGenVertexArrays(1, &background_vao);
+
+        const GLchar* vs_src =
+            "#version 450 core\n"
+            "out vec2 v_uv;\n"
+            "uniform float cpitch;\n"
+            "void main()\n"
+            " {\n"
+            " uint idx = gl_VertexID;\n"
+            
+            " gl_Position = vec4(idx & 1, (idx >> 1), 0.0, 0.5) * 4.0 - 1.0;\n"
+            "v_uv = vec2(gl_Position.xy * 0.5 + 0.5+(cpitch/100));\n"
+            "}";
+
+
+        const GLchar* fs_src =
+            " #version 450 core\n"
+            "uniform vec4 top_color;\n"
+            "uniform vec4 bot_color;\n"
+            "in vec2 v_uv;\n"
+            "out vec4 frag_color;\n"
+
+            "void main()\n"
+            "{\n"
+            "frag_color = bot_color * (1 - v_uv.y) + top_color * v_uv.y;\n"
+            "}";
+
+        GLuint vs_id, fs_id;
+        vs_id = glCreateShader(GL_VERTEX_SHADER);
+        fs_id = glCreateShader(GL_FRAGMENT_SHADER);
+        glShaderSource(vs_id, 1, &vs_src, NULL);
+        glShaderSource(fs_id, 1, &fs_src, NULL);
+        glCompileShader(vs_id);
+
+        GLint success;
+        GLchar infoLog[512];
+        glGetShaderiv(vs_id, GL_COMPILE_STATUS, &success);
+        if (!success)
+        {
+            glGetShaderInfoLog(vs_id, 512, NULL, infoLog);
+            std::cerr << "Vertex shader compilation error: " << infoLog << std::endl;
+        }
+
+        glCompileShader(fs_id);
+
+
+        glGetShaderiv(fs_id, GL_COMPILE_STATUS, &success);
+        if (!success)
+        {
+            glGetShaderInfoLog(fs_id, 512, NULL, infoLog);
+            std::cerr << "Fragment shader compilation error: " << infoLog << std::endl;
+        }
+
+        background_shader = glCreateProgram();
+        glAttachShader(background_shader, vs_id);
+        glAttachShader(background_shader, fs_id);
+        glLinkProgram(background_shader);
+        glDetachShader(background_shader, fs_id);
+        glDetachShader(background_shader, vs_id);
+        glDeleteShader(fs_id);
+        glDeleteShader(vs_id);
+    }
+
+    glBindVertexArray(background_vao);
+    glUseProgram(background_shader);
+    GLuint top_color_loc = glGetUniformLocation(background_shader, "top_color");
+    GLuint bot_color_loc = glGetUniformLocation(background_shader, "bot_color");
+    glUniform4f(top_color_loc, top_r, top_g, top_b, top_a);
+    glUniform4f(bot_color_loc, bot_r, bot_g, bot_b, bot_a);
+    GLuint cpitch_loc = glGetUniformLocation(background_shader, "cpitch");
+
+    glUniform1f(cpitch_loc, cameraPitch);
+
+    glDrawArrays(GL_TRIANGLES, 0, 3);
+    glBindVertexArray(0);
+
+    glEnable(GL_DEPTH_TEST);
 }

@@ -59,7 +59,7 @@ public:
     void displayEscapeMenu();
 
     void goToSingleplayerWorld(const char *worldname);
-    
+
     void loadOrCreateSaveGame(const char* path);
     void saveGame(const char* path);
 
@@ -78,6 +78,8 @@ public:
 
     void setFocused(bool focused);
 
+    void drawSky(float top_r, float top_g, float top_b, float top_a,
+    float bot_r, float bot_g, float bot_b, float bot_a, float cameraPitch);
 
     void castBreakRay();
 

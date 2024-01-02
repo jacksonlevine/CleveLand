@@ -19,7 +19,7 @@ void VoxelWorld::chunkUpdateThreadFunction() {
     glm::vec3 lastCamPosDivided;
     bool first = true;
 
-    static int loadRadius = 7;
+    static int loadRadius = 9;
     while(runChunkThread) {
         glm::vec3 currCamPosDivided = cameraPosition/10.0f;
         if(currCamPosDivided != lastCamPosDivided || first || shouldTryReload) {
