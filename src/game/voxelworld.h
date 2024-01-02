@@ -21,7 +21,7 @@ public:
     unsigned int seed;
 
     inline static int chunkWidth = 16;
-    inline static int chunkHeight = 64;
+    inline static int chunkHeight = 128;
 
     inline static bool runChunkThread = false;
 
@@ -51,12 +51,13 @@ public:
 
     void populateChunksAndGeometryStores(entt::registry &registry);
 
-    void rebuildChunk(BlockChunk &chunk, ChunkCoord newPosition);
+    void rebuildChunk(BlockChunk &chunk, ChunkCoord newPosition, bool immediateInPlace);
 
     void chunkUpdateThreadFunction();
 
     std::vector<unsigned int> geometryStoresToRebuild;
-
+    std::vector<unsigned int> highPriorityGeometryStoresToRebuild;
+    //std::vector<BlockChunk&> deferredChunksToRebuild;
 
     inline static bool shouldTryReload = false;
 

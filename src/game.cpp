@@ -145,11 +145,9 @@ void Game::stepChunkDraw() {
 
     voxelWorld.cameraPosition = camera->position;
     voxelWorld.cameraDirection = camera->direction;
+    if(voxelWorld.highPriorityGeometryStoresToRebuild.size() > 0) {
 
-
-    if(voxelWorld.geometryStoresToRebuild.size() > 0) {
-        if(voxelWorld.meshQueueMutex.try_lock()) {
-            GeometryStore &geometryStore = voxelWorld.geometryStorePool[voxelWorld.geometryStoresToRebuild.back()];
+            GeometryStore &geometryStore = voxelWorld.geometryStorePool[voxelWorld.highPriorityGeometryStoresToRebuild.back()];
             if(!registry.all_of<MeshComponent>(geometryStore.me)) {
                 MeshComponent m;
                 m.length = geometryStore.verts.size();
@@ -205,11 +203,74 @@ void Game::stepChunkDraw() {
                     geometryStore.tuvs.size()
                 );
             }
-            voxelWorld.geometryStoresToRebuild.pop_back();
-            voxelWorld.meshQueueMutex.unlock();
+            voxelWorld.highPriorityGeometryStoresToRebuild.pop_back();
 
+    } else {
+        if(voxelWorld.geometryStoresToRebuild.size() > 0) {
+            if(voxelWorld.meshQueueMutex.try_lock()) {
+                GeometryStore &geometryStore = voxelWorld.geometryStorePool[voxelWorld.geometryStoresToRebuild.back()];
+                if(!registry.all_of<MeshComponent>(geometryStore.me)) {
+                    MeshComponent m;
+                    m.length = geometryStore.verts.size();
+                    bindWorldGeometry(
+                        m.vbov,
+                        m.vbouv,
+                        geometryStore.verts.data(),
+                        geometryStore.uvs.data(),
+                        geometryStore.verts.size(),
+                        geometryStore.uvs.size()
+                    );
+                    //Transparent stuff
+                    m.tlength = geometryStore.tverts.size();
+                    bindWorldGeometry(
+                        m.tvbov,
+                        m.tvbouv,
+                        geometryStore.tverts.data(),
+                        geometryStore.tuvs.data(),
+                        geometryStore.tverts.size(),
+                        geometryStore.tuvs.size()
+                    );
+                    registry.emplace<MeshComponent>(geometryStore.me, m);
+                } else {
+                    MeshComponent &m = registry.get<MeshComponent>(geometryStore.me);
+                    glDeleteBuffers(1, &m.vbov);
+                    glDeleteBuffers(1, &m.vbouv);
+                    glGenBuffers(1, &m.vbov);
+                    glGenBuffers(1, &m.vbouv);
+
+
+                    m.length = geometryStore.verts.size();
+                    bindWorldGeometry(
+                        m.vbov,
+                        m.vbouv,
+                        geometryStore.verts.data(),
+                        geometryStore.uvs.data(),
+                        geometryStore.verts.size(),
+                        geometryStore.uvs.size()
+                    );
+                    //Transparent stuff
+                    glDeleteBuffers(1, &m.tvbov);
+                    glDeleteBuffers(1, &m.tvbouv);
+                    glGenBuffers(1, &m.tvbov);
+                    glGenBuffers(1, &m.tvbouv);
+
+                    m.tlength = geometryStore.tverts.size();
+                    bindWorldGeometry(
+                        m.tvbov,
+                        m.tvbouv,
+                        geometryStore.tverts.data(),
+                        geometryStore.tuvs.data(),
+                        geometryStore.tverts.size(),
+                        geometryStore.tuvs.size()
+                    );
+                }
+                voxelWorld.geometryStoresToRebuild.pop_back();
+                voxelWorld.meshQueueMutex.unlock();
+            }
         }
     }
+
+    
         auto meshesView = registry.view<MeshComponent>();
     for(const entt::entity e : meshesView) {
         MeshComponent &m = registry.get<MeshComponent>(e);
@@ -530,7 +591,6 @@ void Game::mouseButtonCallback(GLFWwindow *window, int button, int action, int m
 }
 
 void Game::castBreakRay() {
-    voxelWorld.meshQueueMutex.lock();
     RayCastResult rayResult = rayCast(
         voxelWorld.chunkWidth,
         camera->position,
@@ -554,13 +614,12 @@ void Game::castBreakRay() {
                     if(chunkIt != voxelWorld.takenCareOfChunkSpots.end()) {
                         //std::cout << "it's here" << "\n";
                       //  std::cout << "fucking index:" << chunkIt->second.geometryStorePoolIndex << "\n";
-                        voxelWorld.rebuildChunk(chunkIt->second, chunkIt->second.position);
+                        voxelWorld.rebuildChunk(chunkIt->second, chunkIt->second.position, true);
                     }
                 }
         }
 
     }
-    voxelWorld.meshQueueMutex.unlock();
 }
 
 void Game::mouseCallback(GLFWwindow *window, double xpos, double ypos) {

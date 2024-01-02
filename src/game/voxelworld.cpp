@@ -82,7 +82,7 @@ void VoxelWorld::chunkUpdateThreadFunction() {
                         ChunkCoord thisChunkCoord(x,z);
                         if(takenCareOfChunkSpots.find(thisChunkCoord) == takenCareOfChunkSpots.end()) {
 
-                            rebuildChunk(*sortedChunkPtrs[takenChunkIndex], thisChunkCoord);
+                            rebuildChunk(*sortedChunkPtrs[takenChunkIndex], thisChunkCoord, false);
 
                             takenChunkIndex++;
                         }
@@ -119,12 +119,14 @@ void VoxelWorld::populateChunksAndGeometryStores(entt::registry &registry) {
 }
 
 
-void VoxelWorld::rebuildChunk(BlockChunk &chunk, ChunkCoord newPosition) {
-
-    if(takenCareOfChunkSpots.find(chunk.position) != takenCareOfChunkSpots.end()) {
-        takenCareOfChunkSpots.erase(chunk.position);
+void VoxelWorld::rebuildChunk(BlockChunk &chunk, ChunkCoord newPosition, bool immediateInPlace) {
+    if(!immediateInPlace) {
+        if(takenCareOfChunkSpots.find(chunk.position) != takenCareOfChunkSpots.end()) {
+            takenCareOfChunkSpots.erase(chunk.position);
+        }
+        chunk.position = newPosition;
     }
-    chunk.position = newPosition;
+
     chunk.used = true;
     
     int startX = chunk.position.x * chunkWidth;
@@ -360,53 +362,70 @@ void VoxelWorld::rebuildChunk(BlockChunk &chunk, ChunkCoord newPosition) {
         }
     }
 
-    try {
-        geometryStorePool.at(chunk.geometryStorePoolIndex).verts = verts;
-    }
-    catch (std::exception e) {
-        std::cout << e.what() << "\n";
-        std::cout << "index: " << chunk.geometryStorePoolIndex << "\n";
-        std::cout << "size: " << geometryStorePool.size() << "\n";
-    }
-    try {
-    geometryStorePool.at(chunk.geometryStorePoolIndex).uvs = uvs;
-    }
-    catch (std::exception e) {
-        std::cout << e.what() << "\n";
-        std::cout << "index: " << chunk.geometryStorePoolIndex << "\n";
-        std::cout << "size: " << geometryStorePool.size() << "\n";
-    }
-    try {
-    geometryStorePool.at(chunk.geometryStorePoolIndex).tverts = tverts;
-    }
-    catch (std::exception e) {
-        std::cout << e.what() << "\n";
-        std::cout << "index: " << chunk.geometryStorePoolIndex << "\n";
-        std::cout << "size: " << geometryStorePool.size() << "\n";
-    }
-    try {
-    geometryStorePool.at(chunk.geometryStorePoolIndex).tuvs = tuvs;
-    }
-    catch (std::exception e) {
-        std::cout << e.what() << "\n";
-        std::cout << "index: " << chunk.geometryStorePoolIndex << "\n";
-        std::cout << "size: " << geometryStorePool.size() << "\n";
-    }
-
-    bool found = false;
-    for(int i : geometryStoresToRebuild) {
-        if(i == chunk.geometryStorePoolIndex) {
-            found = true;
+        try {
+            geometryStorePool.at(chunk.geometryStorePoolIndex).verts = verts;
         }
+        catch (std::exception e) {
+            std::cout << e.what() << "\n";
+            std::cout << "index: " << chunk.geometryStorePoolIndex << "\n";
+            std::cout << "size: " << geometryStorePool.size() << "\n";
+        }
+        try {
+        geometryStorePool.at(chunk.geometryStorePoolIndex).uvs = uvs;
+        }
+        catch (std::exception e) {
+            std::cout << e.what() << "\n";
+            std::cout << "index: " << chunk.geometryStorePoolIndex << "\n";
+            std::cout << "size: " << geometryStorePool.size() << "\n";
+        }
+        try {
+        geometryStorePool.at(chunk.geometryStorePoolIndex).tverts = tverts;
+        }
+        catch (std::exception e) {
+            std::cout << e.what() << "\n";
+            std::cout << "index: " << chunk.geometryStorePoolIndex << "\n";
+            std::cout << "size: " << geometryStorePool.size() << "\n";
+        }
+        try {
+        geometryStorePool.at(chunk.geometryStorePoolIndex).tuvs = tuvs;
+        }
+        catch (std::exception e) {
+            std::cout << e.what() << "\n";
+            std::cout << "index: " << chunk.geometryStorePoolIndex << "\n";
+            std::cout << "size: " << geometryStorePool.size() << "\n";
+        }
+
+    if(!immediateInPlace) {
+
+        bool found = false;
+        for(int i : geometryStoresToRebuild) {
+            if(i == chunk.geometryStorePoolIndex) {
+                found = true;
+            }
+        }
+
+        if(!found) {
+            geometryStoresToRebuild.push_back(chunk.geometryStorePoolIndex);
+        }
+        if(takenCareOfChunkSpots.find(chunk.position) == takenCareOfChunkSpots.end()) {
+            takenCareOfChunkSpots.insert_or_assign(chunk.position, chunk);
+        }
+    } else {
+
+        bool found = false;
+        for(int i : highPriorityGeometryStoresToRebuild) {
+            if(i == chunk.geometryStorePoolIndex) {
+                found = true;
+            }
+        }
+
+        if(!found) {
+            highPriorityGeometryStoresToRebuild.push_back(chunk.geometryStorePoolIndex);
+        }
+
+
     }
 
-    if(!found) {
-        geometryStoresToRebuild.push_back(chunk.geometryStorePoolIndex);
-    }
-
-    if(takenCareOfChunkSpots.find(chunk.position) == takenCareOfChunkSpots.end()) {
-        takenCareOfChunkSpots.insert_or_assign(chunk.position, chunk);
-    }
 
 }
 
