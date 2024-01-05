@@ -31,10 +31,99 @@ Game::Game() : lastFrame(0), focused(false), camera(nullptr)
     voxelWorld.populateChunksAndGeometryStores(registry);
 
     goToMainMenu();
+
+    normalFunc = [this]() {
+         camera->updatePosition();
+            draw();
+
+            glfwPollEvents();
+            updateTime();
+
+            if(inGame) {
+                voxelWorld.runStep(deltaTime);
+
+                static float textureAnimInterval = 0.1f;
+                static float textureAnimTimer = 0.0f;
+                if(textureAnimTimer > textureAnimInterval) {
+                    textureAnimTimer = 0.0f;
+                    stepTextureAnim();
+                } else {
+                    textureAnimTimer += deltaTime;
+                }
+            }
+    };
+
+    splashFunc = [this](){
+        static float timer = 0.0f;
+        drawSplashScreen();
+        glfwPollEvents();
+        updateTime();
+        if(timer > 5.0f) {
+            loopFunc = &normalFunc;
+        } else {
+            timer += deltaTime;
+        }
+    };
+
+    loopFunc = &splashFunc;
+}
+
+void Game::drawSplashScreen() {
+
+    if(VAO == 0) {
+        glGenVertexArrays(1, &VAO);
+        glBindVertexArray(VAO);
+    }
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+
+
+    float splashImageWidth = 400;
+
+
+
+    glm::vec2 splashLowerLeft(-splashImageWidth/windowWidth, -splashImageWidth/windowHeight);
+    float relHeight = splashImageWidth/(windowHeight/2);
+    float relWidth = splashImageWidth/(windowWidth/2);
+
+
+    std::vector<float> splashDisplayData = {
+        splashLowerLeft.x, splashLowerLeft.y,                    0.0f, 1.0f,   -1.0f,
+        splashLowerLeft.x, splashLowerLeft.y+relHeight,          0.0f, 0.0f,   -1.0f,
+        splashLowerLeft.x+relWidth, splashLowerLeft.y+relHeight, 1.0f, 0.0f,   -1.0f,
+
+        splashLowerLeft.x+relWidth, splashLowerLeft.y+relHeight, 1.0f, 0.0f,   -1.0f,
+        splashLowerLeft.x+relWidth, splashLowerLeft.y,           1.0f, 1.0f,   -1.0f,
+        splashLowerLeft.x, splashLowerLeft.y,                    0.0f, 1.0f,   -1.0f
+    };
+
+
+
+    glUseProgram(menuShader->shaderID);
+
+   
+    glBindTexture(GL_TEXTURE_2D, splashTexture);
+
+
+    static GLuint vbo = 0;
+    if(vbo == 0) {
+        glGenBuffers(1, &vbo);
+    }
+
+        bindMenuGeometry(vbo, 
+        splashDisplayData.data(),
+        splashDisplayData.size());
+
+
+    glDrawArrays(GL_TRIANGLES, 0, splashDisplayData.size()/5);
+
+    
+
+    glfwSwapBuffers(window);
 }
 
 void Game::draw() {
-    static GLuint VAO = 0;
+    
     if(VAO == 0) {
         glGenVertexArrays(1, &VAO);
         glBindVertexArray(VAO);
@@ -78,6 +167,80 @@ void Game::draw() {
         glUniform1f(moeLocation, mousedOverElement);
         GLuint coeLocation = glGetUniformLocation(menuShader->shaderID, "clickedOnElement");
         glUniform1f(coeLocation, clickedOnElement);
+
+
+
+        if(mainMenu) {
+
+
+
+
+
+
+
+
+
+
+            float logoImageWidth = 600;
+
+
+
+            glm::vec2 logoLowerLeft(-logoImageWidth/windowWidth, -logoImageWidth/windowHeight);
+            float relHeight = logoImageWidth/(windowHeight/2);
+            float relWidth = logoImageWidth/(windowWidth/2);
+
+            float shiftUp = 0.5f;
+
+
+            std::vector<float> logoDisplayData = {
+                logoLowerLeft.x, logoLowerLeft.y + shiftUp,                    0.0f, 1.0f,   -1.0f,
+                logoLowerLeft.x, logoLowerLeft.y+relHeight+ shiftUp,          0.0f, 0.0f,   -1.0f,
+                logoLowerLeft.x+relWidth, logoLowerLeft.y+relHeight+ shiftUp, 1.0f, 0.0f,   -1.0f,
+
+                logoLowerLeft.x+relWidth, logoLowerLeft.y+relHeight+ shiftUp, 1.0f, 0.0f,   -1.0f,
+                logoLowerLeft.x+relWidth, logoLowerLeft.y+ shiftUp,           1.0f, 1.0f,   -1.0f,
+                logoLowerLeft.x, logoLowerLeft.y+ shiftUp,                    0.0f, 1.0f,   -1.0f
+            };
+
+        
+            glBindTexture(GL_TEXTURE_2D, logoTexture);
+
+
+            static GLuint vbo = 0;
+            if(vbo == 0) {
+                glGenBuffers(1, &vbo);
+            }
+
+                bindMenuGeometry(vbo, 
+                logoDisplayData.data(),
+                logoDisplayData.size());
+
+
+            glDrawArrays(GL_TRIANGLES, 0, logoDisplayData.size()/5);
+
+            
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        }
+
     }
 
     if(!inGame) {
@@ -343,12 +506,15 @@ void Game::displayEscapeMenu() {
 }
 
 void Game::goToMainMenu() {
+    mainMenu = true;
     static std::vector<GUIButton> buttons = {
         GUIButton(0.0f, 0.0f, "Singleplayer", 0.0f, 1.0f, [this](){
             this->goToSingleplayerWorldsMenu();
+            mainMenu = false;
         }),
         GUIButton(0.0f, -0.1f, "Quit Game", 0.0f, 2.0f, [this](){
             glfwSetWindowShouldClose(this->window, GLFW_TRUE);
+            mainMenu = false;
         }),
     };
     for(GUIButton &button : buttons) {
@@ -529,26 +695,7 @@ void Game::updateTime() {
 }
 
 void Game::runStep() {
-
-    camera->updatePosition();
-    draw();
-
-    glfwPollEvents();
-    updateTime();
-
-    if(inGame) {
-        voxelWorld.runStep(deltaTime);
-
-        static float textureAnimInterval = 0.1f;
-        static float textureAnimTimer = 0.0f;
-        if(textureAnimTimer > textureAnimInterval) {
-            textureAnimTimer = 0.0f;
-            stepTextureAnim();
-        } else {
-            textureAnimTimer += deltaTime;
-        }
-    }
-
+    (*loopFunc)();
 }
 
 void Game::frameBufferSizeCallback(GLFWwindow *window, int width, int height) {
@@ -939,6 +1086,46 @@ void Game::initializeTextures() {
     else
     {
         std::cout << "Failed to load texture menubackgroundtexture" << std::endl;
+    }
+    stbi_image_free(data);
+
+    glGenTextures(1, &splashTexture);
+    glBindTexture(GL_TEXTURE_2D, splashTexture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+    data = stbi_load("assets/splash.png", &width, &height, &nrChannels, 0);
+    if (data)
+    {
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+        glGenerateMipmap(GL_TEXTURE_2D);
+    }
+    else
+    {
+        std::cout << "Failed to load texture splashtexture" << std::endl;
+    }
+    stbi_image_free(data);
+
+
+    
+    glGenTextures(1, &logoTexture);
+    glBindTexture(GL_TEXTURE_2D, logoTexture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+    data = stbi_load("assets/logo.png", &width, &height, &nrChannels, 0);
+    if (data)
+    {
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+        glGenerateMipmap(GL_TEXTURE_2D);
+    }
+    else
+    {
+        std::cout << "Failed to load texture logotexture" << std::endl;
     }
     stbi_image_free(data);
 }

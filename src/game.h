@@ -33,6 +33,8 @@ public:
     
     GLuint menuTexture;
     GLuint menuBackgroundTexture;
+    GLuint splashTexture;
+    GLuint logoTexture;
 
     unsigned char *worldTexturePixels;
 
@@ -82,6 +84,16 @@ public:
     float bot_r, float bot_g, float bot_b, float bot_a, float cameraPitch);
 
     void castBreakRay();
+
+    std::function<void()> splashFunc;
+    std::function<void()> normalFunc;
+    std::function<void()>* loopFunc;
+
+    void drawSplashScreen();
+
+    inline static GLuint VAO = 0;
+
+    bool mainMenu = false;
 
     Game();
 private:
