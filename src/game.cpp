@@ -28,7 +28,7 @@ Game::Game() : lastFrame(0), focused(false), camera(nullptr)
     initializeShaders();
     initializeTextures();
 
-    voxelWorld.populateChunksAndGeometryStores(registry);
+    //voxelWorld.populateChunksAndGeometryStores(registry);
 
     goToMainMenu();
 
@@ -134,7 +134,7 @@ void Game::draw() {
     glClearColor(0.639, 0.71, 1.0, 0.5);
 
 
-    drawSky(0.661f, 0.800f, 1.0f, 1.0f,    1.1f, 1.1f, 1.1f, 1.0f, camera->pitch);
+    drawSky(0.0f, 0.0f, 1.0f, 1.0f,    1.2f, 1.2f, 1.8f, 1.0f, camera->pitch);
 
     
     if(currentGuiButtons != nullptr) {
@@ -898,7 +898,7 @@ void Game::initializeShaders() {
                 vec4 texColor = texture(ourTexture, TexCoord);
                 FragColor = texColor * vec4(vertexColor, 1.0);
 
-                vec4 fogColor = vec4(0.922, 0.929, 0.949, 1.0);
+                vec4 fogColor = vec4(0.7, 0.7, 0.949, 1.0);
                 float distance = (distance(pos, camPos)/67.0f)/5.0f;
 
                 if(FragColor.a < 0.4) {
