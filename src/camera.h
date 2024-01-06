@@ -56,7 +56,13 @@ public:
     void frameBufferSizeCallback(GLFWwindow *window, int width, int height);
 
     void setFocused(bool focus);
+
+
     void updatePosition();
+
+
+    glm::vec3 proposePosition();
+    void goToPosition(glm::vec3 pos);
 private:
     Game *gs;
 };

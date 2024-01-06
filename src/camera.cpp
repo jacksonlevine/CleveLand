@@ -101,6 +101,39 @@ void Camera3D::updatePosition() {
     mvp = projection * view * model;
 }
 
+glm::vec3 Camera3D::proposePosition() {
+    glm::vec3 proposedPosition;
+
+    if(forwardPressed) {
+        velocity += ((glm::vec3(1.0, 0.0, 1.0) * direction) * static_cast<float>(gs->deltaTime)) * speedMulitplier;
+    }
+    if(leftPressed) {
+        velocity += ((glm::vec3(1.0, 0.0, 1.0) * right) * static_cast<float>(gs->deltaTime)) * speedMulitplier;
+    }
+    if(rightPressed) {
+        velocity -= ((glm::vec3(1.0, 0.0, 1.0) * right) * static_cast<float>(gs->deltaTime)) * speedMulitplier;
+    }
+    if(backPressed) {
+        velocity -= ((glm::vec3(1.0, 0.0, 1.0) * direction) * static_cast<float>(gs->deltaTime)) * speedMulitplier;
+    }
+    if(upPressed) {
+        velocity += (glm::vec3(0.0, 1.0, 0.0) * static_cast<float>(gs->deltaTime)) * speedMulitplier;
+    }
+    if(downPressed) {
+        velocity -= (glm::vec3(0.0, 1.0, 0.0) * static_cast<float>(gs->deltaTime)) * speedMulitplier;
+    }
+
+    proposedPosition = position + velocity;
+    velocity /= 2.0f;
+    return proposedPosition;
+}
+
+void Camera3D::goToPosition(glm::vec3 pos) {
+    position = pos;
+    view = glm::lookAt(position, position + direction, up);
+    mvp = projection * view * model;
+}
+
 
 
 void Camera3D::frameBufferSizeCallback(GLFWwindow *window, int width, int height) {

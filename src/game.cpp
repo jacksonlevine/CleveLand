@@ -4,7 +4,11 @@
 #include <stb_image.h>
 
 
-Game::Game() : lastFrame(0), focused(false), camera(nullptr)
+Game::Game() : lastFrame(0), focused(false), camera(nullptr),
+collCage([this](BlockCoord b){
+    return voxelWorld.blockAt(b) != 0;
+}),
+user(glm::vec3(0,0,0), glm::vec3(0,0,0))
 {
 
     windowWidth = 1280;
@@ -33,7 +37,45 @@ Game::Game() : lastFrame(0), focused(false), camera(nullptr)
     goToMainMenu();
 
     normalFunc = [this]() {
-         camera->updatePosition();
+            glm::vec3 collCageCenter = camera->position + glm::vec3(0, -1.0, 0);
+            collCage.update_readings(collCageCenter);
+
+            // if(wrap.activeState.jump && grounded)
+            // {
+            //     wrap.activeState.upVelocity += 5.0f;
+            //     grounded = false;
+            //     wrap.activeState.jump = false;
+            // }
+
+            // if(std::find(collCage.solid.begin(), collCage.solid.end(), FLOOR) == collCage.solid.end())
+            // {
+            //     grounded = false;
+            // }
+
+            // if(!grounded)
+            // {
+            //     wrap.activeState.upVelocity = std::max(wrap.activeState.upVelocity + ((GRAV * -deltaTime) * (deltaTime*10)), -(GRAV * deltaTime));
+            //     wrap.activeState.upVelocity = std::min(wrap.activeState.upVelocity, (GRAV * deltaTime)*2.0f);
+            // }
+
+            glm::vec3 proposedPos = camera->proposePosition();
+
+            std::vector<glm::vec3> corrections_made;
+
+            user.set_center(proposedPos + glm::vec3(0.0, -0.5, 0.0), 0.85f, 0.2f);
+            collCage.update_colliding(user);
+
+            if(collCage.colliding.size() > 0) {
+                for(Side side : collCage.colliding) {
+                    if(std::find(corrections_made.begin(), corrections_made.end(), CollisionCage::normals[side]) == corrections_made.end())
+                    {
+                        proposedPos += CollisionCage::normals[side] * (float)collCage.penetration[side];
+                        corrections_made.push_back(CollisionCage::normals[side]);
+                    }
+                }
+            }
+            camera->goToPosition(proposedPos);
+
             draw();
 
             glfwPollEvents();

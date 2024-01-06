@@ -11,6 +11,7 @@
 #include "game/voxelworld.h"
 #include "util/meshcomponent.h"
 #include "util/raycast.h"
+#include "util/collisioncage.h"
 
 class Camera3D;
 
@@ -92,6 +93,9 @@ public:
     void drawSplashScreen();
 
     inline static GLuint VAO = 0;
+
+    CollisionCage collCage;
+    BoundingBox user;
 
     bool mainMenu = false;
 
