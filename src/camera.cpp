@@ -123,8 +123,8 @@ glm::vec3 Camera3D::proposePosition() {
         velocity -= (glm::vec3(0.0, 1.0, 0.0) * static_cast<float>(gs->deltaTime)) * speedMulitplier;
     }
 
-    proposedPosition = position + velocity;
-    velocity /= 2.0f;
+    proposedPosition = position + velocity / 5.0f;
+    velocity /= 1.1f;
     return proposedPosition;
 }
 

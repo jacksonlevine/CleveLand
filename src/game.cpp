@@ -8,7 +8,8 @@ Game::Game() : lastFrame(0), focused(false), camera(nullptr),
 collCage([this](BlockCoord b){
     return voxelWorld.blockAt(b) != 0;
 }),
-user(glm::vec3(0,0,0), glm::vec3(0,0,0))
+user(glm::vec3(0,0,0), glm::vec3(0,0,0)),
+grounded(true)
 {
 
     windowWidth = 1280;
@@ -37,26 +38,52 @@ user(glm::vec3(0,0,0), glm::vec3(0,0,0))
     goToMainMenu();
 
     normalFunc = [this]() {
+
+           // static float jumpTimer = 0.0f;
+
+            static float currentJumpY = 0.0f;
+            float allowableJumpHeight = 0.5f;
+            static bool jumpingUp = false;
+
+
             glm::vec3 collCageCenter = camera->position + glm::vec3(0, -1.0, 0);
             collCage.update_readings(collCageCenter);
 
-            // if(wrap.activeState.jump && grounded)
-            // {
-            //     wrap.activeState.upVelocity += 5.0f;
-            //     grounded = false;
-            //     wrap.activeState.jump = false;
+            if(std::find(collCage.solid.begin(), collCage.solid.end(), FLOOR) == collCage.solid.end())
+            {
+                grounded = false;
+            }
+
+            if(!grounded && !jumpingUp /*&& jumpTimer <= 0.0f*/)
+            {
+                camera->velocity += glm::vec3(0.0, -GRAV*deltaTime, 0.0);
+            }
+
+            if(jumpingUp) {
+                if(camera->position.y < currentJumpY + allowableJumpHeight) {
+                    camera->velocity += glm::vec3(0.0f, (currentJumpY+allowableJumpHeight) - camera->position.y, 0.0f);
+                } else {
+                    jumpingUp = false;
+                }
+            }
+
+            // if(jumpTimer > 0.0f) {
+            //     jumpTimer = std::max(0.0, jumpTimer - deltaTime);
             // }
 
-            // if(std::find(collCage.solid.begin(), collCage.solid.end(), FLOOR) == collCage.solid.end())
-            // {
-            //     grounded = false;
-            // }
+            if(camera->upPressed && grounded)
+            {
+                //camera->velocity += glm::vec3(0.0, 100.0*deltaTime, 0.0);
+                grounded = false;
+                //jumpTimer = deltaTime*10.0f;
+                currentJumpY = camera->position.y;
+                jumpingUp = true;
+                camera->upPressed = 0;
+            }
 
-            // if(!grounded)
-            // {
-            //     wrap.activeState.upVelocity = std::max(wrap.activeState.upVelocity + ((GRAV * -deltaTime) * (deltaTime*10)), -(GRAV * deltaTime));
-            //     wrap.activeState.upVelocity = std::min(wrap.activeState.upVelocity, (GRAV * deltaTime)*2.0f);
-            // }
+
+
+            
 
             glm::vec3 proposedPos = camera->proposePosition();
 
@@ -71,6 +98,11 @@ user(glm::vec3(0,0,0), glm::vec3(0,0,0))
                     {
                         proposedPos += CollisionCage::normals[side] * (float)collCage.penetration[side];
                         corrections_made.push_back(CollisionCage::normals[side]);
+                    }
+
+                    if(side == FLOOR)
+                    {
+                        grounded = true;
                     }
                 }
             }

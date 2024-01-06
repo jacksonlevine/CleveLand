@@ -13,6 +13,8 @@
 #include "util/raycast.h"
 #include "util/collisioncage.h"
 
+#define GRAV 6.0
+
 class Camera3D;
 
 class Game {
@@ -96,6 +98,8 @@ public:
 
     CollisionCage collCage;
     BoundingBox user;
+
+    bool grounded;
 
     bool mainMenu = false;
 
