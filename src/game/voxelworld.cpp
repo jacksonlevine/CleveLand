@@ -86,7 +86,12 @@ void VoxelWorld::chunkUpdateThreadFunction() {
 
                             takenChunkIndex++;
                         }
-
+                        if(!runChunkThread) {
+                            break;
+                        }
+                    }
+                    if(!runChunkThread) {
+                        break;
                     }
                 }
 

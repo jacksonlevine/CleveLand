@@ -105,26 +105,27 @@ glm::vec3 Camera3D::proposePosition() {
     glm::vec3 proposedPosition;
 
     if(forwardPressed) {
-        velocity += ((glm::vec3(1.0, 0.0, 1.0) * direction) * static_cast<float>(gs->deltaTime)) * speedMulitplier;
+        velocity += (glm::normalize(glm::vec3(1.0, 0.0, 1.0) * direction) * static_cast<float>(gs->deltaTime)) * speedMulitplier;
     }
     if(leftPressed) {
-        velocity += ((glm::vec3(1.0, 0.0, 1.0) * right) * static_cast<float>(gs->deltaTime)) * speedMulitplier;
+        velocity += (glm::normalize(glm::vec3(1.0, 0.0, 1.0) * right) * static_cast<float>(gs->deltaTime)) * speedMulitplier;
     }
     if(rightPressed) {
-        velocity -= ((glm::vec3(1.0, 0.0, 1.0) * right) * static_cast<float>(gs->deltaTime)) * speedMulitplier;
+        velocity -= (glm::normalize(glm::vec3(1.0, 0.0, 1.0) * right) * static_cast<float>(gs->deltaTime)) * speedMulitplier;
     }
     if(backPressed) {
-        velocity -= ((glm::vec3(1.0, 0.0, 1.0) * direction) * static_cast<float>(gs->deltaTime)) * speedMulitplier;
-    }
-    if(upPressed) {
-        velocity += (glm::vec3(0.0, 1.0, 0.0) * static_cast<float>(gs->deltaTime)) * speedMulitplier;
-    }
-    if(downPressed) {
-        velocity -= (glm::vec3(0.0, 1.0, 0.0) * static_cast<float>(gs->deltaTime)) * speedMulitplier;
+        velocity -= (glm::normalize(glm::vec3(1.0, 0.0, 1.0) * direction) * static_cast<float>(gs->deltaTime)) * speedMulitplier;
     }
 
-    proposedPosition = position + velocity / 5.0f;
-    velocity /= 1.1f;
+    // if(upPressed) {
+    //     velocity += (glm::vec3(0.0, 1.0, 0.0) * static_cast<float>(gs->deltaTime)) * speedMulitplier;
+    // }
+    // if(downPressed) {
+    //     velocity -= (glm::vec3(0.0, 1.0, 0.0) * static_cast<float>(gs->deltaTime)) * speedMulitplier;
+    // }
+
+    proposedPosition = position + velocity / 15.0f;
+    velocity /= glm::vec3(1.1f, 1.05f, 1.1f);
     return proposedPosition;
 }
 

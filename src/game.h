@@ -12,6 +12,7 @@
 #include "util/meshcomponent.h"
 #include "util/raycast.h"
 #include "util/collisioncage.h"
+#include "gui/hud.h"
 
 #define GRAV 6.0
 
@@ -30,6 +31,8 @@ public:
     GLFWwindow *window;
     Camera3D *camera;
     entt::registry registry;
+
+    Hud* hud;
 
     std::unique_ptr<Shader> menuShader;
     std::unique_ptr<Shader> worldShader;
@@ -70,6 +73,7 @@ public:
 
     void stepChunkDraw();
     void stepTextureAnim();
+    void stepMovementAndPhysics();
 
     void bindMenuGeometry(GLuint vbo, const float *data, size_t dataSize);
     void bindMenuGeometryNoUpload(GLuint vbo);

@@ -32,18 +32,62 @@ grounded(true)
     glDepthFunc(GL_LESS);
     initializeShaders();
     initializeTextures();
-
+    hud = new Hud();
+    hud->rebuildDisplayData();
     //voxelWorld.populateChunksAndGeometryStores(registry);
 
     goToMainMenu();
 
     normalFunc = [this]() {
 
-           // static float jumpTimer = 0.0f;
+            stepMovementAndPhysics();
 
+            draw();
+
+            glfwPollEvents();
+            updateTime();
+
+            if(inGame) {
+                voxelWorld.runStep(deltaTime);
+
+                static float textureAnimInterval = 0.1f;
+                static float textureAnimTimer = 0.0f;
+                if(textureAnimTimer > textureAnimInterval) {
+                    textureAnimTimer = 0.0f;
+                    stepTextureAnim();
+                } else {
+                    textureAnimTimer += deltaTime;
+                }
+            }
+    };
+
+    splashFunc = [this](){
+        static float timer = 0.0f;
+        drawSplashScreen();
+        glfwPollEvents();
+        updateTime();
+        if(timer > 5.0f) {
+            loopFunc = &normalFunc;
+        } else {
+            timer += deltaTime;
+        }
+    };
+
+    loopFunc = &splashFunc;
+}
+
+void Game::stepMovementAndPhysics() {
             static float currentJumpY = 0.0f;
             float allowableJumpHeight = 0.5f;
             static bool jumpingUp = false;
+
+            static float timeFallingScalar = 1.0f;
+
+            if(!grounded) {
+                timeFallingScalar += deltaTime*2.0f;
+            } else {
+                timeFallingScalar = 1.0f;
+            }
 
 
             glm::vec3 collCageCenter = camera->position + glm::vec3(0, -1.0, 0);
@@ -56,7 +100,7 @@ grounded(true)
 
             if(!grounded && !jumpingUp /*&& jumpTimer <= 0.0f*/)
             {
-                camera->velocity += glm::vec3(0.0, -GRAV*deltaTime, 0.0);
+                camera->velocity += glm::vec3(0.0, -GRAV*timeFallingScalar*deltaTime, 0.0);
             }
 
             if(jumpingUp) {
@@ -104,42 +148,13 @@ grounded(true)
                     {
                         grounded = true;
                     }
+                    if(side == ROOF)
+                    {
+                        jumpingUp = false;
+                    }
                 }
             }
             camera->goToPosition(proposedPos);
-
-            draw();
-
-            glfwPollEvents();
-            updateTime();
-
-            if(inGame) {
-                voxelWorld.runStep(deltaTime);
-
-                static float textureAnimInterval = 0.1f;
-                static float textureAnimTimer = 0.0f;
-                if(textureAnimTimer > textureAnimInterval) {
-                    textureAnimTimer = 0.0f;
-                    stepTextureAnim();
-                } else {
-                    textureAnimTimer += deltaTime;
-                }
-            }
-    };
-
-    splashFunc = [this](){
-        static float timer = 0.0f;
-        drawSplashScreen();
-        glfwPollEvents();
-        updateTime();
-        if(timer > 5.0f) {
-            loopFunc = &normalFunc;
-        } else {
-            timer += deltaTime;
-        }
-    };
-
-    loopFunc = &splashFunc;
 }
 
 void Game::drawSplashScreen() {
@@ -351,11 +366,21 @@ void Game::draw() {
     }
 
     if(inGame) {
+        glUseProgram(menuShader->shaderID);
+        glBindTexture(GL_TEXTURE_2D, menuTexture);
+
+        if(hud->uploaded) {
+            bindMenuGeometryNoUpload(hud->vbo);
+        } else {
+            bindMenuGeometry(hud->vbo,
+            hud->displayData.data(),
+            hud->displayData.size());
+        }
+        glDrawArrays(GL_TRIANGLES, 0, hud->displayData.size()/5);
+
         stepChunkDraw();
-        //std::cout << voxelWorld.geometryStoresToRebuild.size() << "\n";
-        //std::cout << "Camera: \n";
-        //std::cout << "  Dir: " << camera->direction.x << " " << camera->direction.y << " " << camera->direction.z << "\n";
-        //std::cout << "  Pos: " << camera->position.x << " " << camera->position.y << " " << camera->position.z << "\n";
+        
+
     }
 
 
@@ -535,6 +560,7 @@ void Game::stepChunkDraw() {
 }
 
 void Game::displayEscapeMenu() {
+    camera->setFocused(false);
     static std::vector<GUIButton> buttons = {
         GUIButton(0.0f, 0.0f, "Save and exit to main menu", 0.0f, 1.0f, [this](){
             
@@ -787,6 +813,8 @@ void Game::frameBufferSizeCallback(GLFWwindow *window, int width, int height) {
             button.uploaded = false;
         }
     }
+    hud->rebuildDisplayData();
+    hud->uploaded = false;
 }
 
 void Game::mouseButtonCallback(GLFWwindow *window, int button, int action, int mods) {
@@ -797,7 +825,7 @@ void Game::mouseButtonCallback(GLFWwindow *window, int button, int action, int m
         }
     }
     if(action == GLFW_PRESS) {
-        if(inGame) {
+        if(inGame && camera->focused) {
             castBreakRay();
         }
 
@@ -858,7 +886,6 @@ void Game::keyCallback(GLFWwindow *window, int key, int scancode, int action, in
     }
     if(key == GLFW_KEY_ESCAPE) {
         if(inGame) {
-            camera->setFocused(false);
             displayEscapeMenu();
         }
 
