@@ -151,6 +151,7 @@ void Game::stepMovementAndPhysics() {
                     if(side == ROOF)
                     {
                         jumpingUp = false;
+                        grounded = false;
                     }
                 }
             }
