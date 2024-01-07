@@ -157,6 +157,15 @@ void VoxelWorld::rebuildChunk(BlockChunk &chunk, ChunkCoord newPosition, bool im
         BlockCoord(0, -1, 0),
     };
 
+    static std::vector<glm::vec3> normals = {
+        glm::vec3(-1, 0, 0),
+        glm::vec3(1, 0, 0),
+        glm::vec3(0, 0, 1),
+        glm::vec3(0, 0, -1),
+        glm::vec3(0, 1, 0),
+        glm::vec3(0, -1, 0),
+    };
+
     static std::vector<std::vector<float>> faces = {
            
     {
@@ -320,6 +329,7 @@ void VoxelWorld::rebuildChunk(BlockChunk &chunk, ChunkCoord newPosition, bool im
                             unsigned int neighblock = blockAt(coord + neigh);
                             bool solidNeighboringWater = (neighblock == 2 && block != 2);
                             if(neighblock == 0 || solidNeighboringWater) {
+                                BlockCoord transparentCubeHere = coord + neigh;
                                 verts.insert(verts.end(), {
                                     faces[neighborIndex][0] + coord.x, faces[neighborIndex][1] + coord.y, faces[neighborIndex][2] + coord.z, faces[neighborIndex][3],
                                     faces[neighborIndex][4], 
