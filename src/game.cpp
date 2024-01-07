@@ -42,7 +42,9 @@ grounded(true)
 
             stepMovementAndPhysics();
 
+            
             draw();
+            
 
             glfwPollEvents();
             updateTime();
@@ -383,7 +385,7 @@ void Game::draw() {
         GLuint ambBrightMultLoc = glGetUniformLocation(worldShader->shaderID, "ambientBrightMult");
 
         glUniform1f(ambBrightMultLoc, ambientBrightnessMult);
-
+        updateAndDrawSelectCube();
     }
 
 
@@ -1002,6 +1004,71 @@ void Game::setFocused(bool focused) {
     }
 }
 
+void Game::updateAndDrawSelectCube() {
+    static std::vector<float> faces = {
+
+        -0.501f, -0.501f, -0.501f,  0.501f, -0.501f, -0.501f, // Bottom Face
+        0.501f, -0.501f, -0.501f,   0.501f, -0.501f,  0.501f,
+        0.501f, -0.501f,  0.501f,  -0.501f, -0.501f,  0.501f,
+        -0.501f, -0.501f,  0.501f, -0.501f, -0.501f, -0.501f,
+
+        -0.501f,  0.501f, -0.501f,  0.501f,  0.501f, -0.501f, // Top Face
+        0.501f,  0.501f, -0.501f,   0.501f,  0.501f,  0.501f,
+        0.501f,  0.501f,  0.501f,  -0.501f,  0.501f,  0.501f,
+        -0.501f,  0.501f,  0.501f, -0.501f,  0.501f, -0.501f,
+
+        -0.501f, -0.501f, -0.501f, -0.501f,  0.501f, -0.501f, // Side Edges
+        0.501f, -0.501f, -0.501f,   0.501f,  0.501f, -0.501f,
+        0.501f, -0.501f,  0.501f,   0.501f,  0.501f,  0.501f,
+        -0.501f, -0.501f,  0.501f, -0.501f,  0.501f,  0.501f
+
+    };
+
+    //glDisable(GL_DEPTH_TEST);
+
+    glUseProgram(wireFrameShader->shaderID);
+
+    static GLuint vbo = 0;
+    if(vbo == 0) {
+        glGenBuffers(1, &vbo);
+        bindWireFrameGeometry(vbo, faces.data(), faces.size());
+
+    } else {
+        bindWireFrameGeometryNoUpload(vbo);
+    }
+
+    GLuint wfTranslationLoc = glGetUniformLocation(wireFrameShader->shaderID, "translation");
+    glUniform3f(wfTranslationLoc, currentSelectCube.x, currentSelectCube.y, currentSelectCube.z);
+    GLuint mvp_loc = glGetUniformLocation(wireFrameShader->shaderID, "mvp");
+    glUniformMatrix4fv(mvp_loc, 1, GL_FALSE, glm::value_ptr(camera->mvp));
+    GLuint displayingLoc = glGetUniformLocation(wireFrameShader->shaderID, "displaying");
+    glUniform1f(displayingLoc, displayingSelectCube);
+
+    RayCastResult result = rayCast(voxelWorld.chunkWidth,
+    camera->position,
+    camera->direction,
+    [this](BlockCoord coord){
+            return voxelWorld.blockAt(coord) != 0;
+    },
+    false
+    );
+    if(!result.hit) {
+        displayingSelectCube = 0.0f;
+    } else {
+        displayingSelectCube = 1.0f;
+        currentSelectCube = glm::vec3(static_cast<float>(result.blockHit.x),
+        static_cast<float>(result.blockHit.y),
+        static_cast<float>(result.blockHit.z));
+    }
+
+    glPolygonMode( GL_FRONT_AND_BACK, GL_LINE );
+
+    glDrawArrays(GL_LINES, 0, faces.size()/3);
+
+    glPolygonMode( GL_FRONT_AND_BACK, GL_FILL );
+    //glEnable(GL_DEPTH_TEST);
+}
+
 void Game::initializeShaders() {
     menuShader = std::make_unique<Shader>(
         R"glsl(
@@ -1091,6 +1158,32 @@ void Game::initializeShaders() {
             }
         )glsl",
         "worldShader"
+    );
+    wireFrameShader = std::make_unique<Shader>(
+        R"glsl(
+            #version 330 core
+            layout (location = 0) in vec3 position;
+            uniform mat4 mvp;
+            uniform vec3 translation;
+            void main()
+            {
+                gl_Position = mvp * vec4(position + translation, 1.0f);
+
+            }
+        )glsl",
+        R"glsl(
+            #version 330 core
+            out vec4 FragColor;
+            uniform float displaying;
+            void main()
+            {
+                FragColor = vec4(0.0, 0.0, 0.0, 1.0);
+                if(displaying == 0.0f) {
+                    discard;
+                }
+            }
+        )glsl",
+        "wireFrameShader"
     );
 }
 
@@ -1187,6 +1280,32 @@ void Game::bindWorldGeometryNoUpload(GLuint vbov, GLuint vbouv) {
     glEnableVertexAttribArray(uvAttrib);
     glVertexAttribPointer(uvAttrib, 2, GL_FLOAT, GL_FALSE, 0, 0);
 }
+
+
+
+void Game::bindWireFrameGeometry(GLuint vbov, const float *vdata, size_t vsize) {
+    GLenum error;
+    glBindBuffer(GL_ARRAY_BUFFER, vbov);
+    glBufferData(GL_ARRAY_BUFFER, vsize * sizeof(float), vdata, GL_STATIC_DRAW);
+    error = glGetError();
+    if (error != GL_NO_ERROR)
+    {
+        std::cerr << "Bind wireframe geom err (vbov): " << error << std::endl;
+    }
+    GLint posAttrib = glGetAttribLocation(wireFrameShader->shaderID, "position");
+    glEnableVertexAttribArray(posAttrib);
+    glVertexAttribPointer(posAttrib, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), 0);
+}
+
+void Game::bindWireFrameGeometryNoUpload(GLuint vbov) {
+    glBindBuffer(GL_ARRAY_BUFFER, vbov);
+
+    GLint posAttrib = glGetAttribLocation(wireFrameShader->shaderID, "position");
+    glEnableVertexAttribArray(posAttrib);
+    glVertexAttribPointer(posAttrib, 3, GL_FLOAT, GL_FALSE,  3 * sizeof(float), 0);
+}
+
+
 
 void Game::stepTextureAnim() {
 

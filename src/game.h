@@ -36,6 +36,7 @@ public:
 
     std::unique_ptr<Shader> menuShader;
     std::unique_ptr<Shader> worldShader;
+    std::unique_ptr<Shader> wireFrameShader;
     
     GLuint menuTexture;
     GLuint menuBackgroundTexture;
@@ -79,6 +80,8 @@ public:
     void bindMenuGeometryNoUpload(GLuint vbo);
     void bindWorldGeometry(GLuint vbov, GLuint vbouv, const float *vdata, const float *uvdata, size_t vsize, size_t uvsize);
     void bindWorldGeometryNoUpload(GLuint vbov, GLuint vbouv);
+     void bindWireFrameGeometry(GLuint vbov, const float *vdata,  size_t vsize);
+    void bindWireFrameGeometryNoUpload(GLuint vbov);
 
     void frameBufferSizeCallback(GLFWwindow *window, int width, int height);
     void mouseButtonCallback(GLFWwindow *window, int button, int action, int mods);
@@ -109,6 +112,12 @@ public:
     bool mainMenu = false;
 
     inline static float ambientBrightnessMult = 1.0f;
+
+    inline static glm::vec3 currentSelectCube = glm::vec3(0.0f, 0.0f, 0.0f);
+    inline static float displayingSelectCube = 0.0f;
+
+
+    void updateAndDrawSelectCube();
 
     Game();
 private:
