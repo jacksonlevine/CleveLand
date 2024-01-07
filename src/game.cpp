@@ -1288,12 +1288,14 @@ void Game::drawSky(float top_r, float top_g, float top_b, float top_a,
             " #version 450 core\n"
             "uniform vec4 top_color;\n"
             "uniform vec4 bot_color;\n"
+            "uniform float brightMult;\n"
             "in vec2 v_uv;\n"
             "out vec4 frag_color;\n"
 
             "void main()\n"
             "{\n"
             "frag_color = bot_color * (1 - v_uv.y) + top_color * v_uv.y;\n"
+            "frag_color = frag_color * vec4(brightMult, brightMult, brightMult, 1.0f);\n"
             "}";
 
         GLuint vs_id, fs_id;
@@ -1341,6 +1343,9 @@ void Game::drawSky(float top_r, float top_g, float top_b, float top_a,
     GLuint cpitch_loc = glGetUniformLocation(background_shader, "cpitch");
 
     glUniform1f(cpitch_loc, cameraPitch);
+
+    GLuint ambBrightLoc = glGetUniformLocation(background_shader, "brightMult");
+    glUniform1f(ambBrightLoc, ambientBrightnessMult);
 
     glDrawArrays(GL_TRIANGLES, 0, 3);
     glBindVertexArray(0);
