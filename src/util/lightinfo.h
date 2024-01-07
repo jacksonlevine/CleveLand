@@ -16,9 +16,4 @@ struct LightSegment {
     std::vector<LightRay> rays;
 };
 
-struct LightMap {
-    std::unordered_map<BlockCoord, LightSegment, IntTupHash> map;
-    
-};
-
 #endif

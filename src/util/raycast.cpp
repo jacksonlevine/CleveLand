@@ -5,11 +5,12 @@ RayCastResult rayCast(int chunkwidth, glm::vec3 origin, glm::vec3 dir, std::func
     static int maximumLength = 10;
 
     glm::vec3 head(origin);
-    for(int d = 0; d < maximumLength*4; d++) {
+    for(int d = 0; d < maximumLength*16; d++) {
         BlockCoord here(std::round(head.x), std::round(head.y), std::round(head.z));
         if(predicate(here)) {
             result.blockHit = here;
             result.hit = true;
+            result.head = head;
             ChunkCoord chunkHere(
                 std::floor(static_cast<float>(here.x)/chunkwidth),
                 std::floor(static_cast<float>(here.z)/chunkwidth)
@@ -27,7 +28,7 @@ RayCastResult rayCast(int chunkwidth, glm::vec3 origin, glm::vec3 dir, std::func
             }
             break;
         }
-        head += dir/4.0f;
+        head += dir/16.0f;
     }
 
     return result;

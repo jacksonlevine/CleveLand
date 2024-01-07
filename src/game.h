@@ -91,6 +91,7 @@ public:
     float bot_r, float bot_g, float bot_b, float bot_a, float cameraPitch);
 
     void castBreakRay();
+    void castPlaceRay();
 
     std::function<void()> splashFunc;
     std::function<void()> normalFunc;

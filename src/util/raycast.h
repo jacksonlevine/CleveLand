@@ -10,6 +10,7 @@ struct RayCastResult {
     bool hit = false;
     BlockCoord blockHit;
     std::vector<ChunkCoord> chunksToRebuild;
+    glm::vec3 head;
 };
 
 RayCastResult rayCast(

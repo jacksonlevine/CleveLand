@@ -828,8 +828,12 @@ void Game::mouseButtonCallback(GLFWwindow *window, int button, int action, int m
         }
     }
     if(action == GLFW_PRESS) {
+
         if(inGame && camera->focused) {
-            castBreakRay();
+            if(button == GLFW_MOUSE_BUTTON_LEFT)
+                castBreakRay();
+            if(button == GLFW_MOUSE_BUTTON_RIGHT)
+                castPlaceRay();
         }
 
         clickedOnElement = mousedOverElement;
@@ -874,6 +878,65 @@ void Game::castBreakRay() {
                 }
         }
 
+    }
+}
+void Game::castPlaceRay() {
+    RayCastResult rayResult = rayCast(
+        voxelWorld.chunkWidth,
+        camera->position,
+        camera->direction,
+        [this](BlockCoord coord){
+            return voxelWorld.blockAt(coord) != 0;
+        },
+        false
+    );
+    if(rayResult.hit) {
+        if(rayResult.chunksToRebuild.size() > 0) {
+            if(voxelWorld.userDataMap.find(rayResult.chunksToRebuild.front()) == voxelWorld.userDataMap.end()) {
+                voxelWorld.userDataMap.insert_or_assign(rayResult.chunksToRebuild.front(), 
+                std::unordered_map<BlockCoord, unsigned int, IntTupHash>());
+            }
+
+            glm::vec3 blockHit(rayResult.blockHit.x, rayResult.blockHit.y, rayResult.blockHit.z);
+            glm::vec3 hitPoint = rayResult.head;
+
+            glm::vec3 diff = hitPoint - blockHit;
+
+            glm::vec3 hitNormal;
+
+            // Determine the primary axis of intersection
+            if (abs(diff.x) > abs(diff.y) && abs(diff.x) > abs(diff.z)) {
+                // The hit was primarily along the X-axis
+                hitNormal = glm::vec3((diff.x > 0) ? 1.0f : -1.0f, 0.0f, 0.0f);
+            } else if (abs(diff.y) > abs(diff.x) && abs(diff.y) > abs(diff.z)) {
+                // The hit was primarily along the Y-axis
+                hitNormal = glm::vec3(0.0f, (diff.y > 0) ? 1.0f : -1.0f, 0.0f);
+            } else {
+                // The hit was primarily along the Z-axis
+                hitNormal = glm::vec3(0.0f, 0.0f, (diff.z > 0) ? 1.0f : -1.0f);
+            }
+
+            std::cout << "Place normal: " << hitNormal.x << " " << hitNormal.y << " " << hitNormal.z << "\n";
+
+
+
+            BlockCoord placePoint(rayResult.blockHit.x+hitNormal.x, rayResult.blockHit.y+hitNormal.y, rayResult.blockHit.z+hitNormal.z);
+
+            voxelWorld.userDataMap.at(rayResult.chunksToRebuild.front()).insert_or_assign(placePoint, 1);
+
+
+            ChunkCoord chunkToReb(static_cast<int>(std::floor(static_cast<float>(placePoint.x)/voxelWorld.chunkWidth)),
+            static_cast<int>(std::floor(static_cast<float>(placePoint.z)/voxelWorld.chunkWidth)));
+
+                    auto chunkIt = voxelWorld.takenCareOfChunkSpots.find(chunkToReb);
+                    if(chunkIt != voxelWorld.takenCareOfChunkSpots.end()) {
+                        //std::cout << "it's here" << "\n";
+                      //  std::cout << "fucking index:" << chunkIt->second.geometryStorePoolIndex << "\n";
+                        voxelWorld.rebuildChunk(chunkIt->second, chunkIt->second.position, true);
+
+                     }
+
+        }
     }
 }
 
