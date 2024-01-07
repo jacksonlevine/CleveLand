@@ -107,6 +107,8 @@ public:
 
     bool mainMenu = false;
 
+    inline static float ambientBrightnessMult = 1.0f;
+
     Game();
 private:
     double lastFrame;

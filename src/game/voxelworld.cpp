@@ -160,58 +160,58 @@ void VoxelWorld::rebuildChunk(BlockChunk &chunk, ChunkCoord newPosition, bool im
     static std::vector<std::vector<float>> faces = {
            
     {
-        -0.5f, -0.5f, 0.5f, 10.0f,
-        -0.5f, -0.5f, -0.5f, 10.0f,
-        -0.5f, 0.5f, -0.5f, 10.0f,
+        -0.5f, -0.5f, 0.5f, 0.0f, 10.0f,
+        -0.5f, -0.5f, -0.5f, 0.0f, 10.0f,
+        -0.5f, 0.5f, -0.5f, 0.0f, 10.0f,
 
-        -0.5f, 0.5f, -0.5f, 10.0f,
-        -0.5f, 0.5f, 0.5f, 10.0f,
-        -0.5f, -0.5f, 0.5f, 10.0f
+        -0.5f, 0.5f, -0.5f, 0.0f, 10.0f,
+        -0.5f, 0.5f, 0.5f,0.0f, 10.0f,
+        -0.5f, -0.5f, 0.5f,0.0f, 10.0f
     },
     {
-        0.5f, -0.5f, -0.5f, 10.0f,
-        0.5f, -0.5f, 0.5f, 10.0f,
-        0.5f, 0.5f, 0.5f, 10.0f,
+        0.5f, -0.5f, -0.5f,0.0f, 10.0f,
+        0.5f, -0.5f, 0.5f,0.0f, 10.0f,
+        0.5f, 0.5f, 0.5f,0.0f, 10.0f,
 
-        0.5f, 0.5f, 0.5f, 10.0f,
-        0.5f, 0.5f, -0.5f, 10.0f,
-        0.5f, -0.5f, -0.5f, 10.0f
+        0.5f, 0.5f, 0.5f,0.0f, 10.0f,
+        0.5f, 0.5f, -0.5f,0.0f, 10.0f,
+        0.5f, -0.5f, -0.5f,0.0f, 10.0f
     },
     {
-        0.5f, -0.5f, 0.5f, 14.0f,
-        -0.5f, -0.5f, 0.5f, 14.0f,
-        -0.5f, 0.5f, 0.5f, 14.0f,
+        0.5f, -0.5f, 0.5f, 0.0f,14.0f,
+        -0.5f, -0.5f, 0.5f,0.0f, 14.0f,
+        -0.5f, 0.5f, 0.5f,0.0f, 14.0f,
 
-        -0.5f, 0.5f, 0.5f, 14.0f,
-        0.5f, 0.5f, 0.5f, 14.0f,
-        0.5f, -0.5f, 0.5f, 14.0f
+        -0.5f, 0.5f, 0.5f,0.0f, 14.0f,
+        0.5f, 0.5f, 0.5f,0.0f, 14.0f,
+        0.5f, -0.5f, 0.5f, 0.0f,14.0f
     },
     {
-        -0.5f, -0.5f, -0.5f,  14.0f,
-        0.5f, -0.5f, -0.5f, 14.0f,
-        0.5f, 0.5f, -0.5f, 14.0f,
+        -0.5f, -0.5f, -0.5f,0.0f,  14.0f,
+        0.5f, -0.5f, -0.5f,0.0f, 14.0f,
+        0.5f, 0.5f, -0.5f,0.0f, 14.0f,
 
-        0.5f, 0.5f, -0.5f, 14.0f,
-        -0.5f, 0.5f, -0.5f, 14.0f,
-        -0.5f, -0.5f, -0.5f, 14.0f
+        0.5f, 0.5f, -0.5f,0.0f, 14.0f,
+        -0.5f, 0.5f, -0.5f,0.0f, 14.0f,
+        -0.5f, -0.5f, -0.5f,0.0f, 14.0f
     },
      {
-        -0.5f, 0.5f, -0.5f, 16.0f,
-        0.5f, 0.5f, -0.5f, 16.0f,
-        0.5f, 0.5f, 0.5f, 16.0f,
+        -0.5f, 0.5f, -0.5f,0.0f, 16.0f,
+        0.5f, 0.5f, -0.5f,0.0f, 16.0f,
+        0.5f, 0.5f, 0.5f,0.0f, 16.0f,
 
-        0.5f, 0.5f, 0.5f, 16.0f,
-        -0.5f, 0.5f, 0.5f, 16.0f,
-        -0.5f, 0.5f, -0.5f, 16.0f,
+        0.5f, 0.5f, 0.5f, 0.0f,16.0f,
+        -0.5f, 0.5f, 0.5f,0.0f, 16.0f,
+        -0.5f, 0.5f, -0.5f,0.0f, 16.0f,
     },
     {
-        0.5f, -0.5f, -0.5f, 7.0f,
-        -0.5f, -0.5f, -0.5f, 7.0f,
-        -0.5f, -0.5f, 0.5f, 7.0f,
+        0.5f, -0.5f, -0.5f, 0.0f,7.0f,
+        -0.5f, -0.5f, -0.5f,0.0f, 7.0f,
+        -0.5f, -0.5f, 0.5f,0.0f, 7.0f,
 
-        -0.5f, -0.5f, 0.5f, 7.0f,
-        0.5f, -0.5f, 0.5f, 7.0f,
-        0.5f, -0.5f, -0.5f,  7.0f
+        -0.5f, -0.5f, 0.5f,0.0f, 7.0f,
+        0.5f, -0.5f, 0.5f,0.0f, 7.0f,
+        0.5f, -0.5f, -0.5f,0.0f,  7.0f
     }
     };
 
@@ -265,13 +265,18 @@ void VoxelWorld::rebuildChunk(BlockChunk &chunk, ChunkCoord newPosition, bool im
                             unsigned int neighblock = blockAt(coord + neigh);
                             if(neighblock == 0) {
                                 tverts.insert(tverts.end(), {
-                                    faces[neighborIndex][0]+coord.x,faces[neighborIndex][1]+coord.y, faces[neighborIndex][2]+coord.z, faces[neighborIndex][3],
-                                    faces[neighborIndex][4]+coord.x,faces[neighborIndex][5]+coord.y, faces[neighborIndex][6]+coord.z, faces[neighborIndex][7],
-                                    faces[neighborIndex][8]+coord.x,faces[neighborIndex][9]+coord.y, faces[neighborIndex][10]+coord.z, faces[neighborIndex][11],
-
-                                    faces[neighborIndex][12]+coord.x,faces[neighborIndex][13]+coord.y, faces[neighborIndex][14]+coord.z, faces[neighborIndex][15],
-                                    faces[neighborIndex][16]+coord.x,faces[neighborIndex][17]+coord.y, faces[neighborIndex][18]+coord.z, faces[neighborIndex][19],
-                                    faces[neighborIndex][20]+coord.x,faces[neighborIndex][21]+coord.y, faces[neighborIndex][22]+coord.z, faces[neighborIndex][23],
+                                    faces[neighborIndex][0] + coord.x, faces[neighborIndex][1] + coord.y, faces[neighborIndex][2] + coord.z, faces[neighborIndex][3],
+                                    faces[neighborIndex][4], 
+                                    faces[neighborIndex][5] + coord.x, faces[neighborIndex][6] + coord.y, faces[neighborIndex][7] + coord.z, faces[neighborIndex][8],
+                                    faces[neighborIndex][9], 
+                                    faces[neighborIndex][10] + coord.x, faces[neighborIndex][11] + coord.y, faces[neighborIndex][12] + coord.z, faces[neighborIndex][13],
+                                    faces[neighborIndex][14], 
+                                    faces[neighborIndex][15] + coord.x, faces[neighborIndex][16] + coord.y, faces[neighborIndex][17] + coord.z, faces[neighborIndex][18],
+                                    faces[neighborIndex][19], 
+                                    faces[neighborIndex][20] + coord.x, faces[neighborIndex][21] + coord.y, faces[neighborIndex][22] + coord.z, faces[neighborIndex][23],
+                                    faces[neighborIndex][24], 
+                                    faces[neighborIndex][25] + coord.x, faces[neighborIndex][26] + coord.y, faces[neighborIndex][27] + coord.z, faces[neighborIndex][28],
+                                    faces[neighborIndex][29]
                                 });
                                 if(neighborIndex == TOP) {
                                     tuvs.insert(tuvs.end() , {
@@ -316,13 +321,18 @@ void VoxelWorld::rebuildChunk(BlockChunk &chunk, ChunkCoord newPosition, bool im
                             bool solidNeighboringWater = (neighblock == 2 && block != 2);
                             if(neighblock == 0 || solidNeighboringWater) {
                                 verts.insert(verts.end(), {
-                                    faces[neighborIndex][0]+coord.x,faces[neighborIndex][1]+coord.y, faces[neighborIndex][2]+coord.z, faces[neighborIndex][3],
-                                    faces[neighborIndex][4]+coord.x,faces[neighborIndex][5]+coord.y, faces[neighborIndex][6]+coord.z, faces[neighborIndex][7],
-                                    faces[neighborIndex][8]+coord.x,faces[neighborIndex][9]+coord.y, faces[neighborIndex][10]+coord.z, faces[neighborIndex][11],
-
-                                    faces[neighborIndex][12]+coord.x,faces[neighborIndex][13]+coord.y, faces[neighborIndex][14]+coord.z, faces[neighborIndex][15],
-                                    faces[neighborIndex][16]+coord.x,faces[neighborIndex][17]+coord.y, faces[neighborIndex][18]+coord.z, faces[neighborIndex][19],
-                                    faces[neighborIndex][20]+coord.x,faces[neighborIndex][21]+coord.y, faces[neighborIndex][22]+coord.z, faces[neighborIndex][23],
+                                    faces[neighborIndex][0] + coord.x, faces[neighborIndex][1] + coord.y, faces[neighborIndex][2] + coord.z, faces[neighborIndex][3],
+                                    faces[neighborIndex][4], 
+                                    faces[neighborIndex][5] + coord.x, faces[neighborIndex][6] + coord.y, faces[neighborIndex][7] + coord.z, faces[neighborIndex][8],
+                                    faces[neighborIndex][9], 
+                                    faces[neighborIndex][10] + coord.x, faces[neighborIndex][11] + coord.y, faces[neighborIndex][12] + coord.z, faces[neighborIndex][13],
+                                    faces[neighborIndex][14], 
+                                    faces[neighborIndex][15] + coord.x, faces[neighborIndex][16] + coord.y, faces[neighborIndex][17] + coord.z, faces[neighborIndex][18],
+                                    faces[neighborIndex][19], 
+                                    faces[neighborIndex][20] + coord.x, faces[neighborIndex][21] + coord.y, faces[neighborIndex][22] + coord.z, faces[neighborIndex][23],
+                                    faces[neighborIndex][24], 
+                                    faces[neighborIndex][25] + coord.x, faces[neighborIndex][26] + coord.y, faces[neighborIndex][27] + coord.z, faces[neighborIndex][28],
+                                    faces[neighborIndex][29]
                                 });
                                 if(neighborIndex == TOP) {
                                     uvs.insert(uvs.end() , {
