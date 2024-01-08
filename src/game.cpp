@@ -1173,7 +1173,7 @@ void Game::initializeShaders() {
 
                 float ambBright = ambientBrightMult * ambientBright;
 
-                float distance = pow(distance(position, camPos)/(viewDistance), 2)/5.0f;
+                float distance = pow(distance(position, camPos)/(5), 2)/5.0f;
                 gl_Position = mvp * vec4(position - vec3(0.0f, distance, 0.0f), 1.0);
 
                 float bright = min(16.0f, blockBright + ambBright);
@@ -1222,7 +1222,7 @@ void Game::initializeShaders() {
             void main()
             {
 
-                float distance = pow(distance(position + translation, camPos)/(viewDistance), 2)/5.0f;
+                float distance = pow(distance(position + translation, camPos)/(5), 2)/5.0f;
                 gl_Position = mvp * vec4((position + translation) - vec3(0.0f, distance, 0.0f), 1.0);
 
             }
