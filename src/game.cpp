@@ -80,7 +80,7 @@ grounded(true)
 
 void Game::stepMovementAndPhysics() {
             static float currentJumpY = 0.0f;
-            float allowableJumpHeight = 0.5f;
+            float allowableJumpHeight = 1.1f;
             static bool jumpingUp = false;
 
             static float timeFallingScalar = 1.0f;
@@ -107,7 +107,7 @@ void Game::stepMovementAndPhysics() {
 
             if(jumpingUp) {
                 if(camera->position.y < currentJumpY + allowableJumpHeight) {
-                    camera->velocity += glm::vec3(0.0f, (currentJumpY+allowableJumpHeight) - camera->position.y, 0.0f);
+                    camera->velocity += glm::vec3(0.0f, (((currentJumpY+allowableJumpHeight+0.1f) - camera->position.y)*10.0f)*deltaTime, 0.0f);
                 } else {
                     jumpingUp = false;
                 }
@@ -412,6 +412,9 @@ void Game::stepChunkDraw() {
 
     GLuint cam_pos_loc = glGetUniformLocation(worldShader->shaderID, "camPos");
     glUniform3f(cam_pos_loc, camera->position.x, camera->position.y, camera->position.z);
+
+    GLuint viewDistLoc = glGetUniformLocation(worldShader->shaderID, "viewDistance");
+    glUniform1f(viewDistLoc, viewDistance);
 
     voxelWorld.cameraPosition = camera->position;
     voxelWorld.cameraDirection = camera->direction;
@@ -765,12 +768,47 @@ void Game::saveGame(const char* path) {
     playerFile.close();
 }
 
+void Game::changeViewDistance(int newValue) {
+
+    voxelWorld.runChunkThread = false;
+    viewDistance = newValue;
+
+    voxelWorld.geometryStoresToRebuild.clear();
+    voxelWorld.takenCareOfChunkSpots.clear();
+    voxelWorld.geometryStorePool.clear();
+    voxelWorld.chunks.clear();
+
+
+    auto meshesView = registry.view<MeshComponent>();
+    for(const entt::entity e : meshesView) {
+        MeshComponent &m = registry.get<MeshComponent>(e);
+        glDeleteBuffers(1, &m.vbov);
+        glDeleteBuffers(1, &m.vbouv);
+        glDeleteBuffers(1, &m.tvbov);
+        glDeleteBuffers(1, &m.tvbouv);
+        registry.erase<MeshComponent>(e);
+        registry.destroy(e);
+    }
+
+    registry.clear();
+
+    voxelWorld.populateChunksAndGeometryStores(registry, viewDistance);
+    voxelWorld.runChunkThread = true;
+
+    voxelWorld.chunkUpdateThread = std::thread([this](){
+        voxelWorld.chunkUpdateThreadFunction(&viewDistance);
+    });
+    voxelWorld.chunkUpdateThread.detach();
+}
+
+
+
 void Game::goToSingleplayerWorld(const char *worldname) {
 
 
 
 
-    voxelWorld.populateChunksAndGeometryStores(registry);
+    voxelWorld.populateChunksAndGeometryStores(registry, viewDistance);
 
 
 
@@ -783,7 +821,7 @@ void Game::goToSingleplayerWorld(const char *worldname) {
 
     voxelWorld.runChunkThread = true;
     voxelWorld.chunkUpdateThread = std::thread([this](){
-        voxelWorld.chunkUpdateThreadFunction();
+        voxelWorld.chunkUpdateThreadFunction(&viewDistance);
         });
     voxelWorld.chunkUpdateThread.detach();
 
@@ -1044,6 +1082,12 @@ void Game::updateAndDrawSelectCube() {
     GLuint displayingLoc = glGetUniformLocation(wireFrameShader->shaderID, "displaying");
     glUniform1f(displayingLoc, displayingSelectCube);
 
+        GLuint cam_pos_loc = glGetUniformLocation(wireFrameShader->shaderID, "camPos");
+    glUniform3f(cam_pos_loc, camera->position.x, camera->position.y, camera->position.z);
+
+    GLuint viewDistLoc = glGetUniformLocation(wireFrameShader->shaderID, "viewDistance");
+    glUniform1f(viewDistLoc, viewDistance);
+
     RayCastResult result = rayCast(voxelWorld.chunkWidth,
     camera->position,
     camera->direction,
@@ -1120,14 +1164,21 @@ void Game::initializeShaders() {
             out vec2 TexCoord;
             out vec3 pos;
             uniform mat4 mvp;
+            uniform vec3 camPos;
             uniform float ambientBrightMult;
+            uniform float viewDistance;
             void main()
             {
-                gl_Position = mvp * vec4(position, 1.0);
+                
 
                 float ambBright = ambientBrightMult * ambientBright;
 
+                float distance = pow(distance(position, camPos)/(viewDistance), 2)/5.0f;
+                gl_Position = mvp * vec4(position - vec3(0.0f, distance, 0.0f), 1.0);
+
                 float bright = min(16.0f, blockBright + ambBright);
+
+                
 
                 vertexColor = vec3(bright/16.0f, bright/16.0f, bright/16.0f);
                 TexCoord = uv;
@@ -1142,13 +1193,14 @@ void Game::initializeShaders() {
             out vec4 FragColor;
             uniform sampler2D ourTexture;
             uniform vec3 camPos;
+            uniform float viewDistance;
             void main()
             {
                 vec4 texColor = texture(ourTexture, TexCoord);
                 FragColor = texColor * vec4(vertexColor, 1.0);
 
                 vec4 fogColor = vec4(0.7, 0.7, 0.949, 1.0);
-                float distance = (distance(pos, camPos)/67.0f)/5.0f;
+                float distance = (distance(pos, camPos)/(viewDistance*5.0f))/5.0f;
 
                 if(FragColor.a < 0.4) {
                     discard;
@@ -1165,9 +1217,13 @@ void Game::initializeShaders() {
             layout (location = 0) in vec3 position;
             uniform mat4 mvp;
             uniform vec3 translation;
+            uniform vec3 camPos;
+            uniform float viewDistance;
             void main()
             {
-                gl_Position = mvp * vec4(position + translation, 1.0f);
+
+                float distance = pow(distance(position + translation, camPos)/(viewDistance), 2)/5.0f;
+                gl_Position = mvp * vec4((position + translation) - vec3(0.0f, distance, 0.0f), 1.0);
 
             }
         )glsl",

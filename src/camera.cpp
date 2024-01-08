@@ -105,16 +105,16 @@ glm::vec3 Camera3D::proposePosition() {
     glm::vec3 proposedPosition;
 
     if(forwardPressed) {
-        velocity += (glm::normalize(glm::vec3(1.0, 0.0, 1.0) * direction) * static_cast<float>(gs->deltaTime)) * speedMulitplier;
+        velocity += (glm::normalize(glm::vec3(1.0, 0.0, 1.0) * direction)  * speedMulitplier ) * static_cast<float>(gs->deltaTime);
     }
     if(leftPressed) {
-        velocity += (glm::normalize(glm::vec3(1.0, 0.0, 1.0) * right) * static_cast<float>(gs->deltaTime)) * speedMulitplier;
+        velocity += (glm::normalize(glm::vec3(1.0, 0.0, 1.0) * right) * speedMulitplier ) * static_cast<float>(gs->deltaTime);
     }
     if(rightPressed) {
-        velocity -= (glm::normalize(glm::vec3(1.0, 0.0, 1.0) * right) * static_cast<float>(gs->deltaTime)) * speedMulitplier;
+        velocity -= (glm::normalize(glm::vec3(1.0, 0.0, 1.0) * right) * speedMulitplier  ) * static_cast<float>(gs->deltaTime);
     }
     if(backPressed) {
-        velocity -= (glm::normalize(glm::vec3(1.0, 0.0, 1.0) * direction) * static_cast<float>(gs->deltaTime)) * speedMulitplier;
+        velocity -= (glm::normalize(glm::vec3(1.0, 0.0, 1.0) * direction) * speedMulitplier  )* static_cast<float>(gs->deltaTime);
     }
 
     // if(upPressed) {

@@ -13,13 +13,13 @@ void VoxelWorld::runStep(float deltaTime) {
 }
 
 
-void VoxelWorld::chunkUpdateThreadFunction() {
+void VoxelWorld::chunkUpdateThreadFunction(int* loadRadius) {
     
     std::cout << "Thread started \n";
     glm::vec3 lastCamPosDivided;
     bool first = true;
 
-    static int loadRadius = 12;
+
     while(runChunkThread) {
         glm::vec3 currCamPosDivided = cameraPosition/10.0f;
         if(currCamPosDivided != lastCamPosDivided || first || shouldTryReload) {
@@ -59,7 +59,7 @@ void VoxelWorld::chunkUpdateThreadFunction() {
                 sortedChunkPtrs.push_back(&chunk);
             }
 
-            std::partition(sortedChunkPtrs.begin(), sortedChunkPtrs.end(), [cameraChunkPosAdjustedWithDirection](BlockChunk *chunk) {
+            std::partition(sortedChunkPtrs.begin(), sortedChunkPtrs.end(), [cameraChunkPosAdjustedWithDirection, loadRadius](BlockChunk *chunk) {
                 
                 if(!chunk->used) {
                     return true;
@@ -69,15 +69,15 @@ void VoxelWorld::chunkUpdateThreadFunction() {
                 std::abs(chunk->position.x - cameraChunkPosAdjustedWithDirection.x) +
                 std::abs(chunk->position.z - cameraChunkPosAdjustedWithDirection.z);
 
-                return dist >= loadRadius;
+                return dist >= *loadRadius;
             });
 
             if(meshQueueMutex.try_lock()) {
 
 
                 int takenChunkIndex = 0;
-                for(int x = cameraChunkPos.x - loadRadius; x < cameraChunkPos.x + loadRadius; ++x) {
-                    for(int z = cameraChunkPos.z - loadRadius; z < cameraChunkPos.z + loadRadius; ++z) {
+                for(int x = cameraChunkPos.x - *loadRadius; x < cameraChunkPos.x + *loadRadius; ++x) {
+                    for(int z = cameraChunkPos.z - *loadRadius; z < cameraChunkPos.z + *loadRadius; ++z) {
 
                         ChunkCoord thisChunkCoord(x,z);
                         if(takenCareOfChunkSpots.find(thisChunkCoord) == takenCareOfChunkSpots.end()) {
@@ -104,9 +104,9 @@ void VoxelWorld::chunkUpdateThreadFunction() {
     std::cout << "Thread ended \n";
 }
 
-void VoxelWorld::populateChunksAndGeometryStores(entt::registry &registry) {
-    for(int i = 0; i < 25; ++i) {
-        for(int j = 0; j < 25; ++j) {
+void VoxelWorld::populateChunksAndGeometryStores(entt::registry &registry, int viewDistance) {
+    for(int i = 0; i < (viewDistance*2)+1; ++i) {
+        for(int j = 0; j < (viewDistance*2)+1; ++j) {
 
             GeometryStore geometryStore;
             geometryStore.me = registry.create();

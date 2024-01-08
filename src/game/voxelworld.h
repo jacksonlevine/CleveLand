@@ -49,11 +49,11 @@ public:
     std::vector<GeometryStore> geometryStorePool;
 
 
-    void populateChunksAndGeometryStores(entt::registry &registry);
+    void populateChunksAndGeometryStores(entt::registry &registry, int viewDistance);
 
     void rebuildChunk(BlockChunk &chunk, ChunkCoord newPosition, bool immediateInPlace);
 
-    void chunkUpdateThreadFunction();
+    void chunkUpdateThreadFunction(int* loadRadius);
 
     std::vector<unsigned int> geometryStoresToRebuild;
     std::vector<unsigned int> highPriorityGeometryStoresToRebuild;
