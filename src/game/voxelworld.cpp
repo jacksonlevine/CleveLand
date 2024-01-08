@@ -59,15 +59,15 @@ void VoxelWorld::chunkUpdateThreadFunction(int* loadRadius) {
                 sortedChunkPtrs.push_back(&chunk);
             }
 
-            std::partition(sortedChunkPtrs.begin(), sortedChunkPtrs.end(), [cameraChunkPosAdjustedWithDirection, loadRadius](BlockChunk *chunk) {
+            std::partition(sortedChunkPtrs.begin(), sortedChunkPtrs.end(), [cameraChunkPos, loadRadius](BlockChunk *chunk) {
                 
                 if(!chunk->used) {
                     return true;
                 }
 
                 int dist = 
-                std::abs(chunk->position.x - cameraChunkPosAdjustedWithDirection.x) +
-                std::abs(chunk->position.z - cameraChunkPosAdjustedWithDirection.z);
+                std::abs(chunk->position.x - cameraChunkPos.x) +
+                std::abs(chunk->position.z - cameraChunkPos.z);
 
                 return dist >= *loadRadius;
             });
@@ -105,8 +105,8 @@ void VoxelWorld::chunkUpdateThreadFunction(int* loadRadius) {
 }
 
 void VoxelWorld::populateChunksAndGeometryStores(entt::registry &registry, int viewDistance) {
-    for(int i = 0; i < (viewDistance*2)+1; ++i) {
-        for(int j = 0; j < (viewDistance*2)+1; ++j) {
+    for(int i = 0; i < (viewDistance*2)+5; ++i) {
+        for(int j = 0; j < (viewDistance*2)+5; ++j) {
 
             GeometryStore geometryStore;
             geometryStore.me = registry.create();

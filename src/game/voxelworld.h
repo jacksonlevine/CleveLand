@@ -20,7 +20,7 @@ class VoxelWorld {
 public:
     unsigned int seed;
 
-    inline static int chunkWidth = 16;
+    inline static int chunkWidth = 12;
     inline static int chunkHeight = 128;
 
     inline static bool runChunkThread = false;
