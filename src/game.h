@@ -23,6 +23,7 @@ public:
     inline static int viewDistance = 5;
 
     double deltaTime;
+    float averageDeltaTime;
     int windowWidth;
     int windowHeight;
     double mouseSensitivity;
@@ -122,6 +123,8 @@ public:
     void updateAndDrawSelectCube();
 
     void changeViewDistance(int newValue);
+
+    void getAverageDelta();
 
     Game();
 private:

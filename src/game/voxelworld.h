@@ -63,6 +63,7 @@ public:
 
 
     std::thread chunkUpdateThread;
+
     std::mutex meshQueueMutex;
 
     float noiseFunction(int x, int y, int z);

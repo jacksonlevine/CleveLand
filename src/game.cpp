@@ -16,6 +16,7 @@ grounded(true)
     windowHeight = 720;
     camera = new Camera3D(this);
     mouseSensitivity = 0.1;
+    averageDeltaTime = 0.0f;
 
     glfwInit();
     window = glfwCreateWindow(windowWidth, windowHeight, "Untitled game", NULL, NULL);
@@ -76,6 +77,19 @@ grounded(true)
     };
 
     loopFunc = &splashFunc;
+}
+
+void Game::getAverageDelta() {
+    static int times = 0;
+    static float accum = 0.0f;
+    if(times < 100) {
+        accum += static_cast<float>(deltaTime);
+        times++;
+    } else {
+        averageDeltaTime = accum / 100;
+        times = 0;
+        accum = 0.0f;
+    }
 }
 
 void Game::stepMovementAndPhysics() {
@@ -835,6 +849,7 @@ void Game::updateTime() {
     double currentFrame = glfwGetTime();
     deltaTime = currentFrame - lastFrame;
     lastFrame = currentFrame;
+    getAverageDelta();
 }
 
 void Game::runStep() {
