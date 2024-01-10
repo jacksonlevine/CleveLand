@@ -18,6 +18,11 @@ endif()
 
 target_include_directories(main PUBLIC ${CMAKE_SOURCE_DIR}/include)
 
+
+find_package(Boost REQUIRED COMPONENTS system)
+include_directories(${Boost_INCLUDE_DIRS})
+target_link_libraries(main PRIVATE Boost::boost Boost::system)
+
 find_package(EnTT CONFIG REQUIRED)
 target_link_libraries(main PRIVATE EnTT::EnTT)
 find_package(glfw3 CONFIG REQUIRED)
