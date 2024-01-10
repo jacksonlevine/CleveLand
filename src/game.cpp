@@ -94,13 +94,13 @@ void Game::getAverageDelta() {
 
 void Game::stepMovementAndPhysics() {
             static float currentJumpY = 0.0f;
-            float allowableJumpHeight = 1.1f;
+            float allowableJumpHeight = 1.4f;
             static bool jumpingUp = false;
 
             static float timeFallingScalar = 1.0f;
 
-            if(!grounded) {
-                timeFallingScalar += deltaTime*2.0f;
+            if(!grounded && !jumpingUp) {
+                timeFallingScalar = std::min(timeFallingScalar  + averageDeltaTime*7.0f, 3.0f);
             } else {
                 timeFallingScalar = 1.0f;
             }
@@ -116,12 +116,12 @@ void Game::stepMovementAndPhysics() {
 
             if(!grounded && !jumpingUp /*&& jumpTimer <= 0.0f*/)
             {
-                camera->velocity += glm::vec3(0.0, -GRAV*timeFallingScalar*deltaTime, 0.0);
+                camera->velocity += glm::vec3(0.0, -GRAV*timeFallingScalar*averageDeltaTime, 0.0);
             }
 
             if(jumpingUp) {
                 if(camera->position.y < currentJumpY + allowableJumpHeight) {
-                    camera->velocity += glm::vec3(0.0f, (((currentJumpY+allowableJumpHeight+0.1f) - camera->position.y)*10.0f)*deltaTime, 0.0f);
+                    camera->velocity += glm::vec3(0.0f, (((currentJumpY+allowableJumpHeight+0.1f) - camera->position.y))*0.025f, 0.0f);
                 } else {
                     jumpingUp = false;
                 }
