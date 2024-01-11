@@ -14,7 +14,7 @@
 #include "util/collisioncage.h"
 #include "gui/hud.h"
 
-#define GRAV 7.0
+#define GRAV 6.0
 
 class Camera3D;
 
