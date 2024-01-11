@@ -13,6 +13,7 @@
 #include "util/raycast.h"
 #include "util/collisioncage.h"
 #include "gui/hud.h"
+#include <random>
 
 #define GRAV 7.0
 
@@ -40,6 +41,7 @@ public:
     std::unique_ptr<Shader> menuShader;
     std::unique_ptr<Shader> worldShader;
     std::unique_ptr<Shader> wireFrameShader;
+    std::unique_ptr<Shader> billBoardShader;
     
     GLuint menuTexture;
     GLuint menuBackgroundTexture;
@@ -58,6 +60,10 @@ public:
     inline static std::vector<GUIButton> *currentGuiButtons = nullptr;
 
     std::string currentSingleplayerWorldPath;
+
+
+    std::vector<float> particleDisplayData;
+    inline static bool particlesUploaded = false;
 
     void initializeShaders();
     void initializeTextures();
@@ -85,6 +91,8 @@ public:
     void bindWorldGeometryNoUpload(GLuint vbov, GLuint vbouv);
      void bindWireFrameGeometry(GLuint vbov, const float *vdata,  size_t vsize);
     void bindWireFrameGeometryNoUpload(GLuint vbov);
+    void bindBillBoardGeometry(GLuint billposvbo, std::vector<float> &billinstances);
+    void bindBillBoardGeometryNoUpload(GLuint billposvbo);
 
     void frameBufferSizeCallback(GLFWwindow *window, int width, int height);
     void mouseButtonCallback(GLFWwindow *window, int button, int action, int mods);
@@ -106,6 +114,7 @@ public:
     void drawSplashScreen();
 
     inline static GLuint VAO = 0;
+    inline static GLuint VAO2 = 0;
 
     CollisionCage collCage;
     BoundingBox user;
@@ -119,12 +128,20 @@ public:
     inline static glm::vec3 currentSelectCube = glm::vec3(0.0f, 0.0f, 0.0f);
     inline static float displayingSelectCube = 0.0f;
 
+    inline static GLuint billqvbo = 0;
+
 
     void updateAndDrawSelectCube();
 
     void changeViewDistance(int newValue);
 
     void getAverageDelta();
+
+    void drawParticles();
+    float determineFloorBelowHere(glm::vec3 here);
+
+    std::vector<glm::vec3> randomSpotsAroundCube(const glm::vec3& center, int count);
+    void blockBreakParticles(BlockCoord here);
 
     Game();
 private:

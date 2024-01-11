@@ -233,13 +233,15 @@ void Game::draw() {
     if(VAO == 0) {
         glGenVertexArrays(1, &VAO);
         glBindVertexArray(VAO);
+
+        glGenVertexArrays(1, &VAO2);
     }
 
 
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glClearColor(0.639, 0.71, 1.0, 0.5);
 
-
+    glBindVertexArray(VAO);
     drawSky(0.0f, 0.0f, 1.0f, 1.0f,    1.2f, 1.2f, 1.8f, 1.0f, camera->pitch);
 
     
@@ -400,6 +402,7 @@ void Game::draw() {
 
         glUniform1f(ambBrightMultLoc, ambientBrightnessMult);
         updateAndDrawSelectCube();
+        drawParticles();
     }
 
 
@@ -930,6 +933,8 @@ void Game::castBreakRay() {
                       //  std::cout << "fucking index:" << chunkIt->second.geometryStorePoolIndex << "\n";
                        // voxelWorld.rebuildChunk(chunkIt->second, chunkIt->second.position, true);
 
+                       blockBreakParticles(rayResult.blockHit);
+
                        BlockChunk *chunk = chunkIt->second;
                        voxelWorld.deferredChunksMutex.lock();
                        if(std::find_if(voxelWorld.deferredChunksToRebuild.begin(), voxelWorld.deferredChunksToRebuild.end(), [chunk](BlockChunk* other){
@@ -1273,7 +1278,371 @@ void Game::initializeShaders() {
         )glsl",
         "wireFrameShader"
     );
+    billBoardShader = std::make_unique<Shader>(
+        R"glsl(
+            #version 450 core
+
+            layout(location = 0) in vec3 vertexPosition; // Quad vertex positions
+            layout(location = 1) in float cornerID;    // Corner ID of quad
+            layout(location = 2) in vec3 instancePosition; 
+            layout(location = 3) in float blockID; 
+            layout(location = 4) in float timeCreated;
+            layout(location = 5) in float lifetime;
+            layout(location = 6) in vec3 destination;
+            layout(location = 7) in float gravity;
+            layout(location = 8) in float floorAtDest;
+
+            out vec2 TexCoord;
+            out float pPassed;
+
+            uniform mat4 v;
+            uniform mat4 p;
+            uniform mat4 m;
+            uniform vec3 camPos;
+            uniform float time;
+
+            void main() {
+
+                float timePassed = time - timeCreated;
+
+                float percentPassed = min(timePassed/lifetime, 1.0f);
+
+                vec3 realPosition = mix(instancePosition, destination, percentPassed);
+
+                realPosition.y = mix(destination.y, floorAtDest, min(percentPassed*gravity, 1.0f));
+
+                pPassed = percentPassed;
+
+                // Calculate the billboard orientation
+                vec3 look = normalize(realPosition - camPos); // Direction from camera to quad
+                vec3 right = normalize(cross(vec3(0.0, 1.0, 0.0), look)); // Right vector
+                vec3 up = cross(look, right); // Up vector
+
+
+                // Apply billboard transformation
+                vec3 billboardedPosition = realPosition + (vertexPosition.x * right + vertexPosition.y * up);
+
+                // Transform position to clip space
+                gl_Position = p * v * m * vec4(billboardedPosition, 1.0);
+
+
+
+                vec2 baseUV = vec2(mod(blockID, 16.0f)/16.0f, floor(blockID/16.0f));
+
+                // Selecting UV based on cornerID
+                if (cornerID == 0.0) {
+                    TexCoord = baseUV;
+                } else if (cornerID == 1.0) {
+                    TexCoord = vec2(baseUV.x + (1.0f/64.0f), baseUV.y);
+                } else if (cornerID == 2.0) {
+                    TexCoord = vec2(baseUV.x + (1.0f/64.0f), baseUV.y + (1.0f/64.0f));
+                } else if (cornerID == 3.0) {
+                    TexCoord = vec2(baseUV.x, baseUV.y + (1.0f/64.0f));
+                }
+            }
+        )glsl",
+        R"glsl(
+            #version 450 core
+            in vec2 TexCoord;
+            in float pPassed;
+            out vec4 FragColor;
+            uniform sampler2D ourTexture;
+
+            void main()
+            {
+                vec4 texColor = texture(ourTexture, TexCoord);
+
+                if(texColor.a < 0.1) {
+                    discard;
+                }
+
+                if(pPassed >= 1.0f) {
+                    discard;
+                }
+
+            }
+
+        )glsl",
+        "billBoardShader"
+    );
 }
+
+std::vector<glm::vec3> Game::randomSpotsAroundCube(const glm::vec3& center, int count) {
+    std::vector<glm::vec3> randomVecs;
+
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_real_distribution<float> dis(-0.5f, 0.5f);
+
+    for (int i = 0; i < count; ++i) {
+        glm::vec3 randomVec;
+        randomVec.x = center.x + dis(gen);
+        randomVec.y = center.y + dis(gen);
+        randomVec.z = center.z + dis(gen);
+        randomVecs.push_back(randomVec);
+    }
+
+    return randomVecs;
+}
+
+void Game::blockBreakParticles(BlockCoord here) {
+    glm::vec3 center(here.x, here.y, here.z);
+    std::vector<glm::vec3> spots = randomSpotsAroundCube(center, 25);
+
+    int blockID = voxelWorld.blockAt(here);
+
+
+    for(glm::vec3 &spot : spots) {
+        glm::vec3 dir = spot - center;
+        glm::vec3 dest = spot + dir * 1.0f;
+
+        float floorAtDest = determineFloorBelowHere(dest);
+        float lifetime = 2.0f;
+        float timeCreated = static_cast<float>(glfwGetTime());
+        float gravity = 2.0f;
+
+        particleDisplayData.insert(particleDisplayData.end(), {
+            spot.x, spot.y, spot.z, static_cast<float>(blockID), timeCreated, lifetime, dest.x, dest.y, dest.z, gravity, floorAtDest
+        });
+    }
+    particlesUploaded = false;
+}
+
+float Game::determineFloorBelowHere(glm::vec3 here) {
+    BlockCoord hereb(
+        std::round(here.x),
+        std::round(here.y),
+        std::round(here.z)
+    );
+
+    while(voxelWorld.blockAt(hereb) == 0) {
+        hereb += BlockCoord(0, -1, 0);
+    }
+
+    return static_cast<float>(hereb.y)+0.5f;
+}
+
+void Game::drawParticles() {
+    
+    glBindVertexArray(VAO2);
+    glUseProgram(billBoardShader->shaderID);
+    glBindTexture(GL_TEXTURE_2D, worldTexture);
+
+    GLuint camPosLoc = glGetUniformLocation(billBoardShader->shaderID, "camPos");
+    glUniform3f(camPosLoc, camera->position.x, camera->position.y, camera->position.z);
+
+    GLuint m_loc = glGetUniformLocation(billBoardShader->shaderID, "m");
+    glUniformMatrix4fv(m_loc, 1, GL_FALSE, glm::value_ptr(camera->model));
+    GLuint v_loc = glGetUniformLocation(billBoardShader->shaderID, "v");
+    glUniformMatrix4fv(v_loc, 1, GL_FALSE, glm::value_ptr(camera->view));
+    GLuint p_loc = glGetUniformLocation(billBoardShader->shaderID, "p");
+    glUniformMatrix4fv(p_loc, 1, GL_FALSE, glm::value_ptr(camera->projection));
+
+    GLuint time_loc = glGetUniformLocation(billBoardShader->shaderID, "time");
+    glUniform1f(time_loc, static_cast<float>(glfwGetTime()));
+
+    static GLuint billposvbo = 0;
+
+    if(particleDisplayData.size() > 0) {
+
+        if(!particlesUploaded) {
+            glDeleteBuffers(1, &billposvbo);
+            glGenBuffers(1, &billposvbo);
+
+            bindBillBoardGeometry(billposvbo, particleDisplayData);
+            particlesUploaded = true;
+        } else {
+            bindBillBoardGeometryNoUpload(billposvbo);
+        }
+        glDrawArraysInstanced(GL_TRIANGLE_FAN, 0, 4, particleDisplayData.size() / 11);
+    }
+    glBindVertexArray(0);
+}
+
+
+
+void Game::bindBillBoardGeometry(GLuint billposvbo, std::vector<float> &billinstances) {
+
+    if(billqvbo == 0) {
+        glGenBuffers(1, &billqvbo);
+        static GLfloat quadVertices[] = {
+            // Positions    // Corner IDs
+            -3.0f, -3.0f, 0.0f, 0.0f,  // Corner 0
+            3.0f, -3.0f, 0.0f, 1.0f,  // Corner 1
+            3.0f,  3.0f, 0.0f, 2.0f,  // Corner 2
+            -3.0f,  3.0f, 0.0f, 3.0f   // Corner 3
+        }; 
+            // Quad vertices
+        glBindBuffer(GL_ARRAY_BUFFER, billqvbo);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), quadVertices, GL_STATIC_DRAW);
+
+        // Vertex position attribute
+        GLint posAttrib = glGetAttribLocation(billBoardShader->shaderID, "vertexPosition");
+        glEnableVertexAttribArray(posAttrib);
+        glVertexAttribPointer(posAttrib, 3, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), (void*)0);
+
+        // Corner ID attribute
+        GLint cornerAttrib = glGetAttribLocation(billBoardShader->shaderID, "cornerID");
+        glEnableVertexAttribArray(cornerAttrib);
+        glVertexAttribPointer(cornerAttrib, 1, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), (void*)(3 * sizeof(GLfloat)));
+    } else {
+        glBindBuffer(GL_ARRAY_BUFFER, billqvbo);
+
+        // Vertex position attribute
+        GLint posAttrib = glGetAttribLocation(billBoardShader->shaderID, "vertexPosition");
+        glEnableVertexAttribArray(posAttrib);
+        glVertexAttribPointer(posAttrib, 3, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), (void*)0);
+
+        // Corner ID attribute
+        GLint cornerAttrib = glGetAttribLocation(billBoardShader->shaderID, "cornerID");
+        glEnableVertexAttribArray(cornerAttrib);
+        glVertexAttribPointer(cornerAttrib, 1, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), (void*)(3 * sizeof(GLfloat)));
+    }
+
+
+    // Instance positions
+    glBindBuffer(GL_ARRAY_BUFFER, billposvbo);
+    glBufferData(GL_ARRAY_BUFFER, billinstances.size() * sizeof(GLfloat), billinstances.data(), GL_STATIC_DRAW);
+
+    GLint inst_attrib = glGetAttribLocation(billBoardShader->shaderID, "instancePosition");
+
+    glEnableVertexAttribArray(inst_attrib);
+    glVertexAttribPointer(inst_attrib, 3, GL_FLOAT, GL_FALSE, 11 * sizeof(float), (void*)0);
+    glVertexAttribDivisor(inst_attrib, 1); // Instanced attribute
+
+
+    GLint id_attrib = glGetAttribLocation(billBoardShader->shaderID, "blockID");
+
+    glEnableVertexAttribArray(id_attrib);
+    glVertexAttribPointer(id_attrib, 1, GL_FLOAT, GL_FALSE, 11 * sizeof(float), (void*)(3*sizeof(float)));
+    glVertexAttribDivisor(id_attrib, 1); // Instanced attribute
+
+    GLint timecreated_attrib = glGetAttribLocation(billBoardShader->shaderID, "timeCreated");
+
+    glEnableVertexAttribArray(timecreated_attrib);
+    glVertexAttribPointer(timecreated_attrib, 1, GL_FLOAT, GL_FALSE, 11 * sizeof(float), (void*)(4*sizeof(float)));
+    glVertexAttribDivisor(timecreated_attrib, 1); // Instanced attribute
+
+    GLint lifetime_attrib = glGetAttribLocation(billBoardShader->shaderID, "lifetime");
+
+    glEnableVertexAttribArray(lifetime_attrib);
+    glVertexAttribPointer(lifetime_attrib, 1, GL_FLOAT, GL_FALSE, 11 * sizeof(float), (void*)(5*sizeof(float)));
+    glVertexAttribDivisor(lifetime_attrib, 1); // Instanced attribute
+
+
+    GLint destination_attrib = glGetAttribLocation(billBoardShader->shaderID, "destination");
+
+    glEnableVertexAttribArray(destination_attrib);
+    glVertexAttribPointer(destination_attrib, 3, GL_FLOAT, GL_FALSE, 11 * sizeof(float), (void*)(6*sizeof(float)));
+    glVertexAttribDivisor(destination_attrib, 1); // Instanced attribute
+
+    GLint gravity_attrib = glGetAttribLocation(billBoardShader->shaderID, "gravity");
+
+    glEnableVertexAttribArray(gravity_attrib);
+    glVertexAttribPointer(gravity_attrib, 1, GL_FLOAT, GL_FALSE, 11 * sizeof(float), (void*)(9*sizeof(float)));
+    glVertexAttribDivisor(gravity_attrib, 1); // Instanced attribute
+
+    GLint flooratdest_attrib = glGetAttribLocation(billBoardShader->shaderID, "floorAtDest");
+
+    glEnableVertexAttribArray(flooratdest_attrib);
+    glVertexAttribPointer(flooratdest_attrib, 1, GL_FLOAT, GL_FALSE, 11 * sizeof(float), (void*)(10*sizeof(float)));
+    glVertexAttribDivisor(flooratdest_attrib, 1); // Instanced attribute
+
+}
+
+void Game::bindBillBoardGeometryNoUpload(GLuint billposvbo) {
+
+     if(billqvbo == 0) {
+        glGenBuffers(1, &billqvbo);
+        static GLfloat quadVertices[] = {
+            // Positions    // Corner IDs
+            -3.0f, -3.0f, 0.0f, 0.0f,  // Corner 0
+            3.0f, -3.0f, 0.0f, 1.0f,  // Corner 1
+            3.0f,  3.0f, 0.0f, 2.0f,  // Corner 2
+            -3.0f,  3.0f, 0.0f, 3.0f   // Corner 3
+        }; 
+            // Quad vertices
+        glBindBuffer(GL_ARRAY_BUFFER, billqvbo);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), quadVertices, GL_STATIC_DRAW);
+
+        // Vertex position attribute
+        GLint posAttrib = glGetAttribLocation(billBoardShader->shaderID, "vertexPosition");
+        glEnableVertexAttribArray(posAttrib);
+        glVertexAttribPointer(posAttrib, 3, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), (void*)0);
+
+        // Corner ID attribute
+        GLint cornerAttrib = glGetAttribLocation(billBoardShader->shaderID, "cornerID");
+        glEnableVertexAttribArray(cornerAttrib);
+        glVertexAttribPointer(cornerAttrib, 1, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), (void*)(3 * sizeof(GLfloat)));
+    } else {
+        glBindBuffer(GL_ARRAY_BUFFER, billqvbo);
+
+        // Vertex position attribute
+        GLint posAttrib = glGetAttribLocation(billBoardShader->shaderID, "vertexPosition");
+        glEnableVertexAttribArray(posAttrib);
+        glVertexAttribPointer(posAttrib, 3, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), (void*)0);
+
+        // Corner ID attribute
+        GLint cornerAttrib = glGetAttribLocation(billBoardShader->shaderID, "cornerID");
+        glEnableVertexAttribArray(cornerAttrib);
+        glVertexAttribPointer(cornerAttrib, 1, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), (void*)(3 * sizeof(GLfloat)));
+    }
+
+
+    // Instance positions
+    glBindBuffer(GL_ARRAY_BUFFER, billposvbo);
+
+    GLint inst_attrib = glGetAttribLocation(billBoardShader->shaderID, "instancePosition");
+
+    glEnableVertexAttribArray(inst_attrib);
+    glVertexAttribPointer(inst_attrib, 3, GL_FLOAT, GL_FALSE, 11 * sizeof(float), (void*)0);
+    glVertexAttribDivisor(inst_attrib, 1); // Instanced attribute
+
+
+    GLint id_attrib = glGetAttribLocation(billBoardShader->shaderID, "blockID");
+
+    glEnableVertexAttribArray(id_attrib);
+    glVertexAttribPointer(id_attrib, 1, GL_FLOAT, GL_FALSE, 11 * sizeof(float), (void*)(3*sizeof(float)));
+    glVertexAttribDivisor(id_attrib, 1); // Instanced attribute
+
+    GLint timecreated_attrib = glGetAttribLocation(billBoardShader->shaderID, "timeCreated");
+
+    glEnableVertexAttribArray(timecreated_attrib);
+    glVertexAttribPointer(timecreated_attrib, 1, GL_FLOAT, GL_FALSE, 11 * sizeof(float), (void*)(4*sizeof(float)));
+    glVertexAttribDivisor(timecreated_attrib, 1); // Instanced attribute
+
+    GLint lifetime_attrib = glGetAttribLocation(billBoardShader->shaderID, "lifetime");
+
+    glEnableVertexAttribArray(lifetime_attrib);
+    glVertexAttribPointer(lifetime_attrib, 1, GL_FLOAT, GL_FALSE, 11 * sizeof(float), (void*)(5*sizeof(float)));
+    glVertexAttribDivisor(lifetime_attrib, 1); // Instanced attribute
+
+
+    GLint destination_attrib = glGetAttribLocation(billBoardShader->shaderID, "destination");
+
+    glEnableVertexAttribArray(destination_attrib);
+    glVertexAttribPointer(destination_attrib, 3, GL_FLOAT, GL_FALSE, 11 * sizeof(float), (void*)(6*sizeof(float)));
+    glVertexAttribDivisor(destination_attrib, 1); // Instanced attribute
+
+    GLint gravity_attrib = glGetAttribLocation(billBoardShader->shaderID, "gravity");
+
+    glEnableVertexAttribArray(gravity_attrib);
+    glVertexAttribPointer(gravity_attrib, 1, GL_FLOAT, GL_FALSE, 11 * sizeof(float), (void*)(9*sizeof(float)));
+    glVertexAttribDivisor(gravity_attrib, 1); // Instanced attribute
+
+    GLint flooratdest_attrib = glGetAttribLocation(billBoardShader->shaderID, "floorAtDest");
+
+    glEnableVertexAttribArray(flooratdest_attrib);
+    glVertexAttribPointer(flooratdest_attrib, 1, GL_FLOAT, GL_FALSE, 11 * sizeof(float), (void*)(10*sizeof(float)));
+    glVertexAttribDivisor(flooratdest_attrib, 1); // Instanced attribute
+
+}
+
+
+
+
+
+
 
 void Game::bindMenuGeometry(GLuint vbo, const float *data, size_t dataSize) {
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
