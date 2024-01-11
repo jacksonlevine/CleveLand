@@ -14,7 +14,6 @@
 #include "blockchunk.h"
 #include "geometrystore.h"
 #include "../util/textureface.h"
-#include <boost/lockfree/queue.hpp>
 
 
 class VoxelWorld {
