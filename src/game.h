@@ -138,10 +138,11 @@ public:
     void getAverageDelta();
 
     void drawParticles();
-    float determineFloorBelowHere(glm::vec3 here);
+    float determineFloorBelowHere(glm::vec3 here, BlockCoord goingAway);
 
     std::vector<glm::vec3> randomSpotsAroundCube(const glm::vec3& center, int count);
     void blockBreakParticles(BlockCoord here);
+    void cleanUpParticleDisplayData();
 
     Game();
 private:

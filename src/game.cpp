@@ -241,10 +241,14 @@ void Game::draw() {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glClearColor(0.639, 0.71, 1.0, 0.5);
 
+    
+
     glBindVertexArray(VAO);
     drawSky(0.0f, 0.0f, 1.0f, 1.0f,    1.2f, 1.2f, 1.8f, 1.0f, camera->pitch);
 
-    
+    drawParticles();
+
+    glBindVertexArray(VAO);
     if(currentGuiButtons != nullptr) {
         glUseProgram(menuShader->shaderID);
         glBindTexture(GL_TEXTURE_2D, menuTexture);
@@ -385,6 +389,7 @@ void Game::draw() {
     }
 
     if(inGame) {
+        
         glUseProgram(menuShader->shaderID);
         glBindTexture(GL_TEXTURE_2D, menuTexture);
 
@@ -401,8 +406,9 @@ void Game::draw() {
         GLuint ambBrightMultLoc = glGetUniformLocation(worldShader->shaderID, "ambientBrightMult");
 
         glUniform1f(ambBrightMultLoc, ambientBrightnessMult);
+        
         updateAndDrawSelectCube();
-        drawParticles();
+        
     }
 
 
@@ -923,8 +929,10 @@ void Game::castBreakRay() {
                 voxelWorld.userDataMap.insert_or_assign(rayResult.chunksToRebuild.front(), 
                 std::unordered_map<BlockCoord, unsigned int, IntTupHash>());
             }
+                   blockBreakParticles(rayResult.blockHit);
             voxelWorld.userDataMap.at(rayResult.chunksToRebuild.front()).insert_or_assign(rayResult.blockHit, 0);
 
+                
 
                 for(ChunkCoord& ccoord : rayResult.chunksToRebuild) {
                     auto chunkIt = voxelWorld.takenCareOfChunkSpots.find(ccoord);
@@ -933,7 +941,6 @@ void Game::castBreakRay() {
                       //  std::cout << "fucking index:" << chunkIt->second.geometryStorePoolIndex << "\n";
                        // voxelWorld.rebuildChunk(chunkIt->second, chunkIt->second.position, true);
 
-                       blockBreakParticles(rayResult.blockHit);
 
                        BlockChunk *chunk = chunkIt->second;
                        voxelWorld.deferredChunksMutex.lock();
@@ -1280,7 +1287,7 @@ void Game::initializeShaders() {
     );
     billBoardShader = std::make_unique<Shader>(
         R"glsl(
-            #version 450 core
+            #version 330 core
 
             layout(location = 0) in vec3 vertexPosition; // Quad vertex positions
             layout(location = 1) in float cornerID;    // Corner ID of quad
@@ -1292,7 +1299,7 @@ void Game::initializeShaders() {
             layout(location = 7) in float gravity;
             layout(location = 8) in float floorAtDest;
 
-            out vec2 TexCoord;
+            out vec2 tcoord;
             out float pPassed;
 
             uniform mat4 v;
@@ -1331,27 +1338,27 @@ void Game::initializeShaders() {
 
                 // Selecting UV based on cornerID
                 if (cornerID == 0.0) {
-                    TexCoord = baseUV;
+                    tcoord = baseUV;
                 } else if (cornerID == 1.0) {
-                    TexCoord = vec2(baseUV.x + (1.0f/64.0f), baseUV.y);
+                    tcoord = vec2(baseUV.x + (1.0f/64.0f), baseUV.y);
                 } else if (cornerID == 2.0) {
-                    TexCoord = vec2(baseUV.x + (1.0f/64.0f), baseUV.y + (1.0f/64.0f));
+                    tcoord = vec2(baseUV.x + (1.0f/64.0f), baseUV.y + (1.0f/64.0f));
                 } else if (cornerID == 3.0) {
-                    TexCoord = vec2(baseUV.x, baseUV.y + (1.0f/64.0f));
+                    tcoord = vec2(baseUV.x, baseUV.y + (1.0f/64.0f));
                 }
             }
         )glsl",
         R"glsl(
-            #version 450 core
-            in vec2 TexCoord;
+            #version 330 core
+            in vec2 tcoord;
             in float pPassed;
             out vec4 FragColor;
             uniform sampler2D ourTexture;
 
             void main()
             {
-                vec4 texColor = texture(ourTexture, TexCoord);
-
+                vec4 texColor = texture(ourTexture, tcoord);
+                FragColor = texColor;
                 if(texColor.a < 0.1) {
                     discard;
                 }
@@ -1372,7 +1379,7 @@ std::vector<glm::vec3> Game::randomSpotsAroundCube(const glm::vec3& center, int 
 
     std::random_device rd;
     std::mt19937 gen(rd());
-    std::uniform_real_distribution<float> dis(-0.5f, 0.5f);
+    std::uniform_real_distribution<float> dis(-0.4f, 0.4f);
 
     for (int i = 0; i < count; ++i) {
         glm::vec3 randomVec;
@@ -1382,40 +1389,60 @@ std::vector<glm::vec3> Game::randomSpotsAroundCube(const glm::vec3& center, int 
         randomVecs.push_back(randomVec);
     }
 
+    //std::cout << "returned a vec of " << randomVecs.size() << "size" << "\n";
+
     return randomVecs;
 }
 
 void Game::blockBreakParticles(BlockCoord here) {
-    glm::vec3 center(here.x, here.y, here.z);
+    glm::vec3 center(here.x, here.y+0.5f, here.z);
     std::vector<glm::vec3> spots = randomSpotsAroundCube(center, 25);
 
     int blockID = voxelWorld.blockAt(here);
 
 
     for(glm::vec3 &spot : spots) {
-        glm::vec3 dir = spot - center;
-        glm::vec3 dest = spot + dir * 1.0f;
+        glm::vec3 dir = (spot - center);
+        if (dir.y > 0) {
+            // Flip the y-component to make it face downward
+            dir.y = -dir.y;
+        }
+        glm::vec3 dest = spot + dir * 2.0f;
 
-        float floorAtDest = determineFloorBelowHere(dest);
-        float lifetime = 2.0f;
+        float floorAtDest = determineFloorBelowHere(dest, here);
+        float lifetime = 3.0f;
         float timeCreated = static_cast<float>(glfwGetTime());
-        float gravity = 2.0f;
+        float gravity = 8.0f;
 
         particleDisplayData.insert(particleDisplayData.end(), {
             spot.x, spot.y, spot.z, static_cast<float>(blockID), timeCreated, lifetime, dest.x, dest.y, dest.z, gravity, floorAtDest
         });
+
+        // std::cout << spot.x << " " <<  spot.y << " " << spot.z << " "  << static_cast<float>(blockID) << " " << timeCreated << " " << lifetime << " " << dest.x << " " <<  dest.y << " " << 
+        //  dest.z << " " << gravity << " " <<  floorAtDest << "\n";
     }
     particlesUploaded = false;
 }
 
-float Game::determineFloorBelowHere(glm::vec3 here) {
+void Game::cleanUpParticleDisplayData() {
+
+    for(int i = 0; i < particleDisplayData.size(); i+= 11) {
+        float timeCreated = particleDisplayData[i+4];
+        float lifetime = particleDisplayData[i+5];
+        if(glfwGetTime() - timeCreated > lifetime) {
+
+        }
+    }
+}
+
+float Game::determineFloorBelowHere(glm::vec3 here, BlockCoord goingAway) {
     BlockCoord hereb(
         std::round(here.x),
         std::round(here.y),
         std::round(here.z)
     );
 
-    while(voxelWorld.blockAt(hereb) == 0) {
+    while(voxelWorld.blockAt(hereb) == 0 || hereb == goingAway || hereb.y >= goingAway.y) {
         hereb += BlockCoord(0, -1, 0);
     }
 
@@ -1423,7 +1450,6 @@ float Game::determineFloorBelowHere(glm::vec3 here) {
 }
 
 void Game::drawParticles() {
-    
     glBindVertexArray(VAO2);
     glUseProgram(billBoardShader->shaderID);
     glBindTexture(GL_TEXTURE_2D, worldTexture);
@@ -1444,6 +1470,7 @@ void Game::drawParticles() {
     static GLuint billposvbo = 0;
 
     if(particleDisplayData.size() > 0) {
+       // std::cout << particleDisplayData.size() << "\n";
 
         if(!particlesUploaded) {
             glDeleteBuffers(1, &billposvbo);
@@ -1463,14 +1490,16 @@ void Game::drawParticles() {
 
 void Game::bindBillBoardGeometry(GLuint billposvbo, std::vector<float> &billinstances) {
 
+
+
     if(billqvbo == 0) {
         glGenBuffers(1, &billqvbo);
         static float quadVertices[] = {
             // Positions    // Corner IDs
-            -3.0f, -3.0f, 0.0f, 0.0f,  // Corner 0
-            3.0f, -3.0f, 0.0f, 1.0f,  // Corner 1
-            3.0f,  3.0f, 0.0f, 2.0f,  // Corner 2
-            -3.0f,  3.0f, 0.0f, 3.0f   // Corner 3
+            -0.1f, -0.1f, 0.0f, 0.0f,  // Corner 0
+            0.1f, -0.1f, 0.0f, 1.0f,  // Corner 1
+            0.1f,  0.1f, 0.0f, 2.0f,  // Corner 2
+            -0.1f,  0.1f, 0.0f, 3.0f   // Corner 3
         }; 
             // Quad vertices
         glBindBuffer(GL_ARRAY_BUFFER, billqvbo);
@@ -1556,10 +1585,10 @@ void Game::bindBillBoardGeometryNoUpload(GLuint billposvbo) {
         glGenBuffers(1, &billqvbo);
         static float quadVertices[] = {
             // Positions    // Corner IDs
-            -3.0f, -3.0f, 0.0f, 0.0f,  // Corner 0
-            3.0f, -3.0f, 0.0f, 1.0f,  // Corner 1
-            3.0f,  3.0f, 0.0f, 2.0f,  // Corner 2
-            -3.0f,  3.0f, 0.0f, 3.0f   // Corner 3
+            -0.1f, -0.1f, 0.0f, 0.0f,  // Corner 0
+            0.1f, -0.1f, 0.0f, 1.0f,  // Corner 1
+            0.1f,  0.1f, 0.0f, 2.0f,  // Corner 2
+            -0.1f,  0.1f, 0.0f, 3.0f   // Corner 3
         }; 
             // Quad vertices
         glBindBuffer(GL_ARRAY_BUFFER, billqvbo);
