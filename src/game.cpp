@@ -69,7 +69,7 @@ grounded(true)
         drawSplashScreen();
         glfwPollEvents();
         updateTime();
-        if(timer > 5.0f) {
+        if(timer > 2.0f) {
             loopFunc = &normalFunc;
         } else {
             timer += deltaTime;
@@ -1465,7 +1465,7 @@ void Game::bindBillBoardGeometry(GLuint billposvbo, std::vector<float> &billinst
 
     if(billqvbo == 0) {
         glGenBuffers(1, &billqvbo);
-        static GLfloat quadVertices[] = {
+        static float quadVertices[] = {
             // Positions    // Corner IDs
             -3.0f, -3.0f, 0.0f, 0.0f,  // Corner 0
             3.0f, -3.0f, 0.0f, 1.0f,  // Corner 1
@@ -1479,30 +1479,30 @@ void Game::bindBillBoardGeometry(GLuint billposvbo, std::vector<float> &billinst
         // Vertex position attribute
         GLint posAttrib = glGetAttribLocation(billBoardShader->shaderID, "vertexPosition");
         glEnableVertexAttribArray(posAttrib);
-        glVertexAttribPointer(posAttrib, 3, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), (void*)0);
+        glVertexAttribPointer(posAttrib, 3, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
 
         // Corner ID attribute
         GLint cornerAttrib = glGetAttribLocation(billBoardShader->shaderID, "cornerID");
         glEnableVertexAttribArray(cornerAttrib);
-        glVertexAttribPointer(cornerAttrib, 1, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), (void*)(3 * sizeof(GLfloat)));
+        glVertexAttribPointer(cornerAttrib, 1, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(3 * sizeof(float)));
     } else {
         glBindBuffer(GL_ARRAY_BUFFER, billqvbo);
 
         // Vertex position attribute
         GLint posAttrib = glGetAttribLocation(billBoardShader->shaderID, "vertexPosition");
         glEnableVertexAttribArray(posAttrib);
-        glVertexAttribPointer(posAttrib, 3, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), (void*)0);
+        glVertexAttribPointer(posAttrib, 3, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
 
         // Corner ID attribute
         GLint cornerAttrib = glGetAttribLocation(billBoardShader->shaderID, "cornerID");
         glEnableVertexAttribArray(cornerAttrib);
-        glVertexAttribPointer(cornerAttrib, 1, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), (void*)(3 * sizeof(GLfloat)));
+        glVertexAttribPointer(cornerAttrib, 1, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(3 * sizeof(float)));
     }
 
 
     // Instance positions
     glBindBuffer(GL_ARRAY_BUFFER, billposvbo);
-    glBufferData(GL_ARRAY_BUFFER, billinstances.size() * sizeof(GLfloat), billinstances.data(), GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, billinstances.size() * sizeof(float), billinstances.data(), GL_STATIC_DRAW);
 
     GLint inst_attrib = glGetAttribLocation(billBoardShader->shaderID, "instancePosition");
 
@@ -1554,7 +1554,7 @@ void Game::bindBillBoardGeometryNoUpload(GLuint billposvbo) {
 
      if(billqvbo == 0) {
         glGenBuffers(1, &billqvbo);
-        static GLfloat quadVertices[] = {
+        static float quadVertices[] = {
             // Positions    // Corner IDs
             -3.0f, -3.0f, 0.0f, 0.0f,  // Corner 0
             3.0f, -3.0f, 0.0f, 1.0f,  // Corner 1
@@ -1568,24 +1568,24 @@ void Game::bindBillBoardGeometryNoUpload(GLuint billposvbo) {
         // Vertex position attribute
         GLint posAttrib = glGetAttribLocation(billBoardShader->shaderID, "vertexPosition");
         glEnableVertexAttribArray(posAttrib);
-        glVertexAttribPointer(posAttrib, 3, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), (void*)0);
+        glVertexAttribPointer(posAttrib, 3, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
 
         // Corner ID attribute
         GLint cornerAttrib = glGetAttribLocation(billBoardShader->shaderID, "cornerID");
         glEnableVertexAttribArray(cornerAttrib);
-        glVertexAttribPointer(cornerAttrib, 1, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), (void*)(3 * sizeof(GLfloat)));
+        glVertexAttribPointer(cornerAttrib, 1, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(3 * sizeof(float)));
     } else {
         glBindBuffer(GL_ARRAY_BUFFER, billqvbo);
 
         // Vertex position attribute
         GLint posAttrib = glGetAttribLocation(billBoardShader->shaderID, "vertexPosition");
         glEnableVertexAttribArray(posAttrib);
-        glVertexAttribPointer(posAttrib, 3, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), (void*)0);
+        glVertexAttribPointer(posAttrib, 3, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
 
         // Corner ID attribute
         GLint cornerAttrib = glGetAttribLocation(billBoardShader->shaderID, "cornerID");
         glEnableVertexAttribArray(cornerAttrib);
-        glVertexAttribPointer(cornerAttrib, 1, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), (void*)(3 * sizeof(GLfloat)));
+        glVertexAttribPointer(cornerAttrib, 1, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(3 * sizeof(float)));
     }
 
 
