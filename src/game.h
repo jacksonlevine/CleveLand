@@ -14,6 +14,7 @@
 #include "util/collisioncage.h"
 #include "gui/hud.h"
 #include <random>
+#include "util/particle.h"
 
 #define GRAV 7.0
 
@@ -62,7 +63,7 @@ public:
     std::string currentSingleplayerWorldPath;
 
 
-    std::vector<float> particleDisplayData;
+    std::vector<Particle> particleDisplayData;
     inline static bool particlesUploaded = false;
 
     void initializeShaders();
@@ -91,7 +92,7 @@ public:
     void bindWorldGeometryNoUpload(GLuint vbov, GLuint vbouv);
      void bindWireFrameGeometry(GLuint vbov, const float *vdata,  size_t vsize);
     void bindWireFrameGeometryNoUpload(GLuint vbov);
-    void bindBillBoardGeometry(GLuint billposvbo, std::vector<float> &billinstances);
+    void bindBillBoardGeometry(GLuint billposvbo, std::vector<Particle> &billinstances);
     void bindBillBoardGeometryNoUpload(GLuint billposvbo);
 
     void frameBufferSizeCallback(GLFWwindow *window, int width, int height);
@@ -143,6 +144,8 @@ public:
     std::vector<glm::vec3> randomSpotsAroundCube(const glm::vec3& center, int count);
     void blockBreakParticles(BlockCoord here);
     void cleanUpParticleDisplayData();
+
+    void runPeriodicTick();
 
     Game();
 private:

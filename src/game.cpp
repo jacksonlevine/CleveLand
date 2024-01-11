@@ -49,6 +49,7 @@ grounded(true)
 
             glfwPollEvents();
             updateTime();
+            runPeriodicTick();
 
             if(inGame) {
                 voxelWorld.runStep(deltaTime);
@@ -1314,9 +1315,9 @@ void Game::initializeShaders() {
 
                 float percentPassed = min(timePassed/lifetime, 1.0f);
 
-                vec3 realPosition = mix(instancePosition, destination, percentPassed);
+                vec3 realPosition = mix(instancePosition, destination, min(1.0f, percentPassed*5.0f));
 
-                realPosition.y = mix(destination.y, floorAtDest, min(percentPassed*gravity, 1.0f));
+                realPosition.y = max( floorAtDest, realPosition.y - timePassed * gravity);
 
                 pPassed = percentPassed;
 
@@ -1379,7 +1380,7 @@ std::vector<glm::vec3> Game::randomSpotsAroundCube(const glm::vec3& center, int 
 
     std::random_device rd;
     std::mt19937 gen(rd());
-    std::uniform_real_distribution<float> dis(-0.4f, 0.4f);
+    std::uniform_real_distribution<float> dis(-0.3f, 0.3f);
 
     for (int i = 0; i < count; ++i) {
         glm::vec3 randomVec;
@@ -1395,28 +1396,32 @@ std::vector<glm::vec3> Game::randomSpotsAroundCube(const glm::vec3& center, int 
 }
 
 void Game::blockBreakParticles(BlockCoord here) {
-    glm::vec3 center(here.x, here.y+0.5f, here.z);
+    glm::vec3 center(here.x, here.y, here.z);
     std::vector<glm::vec3> spots = randomSpotsAroundCube(center, 25);
 
     int blockID = voxelWorld.blockAt(here);
 
 
     for(glm::vec3 &spot : spots) {
-        glm::vec3 dir = (spot - center);
-        if (dir.y > 0) {
-            // Flip the y-component to make it face downward
-            dir.y = -dir.y;
-        }
-        glm::vec3 dest = spot + dir * 2.0f;
+        glm::vec3 dir = (spot - (center - glm::vec3(0.0, 0.7, 0.0)));
+        glm::vec3 dest = spot + dir * 3.0f;
 
         float floorAtDest = determineFloorBelowHere(dest, here);
         float lifetime = 3.0f;
         float timeCreated = static_cast<float>(glfwGetTime());
         float gravity = 8.0f;
 
-        particleDisplayData.insert(particleDisplayData.end(), {
-            spot.x, spot.y, spot.z, static_cast<float>(blockID), timeCreated, lifetime, dest.x, dest.y, dest.z, gravity, floorAtDest
-        });
+        particleDisplayData.push_back(
+            Particle {
+            glm::vec3(spot.x, spot.y, spot.z), 
+            static_cast<float>(blockID), 
+            timeCreated,
+            lifetime, 
+            glm::vec3(dest.x, dest.y, dest.z),
+            gravity, 
+            floorAtDest
+            }
+        );
 
         // std::cout << spot.x << " " <<  spot.y << " " << spot.z << " "  << static_cast<float>(blockID) << " " << timeCreated << " " << lifetime << " " << dest.x << " " <<  dest.y << " " << 
         //  dest.z << " " << gravity << " " <<  floorAtDest << "\n";
@@ -1424,15 +1429,30 @@ void Game::blockBreakParticles(BlockCoord here) {
     particlesUploaded = false;
 }
 
+void Game::runPeriodicTick() {
+    static float timer = 0.0f;
+    if(timer > 2.0f) {
+        cleanUpParticleDisplayData();
+        timer = 0.0f;
+    } else {
+        timer += deltaTime;
+    }
+}
+
 void Game::cleanUpParticleDisplayData() {
 
-    for(int i = 0; i < particleDisplayData.size(); i+= 11) {
-        float timeCreated = particleDisplayData[i+4];
-        float lifetime = particleDisplayData[i+5];
-        if(glfwGetTime() - timeCreated > lifetime) {
-
+    for (int i = 0; i < particleDisplayData.size(); ) {
+        float timeCreated = particleDisplayData[i].timeCreated;
+        float lifetime = particleDisplayData[i].lifetime;
+        if (glfwGetTime() - timeCreated > lifetime) {
+            // Erase this particle
+            particleDisplayData.erase(particleDisplayData.begin() + i);
+        } else {
+            // move on to the next particle
+            i++;
         }
     }
+    particlesUploaded = false;
 }
 
 float Game::determineFloorBelowHere(glm::vec3 here, BlockCoord goingAway) {
@@ -1470,7 +1490,7 @@ void Game::drawParticles() {
     static GLuint billposvbo = 0;
 
     if(particleDisplayData.size() > 0) {
-       // std::cout << particleDisplayData.size() << "\n";
+       //std::cout << particleDisplayData.size() << "\n";
 
         if(!particlesUploaded) {
             glDeleteBuffers(1, &billposvbo);
@@ -1481,14 +1501,14 @@ void Game::drawParticles() {
         } else {
             bindBillBoardGeometryNoUpload(billposvbo);
         }
-        glDrawArraysInstanced(GL_TRIANGLE_FAN, 0, 4, particleDisplayData.size() / 11);
+        glDrawArraysInstanced(GL_TRIANGLE_FAN, 0, 4, particleDisplayData.size());
     }
     glBindVertexArray(0);
 }
 
 
 
-void Game::bindBillBoardGeometry(GLuint billposvbo, std::vector<float> &billinstances) {
+void Game::bindBillBoardGeometry(GLuint billposvbo, std::vector<Particle> &billinstances) {
 
 
 
@@ -1531,7 +1551,7 @@ void Game::bindBillBoardGeometry(GLuint billposvbo, std::vector<float> &billinst
 
     // Instance positions
     glBindBuffer(GL_ARRAY_BUFFER, billposvbo);
-    glBufferData(GL_ARRAY_BUFFER, billinstances.size() * sizeof(float), billinstances.data(), GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, billinstances.size() * sizeof(Particle), billinstances.data(), GL_STATIC_DRAW);
 
     GLint inst_attrib = glGetAttribLocation(billBoardShader->shaderID, "instancePosition");
 
