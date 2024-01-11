@@ -928,7 +928,10 @@ void Game::castBreakRay() {
                     if(chunkIt != voxelWorld.takenCareOfChunkSpots.end()) {
                         //std::cout << "it's here" << "\n";
                       //  std::cout << "fucking index:" << chunkIt->second.geometryStorePoolIndex << "\n";
-                        voxelWorld.rebuildChunk(chunkIt->second, chunkIt->second.position, true);
+                       // voxelWorld.rebuildChunk(chunkIt->second, chunkIt->second.position, true);
+                       voxelWorld.deferredChunksMutex.lock();
+                       voxelWorld.deferredChunksToRebuild.push_back(chunkIt->second);
+                       voxelWorld.deferredChunksMutex.unlock();
                     }
                 }
         }
@@ -987,7 +990,7 @@ void Game::castPlaceRay() {
                     if(chunkIt != voxelWorld.takenCareOfChunkSpots.end()) {
                         //std::cout << "it's here" << "\n";
                       //  std::cout << "fucking index:" << chunkIt->second.geometryStorePoolIndex << "\n";
-                        voxelWorld.rebuildChunk(chunkIt->second, chunkIt->second.position, true);
+                        voxelWorld.rebuildChunk(chunkIt->second, chunkIt->second->position, true);
 
                      }
 

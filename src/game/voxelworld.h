@@ -14,6 +14,7 @@
 #include "blockchunk.h"
 #include "geometrystore.h"
 #include "../util/textureface.h"
+#include <boost/lockfree/queue.hpp>
 
 
 class VoxelWorld {
@@ -27,7 +28,7 @@ public:
 
     std::unordered_map<
         ChunkCoord,
-        BlockChunk&,
+        BlockChunk*,
         IntTupHash
     >                   takenCareOfChunkSpots;
 
@@ -51,14 +52,19 @@ public:
 
     void populateChunksAndGeometryStores(entt::registry &registry, int viewDistance);
 
-    void rebuildChunk(BlockChunk &chunk, ChunkCoord newPosition, bool immediateInPlace);
+    void rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool immediateInPlace);
 
     void chunkUpdateThreadFunction(int* loadRadius);
 
+    std::vector<BlockChunk*> getPreferredChunkPtrList(int loadRadius, ChunkCoord& cameraChunkPos);
+
     std::vector<unsigned int> geometryStoresToRebuild;
     std::vector<unsigned int> highPriorityGeometryStoresToRebuild;
-    //std::vector<BlockChunk&> deferredChunksToRebuild;
 
+    std::mutex deferredChunksMutex;
+    std::vector<BlockChunk*> deferredChunksToRebuild;
+
+    
     inline static bool shouldTryReload = false;
 
 
