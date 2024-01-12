@@ -1999,7 +1999,9 @@ void Game::drawBlockOverlay() {
             }
         } else {
             castBreakRay();
-            blockOverlayShowing = false;
+            if(!displayingSelectCube) {
+                blockOverlayShowing = false;
+            }
             blockBreakingTimer = 0.0f;
         }
     }
