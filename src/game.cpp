@@ -1312,30 +1312,33 @@ void Game::initializeShaders() {
             void main() {
 
                 float timePassed = time - timeCreated;
+                
 
-                float percentPassed = min(timePassed/lifetime, 1.0f);
+                float percentPassed = min(timePassed/3.0f, 1.0f);
 
                 vec3 realPosition = mix(instancePosition, destination, min(1.0f, percentPassed*5.0f));
 
                 realPosition.y = max( floorAtDest, realPosition.y - timePassed * gravity);
-
-                pPassed = percentPassed;
 
                 // Calculate the billboard orientation
                 vec3 look = normalize(realPosition - camPos); // Direction from camera to quad
                 vec3 right = normalize(cross(vec3(0.0, 1.0, 0.0), look)); // Right vector
                 vec3 up = cross(look, right); // Up vector
 
+                pPassed = min(timePassed/lifetime, 1.0f);
+
 
                 // Apply billboard transformation
                 vec3 billboardedPosition = realPosition + (vertexPosition.x * right + vertexPosition.y * up);
 
+                float distance = pow(distance(instancePosition, camPos)/(5), 2)/5.0f;
+
                 // Transform position to clip space
-                gl_Position = p * v * m * vec4(billboardedPosition, 1.0);
+                gl_Position = p * v * m * vec4(billboardedPosition - vec3(0.0f, distance, 0.0f), 1.0);
 
 
 
-                vec2 baseUV = vec2(mod(blockID, 16.0f)/16.0f, floor(blockID/16.0f));
+                vec2 baseUV = vec2(mod(blockID, 16.0f)/16.0f, 1.0f - floor(blockID/16.0f));
 
                 // Selecting UV based on cornerID
                 if (cornerID == 0.0) {
@@ -1343,9 +1346,9 @@ void Game::initializeShaders() {
                 } else if (cornerID == 1.0) {
                     tcoord = vec2(baseUV.x + (1.0f/64.0f), baseUV.y);
                 } else if (cornerID == 2.0) {
-                    tcoord = vec2(baseUV.x + (1.0f/64.0f), baseUV.y + (1.0f/64.0f));
+                    tcoord = vec2(baseUV.x + (1.0f/64.0f), baseUV.y - (1.0f/64.0f));
                 } else if (cornerID == 3.0) {
-                    tcoord = vec2(baseUV.x, baseUV.y + (1.0f/64.0f));
+                    tcoord = vec2(baseUV.x, baseUV.y - (1.0f/64.0f));
                 }
             }
         )glsl",
@@ -1363,11 +1366,9 @@ void Game::initializeShaders() {
                 if(texColor.a < 0.1) {
                     discard;
                 }
-
                 if(pPassed >= 1.0f) {
                     discard;
                 }
-
             }
 
         )glsl",
@@ -1397,9 +1398,38 @@ std::vector<glm::vec3> Game::randomSpotsAroundCube(const glm::vec3& center, int 
 
 void Game::blockBreakParticles(BlockCoord here) {
     glm::vec3 center(here.x, here.y, here.z);
-    std::vector<glm::vec3> spots = randomSpotsAroundCube(center, 25);
+    std::vector<glm::vec3> spots = randomSpotsAroundCube(center, 15);
 
     int blockID = voxelWorld.blockAt(here);
+
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_real_distribution<float> dis(-1.0f, 1.0f);
+    
+    float time = static_cast<float>(glfwGetTime());
+    for(Particle &particle : particleDisplayData) {
+
+        BlockCoord possiblyThisBlock(
+            std::round(particle.destination.x),
+            std::round(particle.floorAtDest-0.5f),
+            std::round(particle.destination.z)
+        );
+        if(possiblyThisBlock == here) {
+
+            float timePassed = time - particle.timeCreated;
+            float percentPassed = std::min(timePassed/3.0f, 1.0f);
+            glm::vec3 realPosition = glm::mix(particle.position, particle.destination, std::min(1.0f, percentPassed*5.0f));
+
+            realPosition.y = std::max(particle.floorAtDest, realPosition.y - timePassed * particle.gravity);
+            
+            float newFloorAtDest = determineFloorBelowHere(center, here);
+            particle.floorAtDest = newFloorAtDest;
+            particle.position = realPosition;
+            particle.destination = realPosition+glm::vec3(0, 0.5, 0);
+            particle.timeCreated = time;
+            particle.lifetime = std::max(particle.lifetime - timePassed, 0.1f);
+        }
+    }
 
 
     for(glm::vec3 &spot : spots) {
@@ -1407,7 +1437,7 @@ void Game::blockBreakParticles(BlockCoord here) {
         glm::vec3 dest = spot + dir * 3.0f;
 
         float floorAtDest = determineFloorBelowHere(dest, here);
-        float lifetime = 3.0f;
+        float lifetime = 2.0f + dis(gen);
         float timeCreated = static_cast<float>(glfwGetTime());
         float gravity = 8.0f;
 
@@ -1829,7 +1859,7 @@ void Game::stepTextureAnim() {
     //Water
     glm::ivec4 baseColor(0, 45, 100, 210);
     glm::ivec2 coord(0,0);
-    int startY = 270, startX = 18, squareSize = 18;
+    int startY = 270, startX = 36, squareSize = 18;
     for(int y = startY; y < startY + squareSize; ++y) {
         for(int x = startX; x < startX + squareSize; ++x) {
             int i = (y * width + x) * chans;
