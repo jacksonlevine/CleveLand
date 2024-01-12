@@ -246,8 +246,9 @@ void Game::draw() {
 
     glBindVertexArray(VAO);
     drawSky(0.0f, 0.0f, 1.0f, 1.0f,    1.2f, 1.2f, 1.8f, 1.0f, camera->pitch);
-
+    
     drawParticles();
+
 
     glBindVertexArray(VAO);
     if(currentGuiButtons != nullptr) {
@@ -404,12 +405,11 @@ void Game::draw() {
         glDrawArrays(GL_TRIANGLES, 0, hud->displayData.size()/5);
 
         stepChunkDraw();
-        GLuint ambBrightMultLoc = glGetUniformLocation(worldShader->shaderID, "ambientBrightMult");
 
-        glUniform1f(ambBrightMultLoc, ambientBrightnessMult);
         
+        glBindVertexArray(VAO);
         updateAndDrawSelectCube();
-        
+        drawBlockOverlay();
     }
 
 
@@ -439,7 +439,9 @@ void Game::stepChunkDraw() {
 
     GLuint viewDistLoc = glGetUniformLocation(worldShader->shaderID, "viewDistance");
     glUniform1f(viewDistLoc, viewDistance);
+    GLuint ambBrightMultLoc = glGetUniformLocation(worldShader->shaderID, "ambientBrightMult");
 
+    glUniform1f(ambBrightMultLoc, ambientBrightnessMult);
     voxelWorld.cameraPosition = camera->position;
     voxelWorld.cameraDirection = camera->direction;
     if(voxelWorld.highPriorityGeometryStoresToRebuild.size() > 0) {
@@ -896,13 +898,23 @@ void Game::mouseButtonCallback(GLFWwindow *window, int button, int action, int m
 
         if(inGame && camera->focused) {
             if(button == GLFW_MOUSE_BUTTON_LEFT)
-                castBreakRay();
+            {
+                blockOverlayShowing = true;
+                blockBreakingTimer = 0.0f;
+            }
+                
             if(button == GLFW_MOUSE_BUTTON_RIGHT)
                 castPlaceRay();
         }
 
         clickedOnElement = mousedOverElement;
     } else {
+
+        if(inGame && camera->focused) {
+            if(button == GLFW_MOUSE_BUTTON_LEFT)
+                blockOverlayShowing = false;
+        }
+
         if(currentGuiButtons != nullptr) {
             for(auto &button : *currentGuiButtons) {
                 if(button.elementID == clickedOnElement) {
@@ -930,7 +942,7 @@ void Game::castBreakRay() {
                 voxelWorld.userDataMap.insert_or_assign(rayResult.chunksToRebuild.front(), 
                 std::unordered_map<BlockCoord, unsigned int, IntTupHash>());
             }
-                   blockBreakParticles(rayResult.blockHit);
+                   blockBreakParticles(rayResult.blockHit, 15);
             voxelWorld.userDataMap.at(rayResult.chunksToRebuild.front()).insert_or_assign(rayResult.blockHit, 0);
 
                 
@@ -1374,6 +1386,48 @@ void Game::initializeShaders() {
         )glsl",
         "billBoardShader"
     );
+    blockOverlayShader = std::make_unique<Shader>(
+        R"glsl(
+            #version 330 core
+            layout (location = 0) in vec3 position;
+            layout (location = 1) in vec2 uv;
+
+            out vec2 TexCoord;
+
+            uniform mat4 mvp;
+            uniform vec3 camPos;
+
+            uniform vec3 blockPosition;
+            uniform float breakPhase;
+
+            void main()
+            {
+                
+                float distance = pow(distance(blockPosition, camPos)/(5), 2)/5.0f;
+
+                gl_Position = mvp * vec4((position + blockPosition) - vec3(0.0f, distance, 0.0f), 1.0);
+
+
+                TexCoord = uv + vec2(breakPhase/16.0f, 0);
+
+            }
+        )glsl",
+        R"glsl(
+            #version 330 core
+            in vec2 TexCoord;
+            out vec4 FragColor;
+            uniform sampler2D ourTexture;
+            void main()
+            {
+                vec4 texColor = texture(ourTexture, TexCoord);
+                FragColor = texColor;
+                if(FragColor.a == 0.0f) {
+                    discard;
+                }
+            }
+        )glsl",
+        "blockOverlayShader"
+    );
 }
 
 std::vector<glm::vec3> Game::randomSpotsAroundCube(const glm::vec3& center, int count) {
@@ -1396,9 +1450,9 @@ std::vector<glm::vec3> Game::randomSpotsAroundCube(const glm::vec3& center, int 
     return randomVecs;
 }
 
-void Game::blockBreakParticles(BlockCoord here) {
+void Game::blockBreakParticles(BlockCoord here, int count) {
     glm::vec3 center(here.x, here.y, here.z);
-    std::vector<glm::vec3> spots = randomSpotsAroundCube(center, 15);
+    std::vector<glm::vec3> spots = randomSpotsAroundCube(center, count);
 
     int blockID = voxelWorld.blockAt(here);
 
@@ -1790,6 +1844,166 @@ void Game::bindWorldGeometry(GLuint vbov, GLuint vbouv, const float *vdata, cons
     GLint uvAttrib = glGetAttribLocation(worldShader->shaderID, "uv");
     glEnableVertexAttribArray(uvAttrib);
     glVertexAttribPointer(uvAttrib, 2, GL_FLOAT, GL_FALSE, 0, 0);
+}
+
+void Game::bindBlockOverlayGeometry() {
+    GLenum error;
+    if(BOVAO == 0) {
+        glGenVertexArrays(1, &BOVAO);
+    }
+    glBindVertexArray(BOVAO);
+    glUseProgram(blockOverlayShader->shaderID);
+    TextureFace face(0, 15);
+    static std::vector<float> faces2 = {
+
+        -0.51f, -0.5f, 0.5f, face.bl.x, face.bl.y,
+        -0.51f, -0.5f, -0.5f, face.br.x, face.br.y,
+        -0.51f, 0.5f, -0.5f, face.tr.x, face.tr.y,
+
+        -0.51f, 0.5f, -0.5f, face.tr.x, face.tr.y,
+        -0.51f, 0.5f, 0.5f, face.tl.x, face.tl.y,
+        -0.51f, -0.5f, 0.5f, face.bl.x, face.bl.y,
+
+                0.51f, -0.5f, -0.5f, face.bl.x, face.bl.y,
+                0.51f, -0.5f, 0.5f, face.br.x, face.br.y,
+                0.51f, 0.5f, 0.5f,face.tr.x, face.tr.y,
+
+                0.51f, 0.5f, 0.5f, face.tr.x, face.tr.y,
+                0.51f, 0.5f, -0.5f, face.tl.x, face.tl.y,
+                0.51f, -0.5f, -0.5f,face.bl.x, face.bl.y,
+
+        0.5f, -0.5f, 0.51f, face.bl.x, face.bl.y,
+        -0.5f, -0.5f, 0.51f,face.br.x, face.br.y,
+        -0.5f, 0.5f, 0.51f,face.tr.x, face.tr.y,
+
+        -0.5f, 0.5f, 0.51f, face.tr.x, face.tr.y,
+        0.5f, 0.5f, 0.51f, face.tl.x, face.tl.y,
+        0.5f, -0.5f, 0.51f, face.bl.x, face.bl.y,
+
+                -0.5f, -0.5f, -0.51f, face.bl.x, face.bl.y,
+                0.5f, -0.5f, -0.51f,face.br.x, face.br.y,
+                0.5f, 0.5f, -0.51f,face.tr.x, face.tr.y,
+
+                0.5f, 0.5f, -0.51f, face.tr.x, face.tr.y,
+                -0.5f, 0.5f, -0.51f, face.tl.x, face.tl.y,
+                -0.5f, -0.5f, -0.51f,face.bl.x, face.bl.y,
+
+        -0.5f, 0.51f, -0.5f, face.bl.x, face.bl.y,
+        0.5f, 0.51f, -0.5f,face.br.x, face.br.y,
+        0.5f, 0.51f, 0.5f,face.tr.x, face.tr.y,
+
+        0.5f, 0.51f, 0.5f, face.tr.x, face.tr.y,
+        -0.5f, 0.51f, 0.5f, face.tl.x, face.tl.y,
+        -0.5f, 0.51f, -0.5f,face.bl.x, face.bl.y,
+
+                0.5f, -0.51f, -0.5f, face.bl.x, face.bl.y,
+                -0.5f, -0.51f, -0.5f,face.br.x, face.br.y,
+                -0.5f, -0.51f, 0.5f,face.tr.x, face.tr.y,
+
+                -0.5f, -0.51f, 0.5f, face.tr.x, face.tr.y,
+                0.5f, -0.51f, 0.5f, face.tl.x, face.tl.y,
+                0.5f, -0.51f, -0.5f,face.bl.x, face.bl.y
+    };
+
+        
+
+
+    glBindBuffer(GL_ARRAY_BUFFER, bovbo);
+    glBufferData(GL_ARRAY_BUFFER, faces2.size() * sizeof(float), faces2.data(), GL_STATIC_DRAW);
+error = glGetError();
+    if (error != GL_NO_ERROR)
+    {
+        std::cerr << "Bind bo geom err (vbov): " << error << std::endl;
+    }
+    GLint posAttrib = glGetAttribLocation(blockOverlayShader->shaderID, "position");
+    glEnableVertexAttribArray(posAttrib);
+    glVertexAttribPointer(posAttrib, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), 0);
+error = glGetError();
+    if (error != GL_NO_ERROR)
+    {
+        std::cerr << "Bind bo geom err (vbov): " << error << std::endl;
+    }
+    GLint uvAttrib = glGetAttribLocation(blockOverlayShader->shaderID, "uv");
+    glEnableVertexAttribArray(uvAttrib);
+    glVertexAttribPointer(uvAttrib, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+    error = glGetError();
+    if (error != GL_NO_ERROR)
+    {
+        std::cerr << "Bind bo geom err (vbov): " << error << std::endl;
+    }
+    glBindVertexArray(0);
+}
+
+void Game::bindBlockOverlayGeometryNoUpload() {
+    glBindVertexArray(BOVAO);
+}
+
+void Game::drawBlockOverlay() {
+    glBindVertexArray(BOVAO);
+    if(bovbo == 0) {
+        glGenBuffers(1, &bovbo);
+        
+    }
+        
+    glUseProgram(blockOverlayShader->shaderID);
+    glBindTexture(GL_TEXTURE_2D, worldTexture);
+
+    bindBlockOverlayGeometry();
+    bindBlockOverlayGeometryNoUpload();
+    
+    
+
+    if(blockOverlayShowing) {
+
+    static glm::vec3 lastSpot(0,0,0);
+    if(currentSelectCube != lastSpot) {
+        blockBreakingTimer = 0.0f;
+        lastSpot = currentSelectCube;
+    }
+
+    blockOverlayCoord = currentSelectCube;
+    
+    GLuint mvp_loc = glGetUniformLocation(blockOverlayShader->shaderID, "mvp");
+
+    glUniformMatrix4fv(mvp_loc, 1, GL_FALSE, glm::value_ptr(camera->mvp));
+
+    GLuint cam_pos_loc = glGetUniformLocation(blockOverlayShader->shaderID, "camPos");
+    //std::cout << camera->position.x << " " << camera->position.y << " " << camera->position.z << "\n";
+    glUniform3f(cam_pos_loc, camera->position.x, camera->position.y, camera->position.z);
+
+    GLuint block_pos_loc = glGetUniformLocation(blockOverlayShader->shaderID, "blockPosition");
+
+    glUniform3f(block_pos_loc, blockOverlayCoord.x, blockOverlayCoord.y, blockOverlayCoord.z);
+
+    GLuint break_phase_loc = glGetUniformLocation(blockOverlayShader->shaderID, "breakPhase");
+
+    static float particleTimer = 0.0f;
+    
+    glUniform1f(break_phase_loc, 
+        static_cast<float>(std::floor((blockBreakingTimer/necessaryBlockBreakingTime)*8.0f))
+    );
+
+    
+        glDrawArrays(GL_TRIANGLES, 0, 36);
+        if(blockBreakingTimer < necessaryBlockBreakingTime) {
+            blockBreakingTimer += deltaTime;
+            if(particleTimer > 0.5f) {
+                blockBreakParticles(BlockCoord(
+                    std::round(blockOverlayCoord.x),
+                    std::round(blockOverlayCoord.y),
+                    std::round(blockOverlayCoord.z)
+                ), 4);
+                particleTimer = 0.0f;
+            } else {
+                particleTimer += deltaTime;
+            }
+        } else {
+            castBreakRay();
+            blockOverlayShowing = false;
+            blockBreakingTimer = 0.0f;
+        }
+    }
+    glBindVertexArray(0);
 }
 
 void Game::bindWorldGeometryNoUpload(GLuint vbov, GLuint vbouv) {

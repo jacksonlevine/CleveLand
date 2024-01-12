@@ -43,6 +43,7 @@ public:
     std::unique_ptr<Shader> worldShader;
     std::unique_ptr<Shader> wireFrameShader;
     std::unique_ptr<Shader> billBoardShader;
+    std::unique_ptr<Shader> blockOverlayShader;
     
     GLuint menuTexture;
     GLuint menuBackgroundTexture;
@@ -95,6 +96,19 @@ public:
     void bindBillBoardGeometry(GLuint billposvbo, std::vector<Particle> &billinstances);
     void bindBillBoardGeometryNoUpload(GLuint billposvbo);
 
+    inline static glm::vec3 blockOverlayCoord = glm::vec3(0,0,0);
+    inline static bool blockOverlayShowing = false;
+    inline static float necessaryBlockBreakingTime = 3.0f;
+    inline static float blockBreakingTimer = 0.0f;
+
+    inline static GLuint BOVAO = 0;
+    inline static GLuint bovbo = 0;
+
+    void bindBlockOverlayGeometry();
+    void bindBlockOverlayGeometryNoUpload();
+
+    void drawBlockOverlay();
+
     void frameBufferSizeCallback(GLFWwindow *window, int width, int height);
     void mouseButtonCallback(GLFWwindow *window, int button, int action, int mods);
     void mouseCallback(GLFWwindow *window, double xpos, double ypos);
@@ -142,7 +156,7 @@ public:
     float determineFloorBelowHere(glm::vec3 here, BlockCoord goingAway);
 
     std::vector<glm::vec3> randomSpotsAroundCube(const glm::vec3& center, int count);
-    void blockBreakParticles(BlockCoord here);
+    void blockBreakParticles(BlockCoord here, int count);
     void cleanUpParticleDisplayData();
 
     void runPeriodicTick();
