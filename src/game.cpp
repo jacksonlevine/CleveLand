@@ -942,7 +942,7 @@ void Game::castBreakRay() {
                 voxelWorld.userDataMap.insert_or_assign(rayResult.chunksToRebuild.front(), 
                 std::unordered_map<BlockCoord, unsigned int, IntTupHash>());
             }
-                   blockBreakParticles(rayResult.blockHit, 15);
+                   blockBreakParticles(rayResult.blockHit, 25);
             voxelWorld.userDataMap.at(rayResult.chunksToRebuild.front()).insert_or_assign(rayResult.blockHit, 0);
 
                 
@@ -1856,53 +1856,53 @@ void Game::bindBlockOverlayGeometry() {
     TextureFace face(0, 15);
     static std::vector<float> faces2 = {
 
-        -0.51f, -0.5f, 0.5f, face.bl.x, face.bl.y,
-        -0.51f, -0.5f, -0.5f, face.br.x, face.br.y,
-        -0.51f, 0.5f, -0.5f, face.tr.x, face.tr.y,
+        -0.55f, -0.5f, 0.5f, face.bl.x, face.bl.y,
+        -0.55f, -0.5f, -0.5f, face.br.x, face.br.y,
+        -0.55f, 0.5f, -0.5f, face.tr.x, face.tr.y,
 
-        -0.51f, 0.5f, -0.5f, face.tr.x, face.tr.y,
-        -0.51f, 0.5f, 0.5f, face.tl.x, face.tl.y,
-        -0.51f, -0.5f, 0.5f, face.bl.x, face.bl.y,
+        -0.55f, 0.5f, -0.5f, face.tr.x, face.tr.y,
+        -0.55f, 0.5f, 0.5f, face.tl.x, face.tl.y,
+        -0.55f, -0.5f, 0.5f, face.bl.x, face.bl.y,
 
-                0.51f, -0.5f, -0.5f, face.bl.x, face.bl.y,
-                0.51f, -0.5f, 0.5f, face.br.x, face.br.y,
-                0.51f, 0.5f, 0.5f,face.tr.x, face.tr.y,
+                0.55f, -0.5f, -0.5f, face.bl.x, face.bl.y,
+                0.55f, -0.5f, 0.5f, face.br.x, face.br.y,
+                0.55f, 0.5f, 0.5f,face.tr.x, face.tr.y,
 
-                0.51f, 0.5f, 0.5f, face.tr.x, face.tr.y,
-                0.51f, 0.5f, -0.5f, face.tl.x, face.tl.y,
-                0.51f, -0.5f, -0.5f,face.bl.x, face.bl.y,
+                0.55f, 0.5f, 0.5f, face.tr.x, face.tr.y,
+                0.55f, 0.5f, -0.5f, face.tl.x, face.tl.y,
+                0.55f, -0.5f, -0.5f,face.bl.x, face.bl.y,
 
-        0.5f, -0.5f, 0.51f, face.bl.x, face.bl.y,
-        -0.5f, -0.5f, 0.51f,face.br.x, face.br.y,
-        -0.5f, 0.5f, 0.51f,face.tr.x, face.tr.y,
+        0.5f, -0.5f, 0.55f, face.bl.x, face.bl.y,
+        -0.5f, -0.5f, 0.55f,face.br.x, face.br.y,
+        -0.5f, 0.5f, 0.55f,face.tr.x, face.tr.y,
 
-        -0.5f, 0.5f, 0.51f, face.tr.x, face.tr.y,
-        0.5f, 0.5f, 0.51f, face.tl.x, face.tl.y,
-        0.5f, -0.5f, 0.51f, face.bl.x, face.bl.y,
+        -0.5f, 0.5f, 0.55f, face.tr.x, face.tr.y,
+        0.5f, 0.5f, 0.55f, face.tl.x, face.tl.y,
+        0.5f, -0.5f, 0.55f, face.bl.x, face.bl.y,
 
-                -0.5f, -0.5f, -0.51f, face.bl.x, face.bl.y,
-                0.5f, -0.5f, -0.51f,face.br.x, face.br.y,
-                0.5f, 0.5f, -0.51f,face.tr.x, face.tr.y,
+                -0.5f, -0.5f, -0.55f, face.bl.x, face.bl.y,
+                0.5f, -0.5f, -0.55f,face.br.x, face.br.y,
+                0.5f, 0.5f, -0.55f,face.tr.x, face.tr.y,
 
-                0.5f, 0.5f, -0.51f, face.tr.x, face.tr.y,
-                -0.5f, 0.5f, -0.51f, face.tl.x, face.tl.y,
-                -0.5f, -0.5f, -0.51f,face.bl.x, face.bl.y,
+                0.5f, 0.5f, -0.55f, face.tr.x, face.tr.y,
+                -0.5f, 0.5f, -0.55f, face.tl.x, face.tl.y,
+                -0.5f, -0.5f, -0.55f,face.bl.x, face.bl.y,
 
-        -0.5f, 0.51f, -0.5f, face.bl.x, face.bl.y,
-        0.5f, 0.51f, -0.5f,face.br.x, face.br.y,
-        0.5f, 0.51f, 0.5f,face.tr.x, face.tr.y,
+        -0.5f, 0.55f, -0.5f, face.bl.x, face.bl.y,
+        0.5f, 0.55f, -0.5f,face.br.x, face.br.y,
+        0.5f, 0.55f, 0.5f,face.tr.x, face.tr.y,
 
-        0.5f, 0.51f, 0.5f, face.tr.x, face.tr.y,
-        -0.5f, 0.51f, 0.5f, face.tl.x, face.tl.y,
-        -0.5f, 0.51f, -0.5f,face.bl.x, face.bl.y,
+        0.5f, 0.55f, 0.5f, face.tr.x, face.tr.y,
+        -0.5f, 0.55f, 0.5f, face.tl.x, face.tl.y,
+        -0.5f, 0.55f, -0.5f,face.bl.x, face.bl.y,
 
-                0.5f, -0.51f, -0.5f, face.bl.x, face.bl.y,
-                -0.5f, -0.51f, -0.5f,face.br.x, face.br.y,
-                -0.5f, -0.51f, 0.5f,face.tr.x, face.tr.y,
+                0.5f, -0.55f, -0.5f, face.bl.x, face.bl.y,
+                -0.5f, -0.55f, -0.5f,face.br.x, face.br.y,
+                -0.5f, -0.55f, 0.5f,face.tr.x, face.tr.y,
 
-                -0.5f, -0.51f, 0.5f, face.tr.x, face.tr.y,
-                0.5f, -0.51f, 0.5f, face.tl.x, face.tl.y,
-                0.5f, -0.51f, -0.5f,face.bl.x, face.bl.y
+                -0.5f, -0.55f, 0.5f, face.tr.x, face.tr.y,
+                0.5f, -0.55f, 0.5f, face.tl.x, face.tl.y,
+                0.5f, -0.55f, -0.5f,face.bl.x, face.bl.y
     };
 
         

@@ -98,7 +98,7 @@ public:
 
     inline static glm::vec3 blockOverlayCoord = glm::vec3(0,0,0);
     inline static bool blockOverlayShowing = false;
-    inline static float necessaryBlockBreakingTime = 3.0f;
+    inline static float necessaryBlockBreakingTime = 1.5f;
     inline static float blockBreakingTimer = 0.0f;
 
     inline static GLuint BOVAO = 0;
