@@ -160,6 +160,13 @@ public:
     void cleanUpParticleDisplayData();
 
     void runPeriodicTick();
+    
+    void displayLoadScreen(const char *message, float progress, bool inMainLoop);
+
+    void drawBackgroundImage();
+
+    inline static int initialChunksRendered = 0;
+    inline static bool loadRendering = true;
 
     Game();
 private:

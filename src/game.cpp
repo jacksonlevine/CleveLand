@@ -40,8 +40,10 @@ grounded(true)
     goToMainMenu();
 
     normalFunc = [this]() {
-
-            stepMovementAndPhysics();
+            if(!loadRendering) {
+                stepMovementAndPhysics();
+            }
+            
 
             
             draw();
@@ -288,13 +290,6 @@ void Game::draw() {
 
 
 
-
-
-
-
-
-
-
             float logoImageWidth = 600;
 
 
@@ -332,33 +327,47 @@ void Game::draw() {
 
             glDrawArrays(GL_TRIANGLES, 0, logoDisplayData.size()/5);
 
-            
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
         }
 
     }
 
     if(!inGame) {
-        glUseProgram(menuShader->shaderID);
+        drawBackgroundImage();
+    }
+
+    if(inGame) {
+        //std::cout << loadRendering << "\n";
+
+        if(!loadRendering)
+        {
+            glUseProgram(menuShader->shaderID);
+            glBindTexture(GL_TEXTURE_2D, menuTexture);
+
+            if(hud->uploaded) {
+                bindMenuGeometryNoUpload(hud->vbo);
+            } else {
+                bindMenuGeometry(hud->vbo,
+                hud->displayData.data(),
+                hud->displayData.size());
+            }
+            glDrawArrays(GL_TRIANGLES, 0, hud->displayData.size()/5);
+        }
+
+        stepChunkDraw();
+
+        
+        glBindVertexArray(VAO);
+        updateAndDrawSelectCube();
+        drawBlockOverlay();
+    }
+
+
+    glfwSwapBuffers(window);
+}
+
+void Game::drawBackgroundImage() {
+    glUseProgram(menuShader->shaderID);
         glBindTexture(GL_TEXTURE_2D, menuBackgroundTexture);
         static GLuint backgroundVbo = 0;
         if(backgroundVbo == 0) {
@@ -388,32 +397,6 @@ void Game::draw() {
             bindMenuGeometryNoUpload(backgroundVbo);
         }
         glDrawArrays(GL_TRIANGLES, 0, backgroundImageData.size() / 5);
-    }
-
-    if(inGame) {
-        
-        glUseProgram(menuShader->shaderID);
-        glBindTexture(GL_TEXTURE_2D, menuTexture);
-
-        if(hud->uploaded) {
-            bindMenuGeometryNoUpload(hud->vbo);
-        } else {
-            bindMenuGeometry(hud->vbo,
-            hud->displayData.data(),
-            hud->displayData.size());
-        }
-        glDrawArrays(GL_TRIANGLES, 0, hud->displayData.size()/5);
-
-        stepChunkDraw();
-
-        
-        glBindVertexArray(VAO);
-        updateAndDrawSelectCube();
-        drawBlockOverlay();
-    }
-
-
-    glfwSwapBuffers(window);
 }
 
 void Game::stepChunkDraw() {
@@ -430,6 +413,8 @@ void Game::stepChunkDraw() {
     //     }
     //     std::cout << std::endl;
     // }
+
+    static float numMustLoad = 200;
 
     GLuint mvp_loc = glGetUniformLocation(worldShader->shaderID, "mvp");
     glUniformMatrix4fv(mvp_loc, 1, GL_FALSE, glm::value_ptr(camera->mvp));
@@ -510,6 +495,10 @@ void Game::stepChunkDraw() {
                 GeometryStore &geometryStore = voxelWorld.geometryStorePool[voxelWorld.geometryStoresToRebuild.back()];
                 if(!registry.all_of<MeshComponent>(geometryStore.me)) {
                     MeshComponent m;
+                    glDeleteBuffers(1, &m.vbov);
+                    glDeleteBuffers(1, &m.vbouv);
+                    glGenBuffers(1, &m.vbov);
+                    glGenBuffers(1, &m.vbouv);
                     m.length = geometryStore.verts.size();
                     bindWorldGeometry(
                         m.vbov,
@@ -520,6 +509,10 @@ void Game::stepChunkDraw() {
                         geometryStore.uvs.size()
                     );
                     //Transparent stuff
+                                        glDeleteBuffers(1, &m.tvbov);
+                    glDeleteBuffers(1, &m.tvbouv);
+                    glGenBuffers(1, &m.tvbov);
+                    glGenBuffers(1, &m.tvbouv);
                     m.tlength = geometryStore.tverts.size();
                     bindWorldGeometry(
                         m.tvbov,
@@ -565,30 +558,44 @@ void Game::stepChunkDraw() {
                 }
                 voxelWorld.geometryStoresToRebuild.pop_back();
                 voxelWorld.meshQueueMutex.unlock();
+                if(loadRendering) {
+
+                    initialChunksRendered += 1;
+                    //std::cout << initialChunksRendered << "\n";
+                    if(initialChunksRendered >= numMustLoad) {
+                        //std::cout << "Done! Rendered " << numMustLoad << " chunks.\n";
+                        loadRendering = false;
+                    }
+                }
             }
         }
     }
 
-    
+    if(loadRendering) {
+        float progress = (numMustLoad + initialChunksRendered) / (numMustLoad  * 2.0f);
+        displayLoadScreen("Rendering world", progress, true);
+    } else {
         auto meshesView = registry.view<MeshComponent>();
-    for(const entt::entity e : meshesView) {
-        MeshComponent &m = registry.get<MeshComponent>(e);
-        //std::cout << "ddrawing a chunk of size " << m.length << "\n";
-        bindWorldGeometryNoUpload(
-            m.vbov,
-            m.vbouv
-        );
-        glDrawArrays(GL_TRIANGLES, 0, m.length);
+        for(const entt::entity e : meshesView) {
+            MeshComponent &m = registry.get<MeshComponent>(e);
+            //std::cout << "ddrawing a chunk of size " << m.length << "\n";
+            bindWorldGeometryNoUpload(
+                m.vbov,
+                m.vbouv
+            );
+            glDrawArrays(GL_TRIANGLES, 0, m.length);
+        }
+        for(const entt::entity e : meshesView) {
+            MeshComponent &m = registry.get<MeshComponent>(e);
+            //std::cout << "ddrawing a chunk of size " << m.length << "\n";
+            bindWorldGeometryNoUpload(
+                m.tvbov,
+                m.tvbouv
+            );
+            glDrawArrays(GL_TRIANGLES, 0, m.tlength);
+        }
     }
-    for(const entt::entity e : meshesView) {
-        MeshComponent &m = registry.get<MeshComponent>(e);
-        //std::cout << "ddrawing a chunk of size " << m.length << "\n";
-        bindWorldGeometryNoUpload(
-            m.tvbov,
-            m.tvbouv
-        );
-        glDrawArrays(GL_TRIANGLES, 0, m.tlength);
-    }
+    
 
 
 }
@@ -832,7 +839,8 @@ void Game::changeViewDistance(int newValue) {
 void Game::goToSingleplayerWorld(const char *worldname) {
 
 
-
+    voxelWorld.initialLoadProgress = 0;
+    loadRendering = true;
 
     voxelWorld.populateChunksAndGeometryStores(registry, viewDistance);
 
@@ -852,9 +860,95 @@ void Game::goToSingleplayerWorld(const char *worldname) {
     voxelWorld.chunkUpdateThread.detach();
 
 
+
+    while(static_cast<float>(voxelWorld.initialLoadProgress) / ((viewDistance*2) * (viewDistance*2)) < 1.0f) {
+        //std::cout << static_cast<float>(voxelWorld.initialLoadProgress) / ((viewDistance*2) * (viewDistance*2)) << "\n";
+        displayLoadScreen("Loading world", static_cast<float>(voxelWorld.initialLoadProgress) / (((viewDistance*2) * (viewDistance*2))*2.0f), false);
+
+    }
+
     camera->setFocused(true);
 
     inGame = true;
+}
+
+void Game::displayLoadScreen(const char* message, float progress, bool inMainLoop) {
+
+if(!inMainLoop) {
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glClearColor(0.639, 0.71, 1.0, 0.5);
+}
+
+    glBindVertexArray(VAO);
+
+
+
+        glUseProgram(menuShader->shaderID);
+        glBindTexture(GL_TEXTURE_2D, menuTexture);
+
+        static GLuint lsvbo = 0;
+            glDeleteBuffers(1, &lsvbo);
+            glGenBuffers(1, &lsvbo);
+
+
+        float width = (500.0f/windowWidth);
+        float height = (40.0f/windowHeight);
+
+        glm::vec2 leftStart(-width/2.0f, -height/2.0f);
+
+        TextureFace blank(0,1);
+        TextureFace full(1,1);
+
+        std::vector<float> displayData = {
+            leftStart.x,                leftStart.y,        full.bl.x,  full.bl.y,  -1.0f,
+            leftStart.x,                leftStart.y+height, full.tl.x,  full.tl.y,  -1.0f,
+            leftStart.x+width*progress, leftStart.y+height, full.tr.x,  full.tr.y,  -1.0f,
+
+            leftStart.x+width*progress, leftStart.y+height, full.tr.x,  full.tr.y,  -1.0f,
+            leftStart.x+width*progress, leftStart.y,        full.br.x,  full.br.y,  -1.0f,
+            leftStart.x,                leftStart.y,        full.bl.x,  full.bl.y,  -1.0f,
+
+            leftStart.x,                leftStart.y,        blank.bl.x, blank.bl.y, -1.0f,
+            leftStart.x,                leftStart.y+height, blank.tl.x, blank.tl.y, -1.0f,
+            leftStart.x+width,          leftStart.y+height, blank.tr.x, blank.tr.y, -1.0f,
+
+            leftStart.x+width,          leftStart.y+height, blank.tr.x, blank.tr.y, -1.0f,
+            leftStart.x+width,          leftStart.y,        blank.br.x, blank.br.y, -1.0f,
+            leftStart.x,                leftStart.y,        blank.bl.x, blank.bl.y, -1.0f
+        };
+
+        float letHeight = (32.0f/windowHeight);
+        float letWidth = (32.0f/windowWidth);
+        float lettersCount = std::strlen(message);
+        float totletwid = letWidth * lettersCount;
+        glm::vec2 letterStart(-totletwid/2, -letHeight/2 + 0.2f);
+
+        GlyphFace glyph;
+
+        for(int i = 0; i < lettersCount; i++) {
+            glyph.setCharCode(static_cast<int>(message[i]));
+            glm::vec2 thisLetterStart(letterStart.x + i*letWidth, letterStart.y);
+            displayData.insert(displayData.end(), {
+                thisLetterStart.x, thisLetterStart.y,                     glyph.bl.x, glyph.bl.y, -1.0f,
+                thisLetterStart.x, thisLetterStart.y+letHeight,           glyph.tl.x, glyph.tl.y, -1.0f,
+                thisLetterStart.x+letWidth, thisLetterStart.y+letHeight, glyph.tr.x, glyph.tr.y, -1.0f,
+
+                thisLetterStart.x+letWidth, thisLetterStart.y+letHeight, glyph.tr.x, glyph.tr.y, -1.0f,
+                thisLetterStart.x+letWidth, thisLetterStart.y,           glyph.br.x, glyph.br.y, -1.0f,
+                thisLetterStart.x, thisLetterStart.y,                     glyph.bl.x, glyph.bl.y, -1.0f
+            });
+        }
+        
+        bindMenuGeometry(lsvbo, displayData.data(), displayData.size());
+
+        glDrawArrays(GL_TRIANGLES, 0, displayData.size() / 5);
+
+        drawBackgroundImage();
+
+    glBindVertexArray(0);
+    if(!inMainLoop) {
+        glfwSwapBuffers(window);
+    }
 }
 
 void Game::updateTime() {

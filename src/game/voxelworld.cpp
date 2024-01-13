@@ -74,7 +74,11 @@ void VoxelWorld::chunkUpdateThreadFunction(int* loadRadius) {
                         if(!runChunkThread || deferredChunksToRebuild.size() > 0) {
                             break;
                         }
+                        if(first) {
+                            initialLoadProgress += 1;
+                        }
                     }
+
                     if(!runChunkThread || deferredChunksToRebuild.size() > 0) {
                         break;
                     }

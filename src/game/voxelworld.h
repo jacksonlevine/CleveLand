@@ -79,5 +79,7 @@ public:
     bool saveExists(const char* path);
     void saveWorldToFile(const char *path) noexcept(false);
     void loadWorldFromFile(const char *path) noexcept(false);
+    
+    inline static int initialLoadProgress = 0;
 };
 #endif
