@@ -414,7 +414,7 @@ void Game::stepChunkDraw() {
     //     std::cout << std::endl;
     // }
 
-    static float numMustLoad = 150;
+    static float numMustLoad = (((viewDistance*2) * (viewDistance*2)) * 2) - 50;
 
     GLuint mvp_loc = glGetUniformLocation(worldShader->shaderID, "mvp");
     glUniformMatrix4fv(mvp_loc, 1, GL_FALSE, glm::value_ptr(camera->mvp));
@@ -623,7 +623,19 @@ void Game::displayEscapeMenu() {
             camera->setFocused(false);
 
             voxelWorld.userDataMap.clear();
-            voxelWorld.geometryStoresToRebuild.clear();
+            int throwaway = 0;
+            while(voxelWorld.geometryStoreQueue.pop(throwaway)) {
+
+            }
+            while(voxelWorld.highPriorityGeometryStoreQueue.pop(throwaway)) {
+
+            }
+
+            BlockChunk *throwaway2 = 0;
+            while(voxelWorld.deferredChunkQueue.pop(throwaway)) {
+
+            }
+            
             voxelWorld.takenCareOfChunkSpots.clear();
             voxelWorld.geometryStorePool.clear();
             voxelWorld.chunks.clear();
@@ -817,7 +829,19 @@ void Game::changeViewDistance(int newValue) {
     voxelWorld.runChunkThread = false;
     viewDistance = newValue;
 
-    voxelWorld.geometryStoresToRebuild.clear();
+    int throwaway = 0;
+    while(voxelWorld.geometryStoreQueue.pop(throwaway)) {
+
+    }
+    while(voxelWorld.highPriorityGeometryStoreQueue.pop(throwaway)) {
+
+    }
+
+    BlockChunk *throwaway2 = 0;
+    while(voxelWorld.deferredChunkQueue.pop(throwaway)) {
+
+    }
+
     voxelWorld.takenCareOfChunkSpots.clear();
     voxelWorld.geometryStorePool.clear();
     voxelWorld.chunks.clear();
@@ -1061,13 +1085,12 @@ void Game::castBreakRay() {
 
 
                        BlockChunk *chunk = chunkIt->second;
-                       voxelWorld.deferredChunksMutex.lock();
-                       if(std::find_if(voxelWorld.deferredChunksToRebuild.begin(), voxelWorld.deferredChunksToRebuild.end(), [chunk](BlockChunk* other){
-                            return other->position == chunk->position;
-                       }) == voxelWorld.deferredChunksToRebuild.end()) {
-                            voxelWorld.deferredChunksToRebuild.push_back(chunkIt->second);
+
+
+                       while(!voxelWorld.deferredChunkQueue.push(chunk)) {
+
                        }
-                        voxelWorld.deferredChunksMutex.unlock();
+
 
                     }
                 }
@@ -1125,16 +1148,13 @@ void Game::castPlaceRay() {
 
                     auto chunkIt = voxelWorld.takenCareOfChunkSpots.find(chunkToReb);
                     if(chunkIt != voxelWorld.takenCareOfChunkSpots.end()) {
-                        //std::cout << "it's here" << "\n";
-                      //  std::cout << "fucking index:" << chunkIt->second.geometryStorePoolIndex << "\n";
-                        BlockChunk *chunk = chunkIt->second;
-                       voxelWorld.deferredChunksMutex.lock();
-                       if(std::find_if(voxelWorld.deferredChunksToRebuild.begin(), voxelWorld.deferredChunksToRebuild.end(), [chunk](BlockChunk* other){
-                            return other->position == chunk->position;
-                       }) == voxelWorld.deferredChunksToRebuild.end()) {
-                            voxelWorld.deferredChunksToRebuild.push_back(chunkIt->second);
+                       
+                       BlockChunk *chunk = chunkIt->second;
+
+
+                       while(!voxelWorld.deferredChunkQueue.push(chunk)) {
+
                        }
-                        voxelWorld.deferredChunksMutex.unlock();
 
                      }
 
@@ -2351,7 +2371,7 @@ void Game::drawSky(float top_r, float top_g, float top_b, float top_a,
             " uint idx = gl_VertexID;\n"
             
             " gl_Position = vec4((idx >> 1), idx & 1, 0.0, 0.5) * 4.0 - 1.0;\n"
-            "v_uv = vec2(gl_Position.xy  + 1.0 +(cpitch/100));\n"
+            "v_uv = vec2(gl_Position.xy  + 1.0 +(cpitch/62));\n"
             "}";
 
 

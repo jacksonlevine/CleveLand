@@ -29,19 +29,9 @@ void VoxelWorld::chunkUpdateThreadFunction(int* loadRadius) {
         BlockCoord cameraBlockPos(std::round(cameraPosition.x), std::round(cameraPosition.y), std::round(cameraPosition.z));
         ChunkCoord cameraChunkPos(std::floor(static_cast<float>(cameraBlockPos.x)/chunkWidth), std::floor(static_cast<float>(cameraBlockPos.z)/chunkWidth));
 
-
-        if(deferredChunksToRebuild.size() > 0) {
-            deferredChunksMutex.lock();
-
-            while(deferredChunksToRebuild.size() > 0) {
-                BlockChunk* chunk = deferredChunksToRebuild.back();
-                
-                rebuildChunk(chunk, chunk->position, true);
-                
-                deferredChunksToRebuild.pop_back();
-            }
-
-            deferredChunksMutex.unlock();
+        BlockChunk* chunk = 0;
+        while(deferredChunkQueue.pop(chunk)) {
+            rebuildChunk(chunk, chunk->position, true);
         }
 
         if(currCamPosDivided != lastCamPosDivided || first || shouldTryReload) {

@@ -58,14 +58,13 @@ public:
 
     std::vector<BlockChunk*> getPreferredChunkPtrList(int loadRadius, ChunkCoord& cameraChunkPos);
 
-    std::vector<unsigned int> geometryStoresToRebuild;
-    std::vector<unsigned int> highPriorityGeometryStoresToRebuild;
-
     boost::lockfree::queue<int> geometryStoreQueue;
     boost::lockfree::queue<int> highPriorityGeometryStoreQueue;
 
     std::mutex deferredChunksMutex;
     std::vector<BlockChunk*> deferredChunksToRebuild;
+
+    boost::lockfree::queue<BlockChunk*> deferredChunkQueue;
 
     
     inline static bool shouldTryReload = false;
