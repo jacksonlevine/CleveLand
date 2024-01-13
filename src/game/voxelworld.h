@@ -15,7 +15,7 @@
 #include "geometrystore.h"
 #include "../util/textureface.h"
 #include <boost/lockfree/queue.hpp>
-
+#include "../util/random.h"
 
 class VoxelWorld {
 public:
@@ -45,9 +45,18 @@ public:
             IntTupHash>, 
         IntTupHash>        userDataMap;
 
+    std::unordered_map<
+            BlockCoord, 
+            unsigned int, 
+            IntTupHash>
+                            nonUserDataMap;
+
+
 
     std::vector<BlockChunk> chunks;
     std::vector<GeometryStore> geometryStorePool;
+
+    void generateChunk(ChunkCoord chunkcoord);
 
 
     void populateChunksAndGeometryStores(entt::registry &registry, int viewDistance);

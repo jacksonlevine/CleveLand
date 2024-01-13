@@ -129,7 +129,10 @@ void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool im
             takenCareOfChunkSpots.erase(chunk->position);
         }
         chunk->position = newPosition;
+        generateChunk(newPosition);
     }
+
+
 
     chunk->used = true;
     
@@ -247,7 +250,19 @@ void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool im
         {TextureFace(5,0),
         TextureFace(5,0),
         TextureFace(5,0),
+        },
+        {TextureFace(6,1),
+        TextureFace(6,0),
+        TextureFace(6,1),
+        },
+        {TextureFace(7,0),
+        TextureFace(7,0),
+        TextureFace(7,0),
         }
+    };
+
+    static std::vector<int> transparents = {
+        2, 7
     };
 
 
@@ -267,7 +282,7 @@ void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool im
                 if(block != 0) {
                     
 
-                    if(block == 2) {
+                    if(std::find(transparents.begin(), transparents.end(), block) != transparents.end()) {
 
                         for(BlockCoord &neigh : neighbors) {
                             unsigned int neighblock = blockAt(coord + neigh);
@@ -326,8 +341,8 @@ void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool im
 
                         for(BlockCoord &neigh : neighbors) {
                             unsigned int neighblock = blockAt(coord + neigh);
-                            bool solidNeighboringWater = (neighblock == 2 && block != 2);
-                            if(neighblock == 0 || solidNeighboringWater) {
+                            bool solidNeighboringTransparent = (std::find(transparents.begin(), transparents.end(), neighblock) != transparents.end() && std::find(transparents.begin(), transparents.end(), block) == transparents.end());
+                            if(neighblock == 0 || solidNeighboringTransparent) {
                                 BlockCoord transparentCubeHere = coord + neigh;
                                 verts.insert(verts.end(), {
                                     faces[neighborIndex][0] + coord.x, faces[neighborIndex][1] + coord.y, faces[neighborIndex][2] + coord.z, faces[neighborIndex][3],
@@ -465,7 +480,141 @@ void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool im
 
 
 
+void VoxelWorld::generateChunk(ChunkCoord chunkcoord) {
 
+    srand(seed + chunkcoord.x + chunkcoord.y);
+
+    static BlockCoord leafSpots[] = {
+        BlockCoord(-1,0,0),
+        BlockCoord(1,0,0),
+        BlockCoord(0,0,1),
+        BlockCoord(0,0,-1),
+
+        BlockCoord(-1,0,1),
+        BlockCoord(1,0,1),
+        BlockCoord(1,0,-1),
+        BlockCoord(-1,0,-1),
+
+
+
+
+        BlockCoord(-1,-1,0),
+        BlockCoord(1,-1,0),
+        BlockCoord(0,-1,1),
+        BlockCoord(0,-1,-1),
+
+        BlockCoord(-1,-1,1),
+        BlockCoord(1,-1,1),
+        BlockCoord(1,-1,-1),
+        BlockCoord(-1,-1,-1),
+
+        BlockCoord(-1,-2,0),
+        BlockCoord(1,-2,0),
+        BlockCoord(0,-2,1),
+        BlockCoord(0,-2,-1),
+
+        BlockCoord(-1,-2,1),
+        BlockCoord(1,-2,1),
+        BlockCoord(1,-2,-1),
+        BlockCoord(-1,-2,-1),
+
+
+        BlockCoord(-2,-2,-2),
+        BlockCoord(-2,-2,-1),
+        BlockCoord(-2,-2,-0),
+        BlockCoord(-2,-2,1),
+        BlockCoord(-2,-2,2),
+
+        BlockCoord(-1,-2,-2),
+        BlockCoord(-1,-2,2),
+
+        BlockCoord(0,-2,-2),
+        BlockCoord(0,-2,2),
+
+        BlockCoord(1,-2,-2),
+        BlockCoord(1,-2,2),
+
+        BlockCoord(2,-2,-2),
+        BlockCoord(2,-2,-1),
+        BlockCoord(2,-2,-0),
+        BlockCoord(2,-2,1),
+        BlockCoord(2,-2,2),
+
+        BlockCoord(0,1,0),
+        BlockCoord(-1,1,0),
+        BlockCoord(1,1,0),
+        BlockCoord(0,1,1),
+        BlockCoord(0,1,-1),
+    };
+
+    std::set<BlockChunk*> implicatedChunks;
+
+    for(int x = 0; x < chunkWidth; ++x) {
+        for(int z = 0; z < chunkWidth; ++z) {
+            for(int y = 0; y < chunkHeight; ++y) {
+                BlockCoord coord(chunkcoord.x * chunkWidth + x, y, chunkcoord.z * chunkWidth + z);
+
+                //Trees
+                if(blockAt(coord) == 3) {
+                    int ran = randsmall();
+                    if(ran > 126) {
+                        BlockCoord here = coord;
+                        int height = 5 + static_cast<int>(4.0f*rando());
+                        for(int i = 0; i < height; ++i) {
+                            
+                            here += BlockCoord(0,1,0);
+                            bool doingIt = true;
+                            auto chunkIt = userDataMap.find(chunkcoord);
+                            if(chunkIt != userDataMap.end()) {
+                                if(chunkIt->second.find(here) != chunkIt->second.end()) {
+                                    doingIt = false;
+                                }
+                            }
+                            if(doingIt) {
+                                nonUserDataMap.insert_or_assign(here, 6);
+                            }
+                        }
+                        for(BlockCoord& coor : leafSpots) {
+                            BlockCoord coorHere = here + coor;
+                            bool doingIt = true;
+                            auto chunkIt = userDataMap.find(chunkcoord);
+                            if(chunkIt != userDataMap.end()) {
+                                if(chunkIt->second.find(coorHere) != chunkIt->second.end()) {
+                                    doingIt = false;
+                                }
+                            }
+                            if(doingIt) {
+                                ChunkCoord chunkHere(
+                                    std::floor(static_cast<float>(coorHere.x)/chunkWidth),
+                                    std::floor(static_cast<float>(coorHere.z)/chunkWidth)
+                                );
+                                nonUserDataMap.insert_or_assign(coorHere, 7);
+                                auto chunkIt = takenCareOfChunkSpots.find(chunkHere);
+                                if(chunkIt != takenCareOfChunkSpots.end()) {
+                                    implicatedChunks.insert(chunkIt->second);
+                                }
+                            }
+                        }
+                    }
+                }
+
+
+
+
+
+
+            }
+        }
+    }
+
+    for(BlockChunk *pointer : implicatedChunks) {
+        while(!deferredChunkQueue.push(pointer)) {
+
+        }
+    }
+
+        
+}
 
 
 
@@ -476,6 +625,11 @@ unsigned int VoxelWorld::blockAt(BlockCoord coord) {
         static_cast<int>(std::floor(static_cast<float>(coord.x)/chunkWidth)), 
         static_cast<int>(std::floor(static_cast<float>(coord.z)/chunkWidth))
     );
+
+    
+
+
+
     auto chunkit = userDataMap.find(chunkcoord);
     if(chunkit != userDataMap.end()) {
         auto blockit = chunkit->second.find(coord);
@@ -483,18 +637,25 @@ unsigned int VoxelWorld::blockAt(BlockCoord coord) {
             return blockit->second;
         }
     }
+
     if(noiseFunction(coord.x, coord.y, coord.z) > 10) {
         if(noiseFunction(coord.x, coord.y+10, coord.z) > 10) {
             return 5;
         }
         if(coord.y > waterLevel + 2 || noiseFunction(coord.x, coord.y+5, coord.z) > 10) {
             if(noiseFunction(coord.x, coord.y+1, coord.z) < 10) {
+                        
                         return 3;
+                        
                     }
             return 4;
         } else {
             return 1;
         }
+    }
+    auto blockit = nonUserDataMap.find(coord);
+    if(blockit != nonUserDataMap.end()) {
+        return blockit->second;
     }
     if(coord.y < waterLevel) {
         return 2;

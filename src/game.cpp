@@ -414,7 +414,7 @@ void Game::stepChunkDraw() {
     //     std::cout << std::endl;
     // }
 
-    static float numMustLoad = (((viewDistance*2) * (viewDistance*2)) * 2) - 50;
+    static float numMustLoad = 300;
 
     GLuint mvp_loc = glGetUniformLocation(worldShader->shaderID, "mvp");
     glUniformMatrix4fv(mvp_loc, 1, GL_FALSE, glm::value_ptr(camera->mvp));
@@ -873,7 +873,7 @@ void Game::changeViewDistance(int newValue) {
 
 void Game::goToSingleplayerWorld(const char *worldname) {
 
-
+    
     voxelWorld.initialLoadProgress = 0;
     loadRendering = true;
 
