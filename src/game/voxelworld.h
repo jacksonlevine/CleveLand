@@ -14,13 +14,14 @@
 #include "blockchunk.h"
 #include "geometrystore.h"
 #include "../util/textureface.h"
+#include <boost/lockfree/queue.hpp>
 
 
 class VoxelWorld {
 public:
     unsigned int seed;
 
-    inline static int chunkWidth = 12;
+    inline static int chunkWidth = 16;
     inline static int chunkHeight = 128;
 
     inline static bool runChunkThread = false;
@@ -59,6 +60,9 @@ public:
 
     std::vector<unsigned int> geometryStoresToRebuild;
     std::vector<unsigned int> highPriorityGeometryStoresToRebuild;
+
+    boost::lockfree::queue<int> geometryStoreQueue;
+    boost::lockfree::queue<int> highPriorityGeometryStoreQueue;
 
     std::mutex deferredChunksMutex;
     std::vector<BlockChunk*> deferredChunksToRebuild;

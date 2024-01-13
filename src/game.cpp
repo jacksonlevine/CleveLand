@@ -429,70 +429,78 @@ void Game::stepChunkDraw() {
     glUniform1f(ambBrightMultLoc, ambientBrightnessMult);
     voxelWorld.cameraPosition = camera->position;
     voxelWorld.cameraDirection = camera->direction;
-    if(voxelWorld.highPriorityGeometryStoresToRebuild.size() > 0) {
 
-            GeometryStore &geometryStore = voxelWorld.geometryStorePool[voxelWorld.highPriorityGeometryStoresToRebuild.back()];
-            if(!registry.all_of<MeshComponent>(geometryStore.me)) {
-                MeshComponent m;
-                m.length = geometryStore.verts.size();
-                bindWorldGeometry(
-                    m.vbov,
-                    m.vbouv,
-                    geometryStore.verts.data(),
-                    geometryStore.uvs.data(),
-                    geometryStore.verts.size(),
-                    geometryStore.uvs.size()
-                );
-                //Transparent stuff
-                m.tlength = geometryStore.tverts.size();
-                bindWorldGeometry(
-                    m.tvbov,
-                    m.tvbouv,
-                    geometryStore.tverts.data(),
-                    geometryStore.tuvs.data(),
-                    geometryStore.tverts.size(),
-                    geometryStore.tuvs.size()
-                );
-                registry.emplace<MeshComponent>(geometryStore.me, m);
+    int poppedIndex = 0;
+    if(voxelWorld.highPriorityGeometryStoreQueue.pop(poppedIndex)) {
+
+            GeometryStore &geometryStore = voxelWorld.geometryStorePool[poppedIndex];
+            if(geometryStore.myLock.try_lock()) {
+                if(!registry.all_of<MeshComponent>(geometryStore.me)) {
+                    MeshComponent m;
+                    m.length = geometryStore.verts.size();
+                    bindWorldGeometry(
+                        m.vbov,
+                        m.vbouv,
+                        geometryStore.verts.data(),
+                        geometryStore.uvs.data(),
+                        geometryStore.verts.size(),
+                        geometryStore.uvs.size()
+                    );
+                    //Transparent stuff
+                    m.tlength = geometryStore.tverts.size();
+                    bindWorldGeometry(
+                        m.tvbov,
+                        m.tvbouv,
+                        geometryStore.tverts.data(),
+                        geometryStore.tuvs.data(),
+                        geometryStore.tverts.size(),
+                        geometryStore.tuvs.size()
+                    );
+                    registry.emplace<MeshComponent>(geometryStore.me, m);
+                } else {
+                    MeshComponent &m = registry.get<MeshComponent>(geometryStore.me);
+                    glDeleteBuffers(1, &m.vbov);
+                    glDeleteBuffers(1, &m.vbouv);
+                    glGenBuffers(1, &m.vbov);
+                    glGenBuffers(1, &m.vbouv);
+
+
+                    m.length = geometryStore.verts.size();
+                    bindWorldGeometry(
+                        m.vbov,
+                        m.vbouv,
+                        geometryStore.verts.data(),
+                        geometryStore.uvs.data(),
+                        geometryStore.verts.size(),
+                        geometryStore.uvs.size()
+                    );
+                    //Transparent stuff
+                    glDeleteBuffers(1, &m.tvbov);
+                    glDeleteBuffers(1, &m.tvbouv);
+                    glGenBuffers(1, &m.tvbov);
+                    glGenBuffers(1, &m.tvbouv);
+
+                    m.tlength = geometryStore.tverts.size();
+                    bindWorldGeometry(
+                        m.tvbov,
+                        m.tvbouv,
+                        geometryStore.tverts.data(),
+                        geometryStore.tuvs.data(),
+                        geometryStore.tverts.size(),
+                        geometryStore.tuvs.size()
+                    );
+                }
+                geometryStore.myLock.unlock();
             } else {
-                MeshComponent &m = registry.get<MeshComponent>(geometryStore.me);
-                glDeleteBuffers(1, &m.vbov);
-                glDeleteBuffers(1, &m.vbouv);
-                glGenBuffers(1, &m.vbov);
-                glGenBuffers(1, &m.vbouv);
+                while(!voxelWorld.highPriorityGeometryStoreQueue.push(poppedIndex)) {
 
-
-                m.length = geometryStore.verts.size();
-                bindWorldGeometry(
-                    m.vbov,
-                    m.vbouv,
-                    geometryStore.verts.data(),
-                    geometryStore.uvs.data(),
-                    geometryStore.verts.size(),
-                    geometryStore.uvs.size()
-                );
-                //Transparent stuff
-                glDeleteBuffers(1, &m.tvbov);
-                glDeleteBuffers(1, &m.tvbouv);
-                glGenBuffers(1, &m.tvbov);
-                glGenBuffers(1, &m.tvbouv);
-
-                m.tlength = geometryStore.tverts.size();
-                bindWorldGeometry(
-                    m.tvbov,
-                    m.tvbouv,
-                    geometryStore.tverts.data(),
-                    geometryStore.tuvs.data(),
-                    geometryStore.tverts.size(),
-                    geometryStore.tuvs.size()
-                );
+                }
             }
-            voxelWorld.highPriorityGeometryStoresToRebuild.pop_back();
 
     } else {
-        if(voxelWorld.geometryStoresToRebuild.size() > 0) {
-            if(voxelWorld.meshQueueMutex.try_lock()) {
-                GeometryStore &geometryStore = voxelWorld.geometryStorePool[voxelWorld.geometryStoresToRebuild.back()];
+        if(voxelWorld.geometryStoreQueue.pop(poppedIndex)) {
+            GeometryStore &geometryStore = voxelWorld.geometryStorePool[poppedIndex];
+            if(geometryStore.myLock.try_lock()) {
                 if(!registry.all_of<MeshComponent>(geometryStore.me)) {
                     MeshComponent m;
                     glDeleteBuffers(1, &m.vbov);
@@ -556,8 +564,7 @@ void Game::stepChunkDraw() {
                         geometryStore.tuvs.size()
                     );
                 }
-                voxelWorld.geometryStoresToRebuild.pop_back();
-                voxelWorld.meshQueueMutex.unlock();
+                geometryStore.myLock.unlock();
                 if(loadRendering) {
 
                     initialChunksRendered += 1;
@@ -566,6 +573,10 @@ void Game::stepChunkDraw() {
                         //std::cout << "Done! Rendered " << numMustLoad << " chunks.\n";
                         loadRendering = false;
                     }
+                }
+            } else {
+                while(!voxelWorld.geometryStoreQueue.push(poppedIndex)) {
+
                 }
             }
         }
@@ -1325,7 +1336,7 @@ void Game::initializeShaders() {
                 float ambBright = ambientBrightMult * ambientBright;
 
                 float distance = pow(distance(position, camPos)/(5), 2)/5.0f;
-                gl_Position = mvp * vec4(position - vec3(0.0f, distance, 0.0f), 1.0);
+                gl_Position = mvp * vec4(position , 1.0);
 
                 float bright = min(16.0f, blockBright + ambBright);
 
@@ -1374,7 +1385,7 @@ void Game::initializeShaders() {
             {
 
                 float distance = pow(distance(position + translation, camPos)/(5), 2)/5.0f;
-                gl_Position = mvp * vec4((position + translation) - vec3(0.0f, distance, 0.0f), 1.0);
+                gl_Position = mvp * vec4((position + translation), 1.0);
 
             }
         )glsl",
@@ -1440,7 +1451,7 @@ void Game::initializeShaders() {
                 float distance = pow(distance(instancePosition, camPos)/(5), 2)/5.0f;
 
                 // Transform position to clip space
-                gl_Position = p * v * m * vec4(billboardedPosition - vec3(0.0f, distance, 0.0f), 1.0);
+                gl_Position = p * v * m * vec4(billboardedPosition, 1.0);
 
 
 
@@ -1499,7 +1510,7 @@ void Game::initializeShaders() {
                 
                 float distance = pow(distance(blockPosition, camPos)/(5), 2)/5.0f;
 
-                gl_Position = mvp * vec4((position + blockPosition) - vec3(0.0f, distance, 0.0f), 1.0);
+                gl_Position = mvp * vec4((position + blockPosition) , 1.0);
 
 
                 TexCoord = uv + vec2(breakPhase/16.0f, 0);

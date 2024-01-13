@@ -57,9 +57,6 @@ void VoxelWorld::chunkUpdateThreadFunction(int* loadRadius) {
            std::vector<BlockChunk*> sortedChunkPtrs = getPreferredChunkPtrList(*loadRadius, cameraChunkPos);
 
 
-            if(meshQueueMutex.try_lock()) {
-
-
                 int takenChunkIndex = 0;
                 for(int x = cameraChunkPos.x - *loadRadius; x < cameraChunkPos.x + *loadRadius; ++x) {
                     for(int z = cameraChunkPos.z - *loadRadius; z < cameraChunkPos.z + *loadRadius; ++z) {
@@ -84,8 +81,6 @@ void VoxelWorld::chunkUpdateThreadFunction(int* loadRadius) {
                     }
                 }
 
-                meshQueueMutex.unlock();
-            }
             first = false;
         }
     }
@@ -112,15 +107,15 @@ std::vector<BlockChunk*> VoxelWorld::getPreferredChunkPtrList(int loadRadius, Ch
             std::abs(chunk->position.x - cameraChunkPos.x) +
             std::abs(chunk->position.z - cameraChunkPos.z);
 
-            return dist >= loadRadius;
+            return dist >= loadRadius*2;
         });
 
         return sortedChunkPtrs;
 }
 
 void VoxelWorld::populateChunksAndGeometryStores(entt::registry &registry, int viewDistance) {
-    for(int i = 0; i < (viewDistance*2)+5; ++i) {
-        for(int j = 0; j < (viewDistance*2)+5; ++j) {
+    for(int i = 0; i < (viewDistance*2)+10; ++i) {
+        for(int j = 0; j < (viewDistance*2)+10; ++j) {
 
             GeometryStore geometryStore;
             geometryStore.me = registry.create();
@@ -401,6 +396,8 @@ void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool im
         }
     }
 
+    geometryStorePool.at(chunk->geometryStorePoolIndex).myLock.lock();
+
         try {
             geometryStorePool.at(chunk->geometryStorePoolIndex).verts = verts;
         }
@@ -434,32 +431,31 @@ void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool im
             std::cout << "size: " << geometryStorePool.size() << "\n";
         }
 
+        geometryStorePool.at(chunk->geometryStorePoolIndex).myLock.unlock();
+
     if(!immediateInPlace) {
 
-        bool found = false;
-        for(int i : geometryStoresToRebuild) {
-            if(i == chunk->geometryStorePoolIndex) {
-                found = true;
-            }
-        }
+        // bool found = false;
+        // for(int i : geometryStoresToRebuild) {
+        //     if(i == chunk->geometryStorePoolIndex) {
+        //         found = true;
+        //     }
+        // }
 
-        if(!found) {
-            geometryStoresToRebuild.push_back(chunk->geometryStorePoolIndex);
+        // if(!found) {
+        //     geometryStoresToRebuild.push_back(chunk->geometryStorePoolIndex);
+        // }
+
+        while(!geometryStoreQueue.push(chunk->geometryStorePoolIndex)) {
+
         }
         if(takenCareOfChunkSpots.find(chunk->position) == takenCareOfChunkSpots.end()) {
             takenCareOfChunkSpots.insert_or_assign(chunk->position, chunk);
         }
     } else {
 
-        bool found = false;
-        for(int i : highPriorityGeometryStoresToRebuild) {
-            if(i == chunk->geometryStorePoolIndex) {
-                found = true;
-            }
-        }
+        while(!highPriorityGeometryStoreQueue.push(chunk->geometryStorePoolIndex)) {
 
-        if(!found) {
-            highPriorityGeometryStoresToRebuild.push_back(chunk->geometryStorePoolIndex);
         }
 
 
