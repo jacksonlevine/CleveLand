@@ -2077,7 +2077,11 @@ void Game::drawBlockOverlay() {
         static_cast<float>(std::floor((blockBreakingTimer/necessaryBlockBreakingTime)*8.0f))
     );
 
-    
+        if(voxelWorld.blockAt(BlockCoord(
+        std::round(blockOverlayCoord.x),
+        std::round(blockOverlayCoord.y),
+        std::round(blockOverlayCoord.z)
+        ))) {
         glDrawArrays(GL_TRIANGLES, 0, 36);
         if(blockBreakingTimer < necessaryBlockBreakingTime) {
             blockBreakingTimer += deltaTime;
@@ -2097,6 +2101,7 @@ void Game::drawBlockOverlay() {
                 blockOverlayShowing = false;
             }
             blockBreakingTimer = 0.0f;
+        }
         }
     }
     glBindVertexArray(0);
