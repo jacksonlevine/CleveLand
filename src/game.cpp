@@ -247,7 +247,7 @@ void Game::draw() {
     
 
     glBindVertexArray(VAO);
-    drawSky(0.0f, 0.0f, 1.0f, 1.0f,    1.2f, 1.2f, 1.8f, 1.0f, camera->pitch);
+    drawSky(skyColor.r, skyColor.g, skyColor.b, 1.0f,    1.0f, 1.0f, 1.0f, 1.0f, camera->pitch);
     
     drawParticles();
 
@@ -414,7 +414,7 @@ void Game::stepChunkDraw() {
     //     std::cout << std::endl;
     // }
 
-    static float numMustLoad = 200;
+    static float numMustLoad = 150;
 
     GLuint mvp_loc = glGetUniformLocation(worldShader->shaderID, "mvp");
     glUniformMatrix4fv(mvp_loc, 1, GL_FALSE, glm::value_ptr(camera->mvp));
@@ -1166,6 +1166,33 @@ void Game::keyCallback(GLFWwindow *window, int key, int scancode, int action, in
         ambientBrightnessMult = std::min(ambientBrightnessMult + 0.01f, 1.0f);
 
     }
+
+    if(key == GLFW_KEY_U && action == 1) {
+        skyColor.r += 0.1;
+        std::cout << skyColor.r << "f, " << skyColor.g << "f, " << skyColor.b << "f\n";
+    }
+    if(key == GLFW_KEY_J && action == 1) {
+        skyColor.r -= 0.1;
+        std::cout << skyColor.r << "f, " << skyColor.g << "f, " << skyColor.b << "f\n";
+    }
+
+    if(key == GLFW_KEY_I && action == 1) {
+        skyColor.g += 0.1;
+        std::cout << skyColor.r << "f, " << skyColor.g << "f, " << skyColor.b << "f\n";
+    }
+    if(key == GLFW_KEY_K && action == 1) {
+        skyColor.g -= 0.1;
+        std::cout << skyColor.r << "f, " << skyColor.g << "f, " << skyColor.b << "f\n";
+    }
+
+    if(key == GLFW_KEY_O && action == 1) {
+        skyColor.b += 0.1;
+        std::cout << skyColor.r << "f, " << skyColor.g << "f, " << skyColor.b << "f\n";
+    }
+    if(key == GLFW_KEY_L && action == 1) {
+        skyColor.b -= 0.1;
+        std::cout << skyColor.r << "f, " << skyColor.g << "f, " << skyColor.b << "f\n";
+    }
 }
 
 void Game::setFocused(bool focused) {
@@ -1361,7 +1388,7 @@ void Game::initializeShaders() {
                 vec4 texColor = texture(ourTexture, TexCoord);
                 FragColor = texColor * vec4(vertexColor, 1.0);
 
-                vec4 fogColor = vec4(0.7, 0.7, 0.949, 1.0);
+                vec4 fogColor = vec4(0.7, 0.8, 1.0, 1.0);
                 float distance = (distance(pos, camPos)/(viewDistance*5.0f))/5.0f;
 
                 if(FragColor.a < 0.4) {

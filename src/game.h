@@ -22,7 +22,7 @@ class Camera3D;
 
 class Game {
 public:
-    inline static int viewDistance = 5;
+    inline static int viewDistance = 7;
 
     double deltaTime;
     float averageDeltaTime;
@@ -144,6 +144,8 @@ public:
     inline static float displayingSelectCube = 0.0f;
 
     inline static GLuint billqvbo = 0;
+
+    inline static glm::vec3 skyColor = glm::vec3(0.7f, 0.8f, 1.0f);
 
 
     void updateAndDrawSelectCube();
