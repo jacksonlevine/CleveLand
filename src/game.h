@@ -15,6 +15,7 @@
 #include "gui/hud.h"
 #include <random>
 #include "util/particle.h"
+#include "util/blockinfo.h"
 
 #define GRAV 7.0
 
@@ -169,6 +170,10 @@ public:
 
     inline static int initialChunksRendered = 0;
     inline static bool loadRendering = true;
+
+    inline static unsigned int selectedBlockID = 1;
+
+    void drawSelectedBlock();
 
     Game();
 private:

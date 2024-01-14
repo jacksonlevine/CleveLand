@@ -252,6 +252,7 @@ void Game::draw() {
     drawParticles();
 
 
+
     glBindVertexArray(VAO);
     if(currentGuiButtons != nullptr) {
         glUseProgram(menuShader->shaderID);
@@ -341,6 +342,8 @@ void Game::draw() {
 
         if(!loadRendering)
         {
+            glBindVertexArray(VAO);
+            drawSelectedBlock();
             glUseProgram(menuShader->shaderID);
             glBindTexture(GL_TEXTURE_2D, menuTexture);
 
@@ -414,7 +417,7 @@ void Game::stepChunkDraw() {
     //     std::cout << std::endl;
     // }
 
-    static float numMustLoad = 300;
+    static float numMustLoad = 200;
 
     GLuint mvp_loc = glGetUniformLocation(worldShader->shaderID, "mvp");
     glUniformMatrix4fv(mvp_loc, 1, GL_FALSE, glm::value_ptr(camera->mvp));
@@ -491,6 +494,15 @@ void Game::stepChunkDraw() {
                     );
                 }
                 geometryStore.myLock.unlock();
+                if(loadRendering) {
+
+                    initialChunksRendered += 1;
+                    //std::cout << initialChunksRendered << "\n";
+                    if(initialChunksRendered >= numMustLoad) {
+                        //std::cout << "Done! Rendered " << numMustLoad << " chunks.\n";
+                        loadRendering = false;
+                    }
+                }
             } else {
                 while(!voxelWorld.highPriorityGeometryStoreQueue.push(poppedIndex)) {
 
@@ -869,11 +881,87 @@ void Game::changeViewDistance(int newValue) {
     voxelWorld.chunkUpdateThread.detach();
 }
 
+void Game::drawSelectedBlock() {
+    float splashImageWidth = 200;
+
+    static unsigned int lastSelectedBlockID = 0;
+    static int lastWindowWidth = 0;
+    static int lastWindowHeight = 0;
+
+    float horizontalScale = 0.5f;
+    float verticalScale = 0.3f;
+
+    float xOffset = static_cast<float>(windowWidth - splashImageWidth) / -windowWidth;
+    float yOffset = static_cast<float>(windowHeight - splashImageWidth) / -windowHeight;
+
+
+    glm::vec2 splashLowerLeft((-splashImageWidth/windowWidth)* horizontalScale + xOffset, (-splashImageWidth/windowHeight) * verticalScale + yOffset);
+    float relHeight = (splashImageWidth/(windowHeight/2)) * verticalScale;
+    float relWidth = (splashImageWidth/(windowWidth/2)) * horizontalScale;
+
+    static std::vector<float> splashDisplayData;
+
+    if(lastSelectedBlockID != selectedBlockID || windowWidth != lastWindowWidth || windowHeight != lastWindowHeight) {
+        lastSelectedBlockID = selectedBlockID;
+        lastWindowWidth = windowWidth;
+        lastWindowHeight = windowHeight;
+        TextureFace top = BlockInfo::texs[selectedBlockID][0];
+        TextureFace sides = BlockInfo::texs[selectedBlockID][1];
+        splashDisplayData = {
+            splashLowerLeft.x+(relWidth/4), splashLowerLeft.y+relHeight*(0.75f),   top.tl.x, top.tl.y,   -1.0f,
+            splashLowerLeft.x+(relWidth/2), splashLowerLeft.y+relHeight,   top.tr.x, top.tr.y,   -1.0f,
+            splashLowerLeft.x+(relWidth*0.75f), splashLowerLeft.y+relHeight*(0.75f),   top.br.x, top.br.y,   -1.0f,
+
+            splashLowerLeft.x+(relWidth*0.75f), splashLowerLeft.y+relHeight*(0.75f),   top.br.x, top.br.y,   -1.0f,
+            splashLowerLeft.x+(relWidth*0.5f), splashLowerLeft.y+relHeight*(0.5f),   top.bl.x, top.bl.y,   -1.0f,
+            splashLowerLeft.x+(relWidth/4), splashLowerLeft.y+relHeight*(0.75f),   top.tl.x, top.tl.y,   -1.0f,
+
+
+            splashLowerLeft.x+(relWidth/4), splashLowerLeft.y+relHeight/4,   sides.bl.x, sides.bl.y,   -99.0f,
+            splashLowerLeft.x+(relWidth/4), splashLowerLeft.y+relHeight*0.75f,   sides.tl.x, sides.tl.y,   -99.0f,
+            splashLowerLeft.x+(relWidth/2), splashLowerLeft.y+relHeight/2,   sides.tr.x, sides.tr.y,   -99.0f,
+
+            splashLowerLeft.x+(relWidth/2), splashLowerLeft.y+relHeight/2,   sides.tr.x, sides.tr.y,   -99.0f,
+            splashLowerLeft.x+(relWidth/2), splashLowerLeft.y,               sides.br.x, sides.br.y,   -99.0f,
+            splashLowerLeft.x+(relWidth/4), splashLowerLeft.y+relHeight/4,   sides.bl.x, sides.bl.y,   -99.0f,
+
+            splashLowerLeft.x+(relWidth/2), splashLowerLeft.y,               sides.bl.x, sides.bl.y,   -98.0f,
+            splashLowerLeft.x+(relWidth/2), splashLowerLeft.y+(relHeight/2),  sides.tl.x, sides.tl.y,   -98.0f,
+            splashLowerLeft.x+(relWidth*0.75f), splashLowerLeft.y+(relHeight*0.75f),  sides.tr.x, sides.tr.y,   -98.0f,
+
+            splashLowerLeft.x+(relWidth*0.75f), splashLowerLeft.y+(relHeight*0.75f),  sides.tr.x, sides.tr.y,   -98.0f,
+            splashLowerLeft.x+(relWidth*0.75f), splashLowerLeft.y+(relHeight*0.25f),  sides.br.x, sides.br.y,   -98.0f,
+            splashLowerLeft.x+(relWidth/2), splashLowerLeft.y,               sides.bl.x, sides.bl.y,   -98.0f,
+        };
+    }
+
+
+
+    glUseProgram(menuShader->shaderID);
+
+   
+    glBindTexture(GL_TEXTURE_2D, worldTexture);
+
+
+    static GLuint vbo = 0;
+    if(vbo == 0) {
+        glGenBuffers(1, &vbo);
+    }
+
+        bindMenuGeometry(vbo, 
+        splashDisplayData.data(),
+        splashDisplayData.size());
+
+
+    glDrawArrays(GL_TRIANGLES, 0, splashDisplayData.size()/5);
+
+}
+
 
 
 void Game::goToSingleplayerWorld(const char *worldname) {
 
-    
+
     voxelWorld.initialLoadProgress = 0;
     loadRendering = true;
 
@@ -1133,18 +1221,20 @@ void Game::castPlaceRay() {
                 // The hit was primarily along the Z-axis
                 hitNormal = glm::vec3(0.0f, 0.0f, (diff.z > 0) ? 1.0f : -1.0f);
             }
-
-            std::cout << "Place normal: " << hitNormal.x << " " << hitNormal.y << " " << hitNormal.z << "\n";
+            //std::cout << "Block hit: " << rayResult.blockHit.x << " " << rayResult.blockHit.y << " " << rayResult.blockHit.z << "\n";
+            //std::cout << "Place normal: " << hitNormal.x << " " << hitNormal.y << " " << hitNormal.z << "\n";
 
 
 
             BlockCoord placePoint(rayResult.blockHit.x+hitNormal.x, rayResult.blockHit.y+hitNormal.y, rayResult.blockHit.z+hitNormal.z);
-
-            voxelWorld.userDataMap.at(rayResult.chunksToRebuild.front()).insert_or_assign(placePoint, 1);
-
-
-            ChunkCoord chunkToReb(static_cast<int>(std::floor(static_cast<float>(placePoint.x)/voxelWorld.chunkWidth)),
-            static_cast<int>(std::floor(static_cast<float>(placePoint.z)/voxelWorld.chunkWidth)));
+            
+            ChunkCoord chunkToReb(
+                static_cast<int>(std::floor(static_cast<float>(placePoint.x)/voxelWorld.chunkWidth)),
+                static_cast<int>(std::floor(static_cast<float>(placePoint.z)/voxelWorld.chunkWidth)));
+            if(voxelWorld.userDataMap.find(chunkToReb) == voxelWorld.userDataMap.end()) {
+                voxelWorld.userDataMap.insert_or_assign(chunkToReb, std::unordered_map<BlockCoord, unsigned int, IntTupHash>());
+            }
+            voxelWorld.userDataMap.at(chunkToReb).insert_or_assign(placePoint, selectedBlockID);
 
                     auto chunkIt = voxelWorld.takenCareOfChunkSpots.find(chunkToReb);
                     if(chunkIt != voxelWorld.takenCareOfChunkSpots.end()) {
@@ -1243,10 +1333,18 @@ void Game::setFocused(bool focused) {
                 instance->frameBufferSizeCallback(w, width, height);
             }
         });
+        glfwSetScrollCallback(window, [](GLFWwindow* window, double xoffset, double yoffset){
+            Game* instance = static_cast<Game*>(glfwGetWindowUserPointer(window));
+            if (instance) {
+                //instance->frameBufferSizeCallback(w, width, height);
+                instance->selectedBlockID = std::max(std::min(static_cast<int>(instance->selectedBlockID + yoffset), static_cast<int>(BlockInfo::texs.size()-1)), 1);
+            }
+        });
     } else {
         glfwSetKeyCallback(window, NULL);
         glfwSetCursorPosCallback(window, NULL);
         glfwSetFramebufferSizeCallback(window, NULL);
+        glfwSetScrollCallback(window, NULL);
         camera->firstMouse = true;
     }
 }
@@ -1350,13 +1448,19 @@ void Game::initializeShaders() {
             uniform float clickedOnElement;
             void main() {
                 FragColor = texture(ourTexture, TexCoord);
-                if(FragColor.a < 1.0) {
+                if(FragColor.a < 0.1) {
                     discard;
                 }
                 if(clickedOnElement == elementID) {
                     FragColor = vec4(vec3(1.0, 1.0, 1.0) - FragColor.rgb, 1.0);
                 } else if(mousedOverElement == elementID) {
                     FragColor = FragColor + vec4(0.3, 0.3, 0.3, 0.0);
+                }
+                if(elementID == -99.0f) {
+                    FragColor = FragColor - vec4(0.5, 0.5, 0.5, 0.0);
+                }
+                if(elementID == -98.0f) {
+                    FragColor = FragColor - vec4(0.3, 0.3, 0.3, 0.0);
                 }
             }
         )glsl",

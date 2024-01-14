@@ -16,6 +16,7 @@
 #include "../util/textureface.h"
 #include <boost/lockfree/queue.hpp>
 #include "../util/random.h"
+#include "../util/blockinfo.h"
 
 class VoxelWorld {
 public:
@@ -49,7 +50,7 @@ public:
             BlockCoord, 
             unsigned int, 
             IntTupHash>
-                            nonUserDataMap;
+                           nonUserDataMap;
 
 
 

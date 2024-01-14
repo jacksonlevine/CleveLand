@@ -226,44 +226,8 @@ void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool im
     }
     };
 
-    static std::vector<std::vector<TextureFace>> texs = {
-        {TextureFace(0,0),//top
-        TextureFace(0,0),//sides
-        TextureFace(0,0),//bottom
-        }, 
-        {TextureFace(1,0),
-        TextureFace(1,0),
-        TextureFace(1,0),
-        }, 
-        {TextureFace(2,0),
-        TextureFace(2,0),
-        TextureFace(2,0),
-        }, 
-        {TextureFace(3,1),
-        TextureFace(3,0),
-        TextureFace(4,0),
-        }, 
-        {TextureFace(4,0),
-        TextureFace(4,0),
-        TextureFace(4,0),
-        },
-        {TextureFace(5,0),
-        TextureFace(5,0),
-        TextureFace(5,0),
-        },
-        {TextureFace(6,1),
-        TextureFace(6,0),
-        TextureFace(6,1),
-        },
-        {TextureFace(7,0),
-        TextureFace(7,0),
-        TextureFace(7,0),
-        }
-    };
 
-    static std::vector<int> transparents = {
-        2, 7
-    };
+    
 
 
 
@@ -282,7 +246,7 @@ void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool im
                 if(block != 0) {
                     
 
-                    if(std::find(transparents.begin(), transparents.end(), block) != transparents.end()) {
+                    if(std::find(BlockInfo::transparents.begin(), BlockInfo::transparents.end(), block) != BlockInfo::transparents.end()) {
 
                         for(BlockCoord &neigh : neighbors) {
                             unsigned int neighblock = blockAt(coord + neigh);
@@ -303,33 +267,33 @@ void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool im
                                 });
                                 if(neighborIndex == TOP) {
                                     tuvs.insert(tuvs.end() , {
-                                        texs[block][0].bl.x, texs[block][0].bl.y,
-                                        texs[block][0].br.x, texs[block][0].br.y,
-                                        texs[block][0].tr.x, texs[block][0].tr.y,
+                                        BlockInfo::texs[block][0].bl.x, BlockInfo::texs[block][0].bl.y,
+                                        BlockInfo::texs[block][0].br.x, BlockInfo::texs[block][0].br.y,
+                                        BlockInfo::texs[block][0].tr.x, BlockInfo::texs[block][0].tr.y,
 
-                                        texs[block][0].tr.x, texs[block][0].tr.y,
-                                        texs[block][0].tl.x, texs[block][0].tl.y,
-                                        texs[block][0].bl.x, texs[block][0].bl.y
+                                        BlockInfo::texs[block][0].tr.x, BlockInfo::texs[block][0].tr.y,
+                                        BlockInfo::texs[block][0].tl.x, BlockInfo::texs[block][0].tl.y,
+                                        BlockInfo::texs[block][0].bl.x, BlockInfo::texs[block][0].bl.y
                                     });
                                 } else if(neighborIndex == BOTTOM) {
                                     tuvs.insert(tuvs.end() , {
-                                        texs[block][2].bl.x, texs[block][2].bl.y,
-                                        texs[block][2].br.x, texs[block][2].br.y,
-                                        texs[block][2].tr.x, texs[block][2].tr.y,
+                                        BlockInfo::texs[block][2].bl.x, BlockInfo::texs[block][2].bl.y,
+                                        BlockInfo::texs[block][2].br.x, BlockInfo::texs[block][2].br.y,
+                                        BlockInfo::texs[block][2].tr.x, BlockInfo::texs[block][2].tr.y,
 
-                                        texs[block][2].tr.x, texs[block][2].tr.y,
-                                        texs[block][2].tl.x, texs[block][2].tl.y,
-                                        texs[block][2].bl.x, texs[block][2].bl.y
+                                        BlockInfo::texs[block][2].tr.x, BlockInfo::texs[block][2].tr.y,
+                                        BlockInfo::texs[block][2].tl.x, BlockInfo::texs[block][2].tl.y,
+                                        BlockInfo::texs[block][2].bl.x, BlockInfo::texs[block][2].bl.y
                                     });
                                 } else {
                                     tuvs.insert(tuvs.end() , {
-                                        texs[block][1].bl.x, texs[block][1].bl.y,
-                                        texs[block][1].br.x, texs[block][1].br.y,
-                                        texs[block][1].tr.x, texs[block][1].tr.y,
+                                        BlockInfo::texs[block][1].bl.x, BlockInfo::texs[block][1].bl.y,
+                                        BlockInfo::texs[block][1].br.x, BlockInfo::texs[block][1].br.y,
+                                        BlockInfo::texs[block][1].tr.x, BlockInfo::texs[block][1].tr.y,
 
-                                        texs[block][1].tr.x, texs[block][1].tr.y,
-                                        texs[block][1].tl.x, texs[block][1].tl.y,
-                                        texs[block][1].bl.x, texs[block][1].bl.y
+                                        BlockInfo::texs[block][1].tr.x, BlockInfo::texs[block][1].tr.y,
+                                        BlockInfo::texs[block][1].tl.x, BlockInfo::texs[block][1].tl.y,
+                                        BlockInfo::texs[block][1].bl.x, BlockInfo::texs[block][1].bl.y
                                     });
                                 }
                             }
@@ -341,7 +305,7 @@ void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool im
 
                         for(BlockCoord &neigh : neighbors) {
                             unsigned int neighblock = blockAt(coord + neigh);
-                            bool solidNeighboringTransparent = (std::find(transparents.begin(), transparents.end(), neighblock) != transparents.end() && std::find(transparents.begin(), transparents.end(), block) == transparents.end());
+                            bool solidNeighboringTransparent = (std::find(BlockInfo::transparents.begin(), BlockInfo::transparents.end(), neighblock) != BlockInfo::transparents.end() && std::find(BlockInfo::transparents.begin(), BlockInfo::transparents.end(), block) == BlockInfo::transparents.end());
                             if(neighblock == 0 || solidNeighboringTransparent) {
                                 BlockCoord transparentCubeHere = coord + neigh;
                                 verts.insert(verts.end(), {
@@ -360,33 +324,33 @@ void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool im
                                 });
                                 if(neighborIndex == TOP) {
                                     uvs.insert(uvs.end() , {
-                                        texs[block][0].bl.x, texs[block][0].bl.y,
-                                        texs[block][0].br.x, texs[block][0].br.y,
-                                        texs[block][0].tr.x, texs[block][0].tr.y,
+                                        BlockInfo::texs[block][0].bl.x, BlockInfo::texs[block][0].bl.y,
+                                        BlockInfo::texs[block][0].br.x, BlockInfo::texs[block][0].br.y,
+                                        BlockInfo::texs[block][0].tr.x, BlockInfo::texs[block][0].tr.y,
 
-                                        texs[block][0].tr.x, texs[block][0].tr.y,
-                                        texs[block][0].tl.x, texs[block][0].tl.y,
-                                        texs[block][0].bl.x, texs[block][0].bl.y
+                                        BlockInfo::texs[block][0].tr.x, BlockInfo::texs[block][0].tr.y,
+                                        BlockInfo::texs[block][0].tl.x, BlockInfo::texs[block][0].tl.y,
+                                        BlockInfo::texs[block][0].bl.x, BlockInfo::texs[block][0].bl.y
                                     });
                                 } else if(neighborIndex == BOTTOM) {
                                     uvs.insert(uvs.end() , {
-                                        texs[block][2].bl.x, texs[block][2].bl.y,
-                                        texs[block][2].br.x, texs[block][2].br.y,
-                                        texs[block][2].tr.x, texs[block][2].tr.y,
+                                        BlockInfo::texs[block][2].bl.x, BlockInfo::texs[block][2].bl.y,
+                                        BlockInfo::texs[block][2].br.x, BlockInfo::texs[block][2].br.y,
+                                        BlockInfo::texs[block][2].tr.x, BlockInfo::texs[block][2].tr.y,
 
-                                        texs[block][2].tr.x, texs[block][2].tr.y,
-                                        texs[block][2].tl.x, texs[block][2].tl.y,
-                                        texs[block][2].bl.x, texs[block][2].bl.y
+                                        BlockInfo::texs[block][2].tr.x, BlockInfo::texs[block][2].tr.y,
+                                        BlockInfo::texs[block][2].tl.x, BlockInfo::texs[block][2].tl.y,
+                                        BlockInfo::texs[block][2].bl.x, BlockInfo::texs[block][2].bl.y
                                     });
                                 } else {
                                     uvs.insert(uvs.end() , {
-                                        texs[block][1].bl.x, texs[block][1].bl.y,
-                                        texs[block][1].br.x, texs[block][1].br.y,
-                                        texs[block][1].tr.x, texs[block][1].tr.y,
+                                        BlockInfo::texs[block][1].bl.x, BlockInfo::texs[block][1].bl.y,
+                                        BlockInfo::texs[block][1].br.x, BlockInfo::texs[block][1].br.y,
+                                        BlockInfo::texs[block][1].tr.x, BlockInfo::texs[block][1].tr.y,
 
-                                        texs[block][1].tr.x, texs[block][1].tr.y,
-                                        texs[block][1].tl.x, texs[block][1].tl.y,
-                                        texs[block][1].bl.x, texs[block][1].bl.y
+                                        BlockInfo::texs[block][1].tr.x, BlockInfo::texs[block][1].tr.y,
+                                        BlockInfo::texs[block][1].tl.x, BlockInfo::texs[block][1].tl.y,
+                                        BlockInfo::texs[block][1].bl.x, BlockInfo::texs[block][1].bl.y
                                     });
                                 }
                             }
@@ -588,10 +552,12 @@ void VoxelWorld::generateChunk(ChunkCoord chunkcoord) {
                                     std::floor(static_cast<float>(coorHere.x)/chunkWidth),
                                     std::floor(static_cast<float>(coorHere.z)/chunkWidth)
                                 );
-                                nonUserDataMap.insert_or_assign(coorHere, 7);
-                                auto chunkIt = takenCareOfChunkSpots.find(chunkHere);
-                                if(chunkIt != takenCareOfChunkSpots.end()) {
-                                    implicatedChunks.insert(chunkIt->second);
+                                if(nonUserDataMap.find(coorHere) == nonUserDataMap.end()) {
+                                    nonUserDataMap.insert_or_assign(coorHere, 7);
+                                    auto chunkIt = takenCareOfChunkSpots.find(chunkHere);
+                                    if(chunkIt != takenCareOfChunkSpots.end()) {
+                                        implicatedChunks.insert(chunkIt->second);
+                                    }
                                 }
                             }
                         }
