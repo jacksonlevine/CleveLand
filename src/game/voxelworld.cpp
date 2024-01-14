@@ -227,8 +227,8 @@ void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool im
     };
 
 
-    static std::vector<float> doorBottomUVs = BlockInfo::getDoorUVs(TextureFace(11,0));
-    static std::vector<float> doorTopUVs = BlockInfo::getDoorUVs(TextureFace(11,1));
+    static std::vector<float> doorBottomUVs = DoorInfo::getDoorUVs(TextureFace(11,0));
+    static std::vector<float> doorTopUVs = DoorInfo::getDoorUVs(TextureFace(11,1));
 
 
     std::vector<float> verts;
@@ -249,8 +249,8 @@ void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool im
                     
                     if(block == 11) {
                         int direction = BlockInfo::getDirectionBits(flags);
-                        int open = BlockInfo::getDoorOpenBit(flags);
-                        int opposite = BlockInfo::getOppositeDoorBits(flags);
+                        int open = DoorInfo::getDoorOpenBit(flags);
+                        int opposite = DoorInfo::getOppositeDoorBits(flags);
 
                         int modelIndex;
                         if(opposite == 1) {
@@ -262,10 +262,10 @@ void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool im
                             modelIndex = (direction + open) % 4;
                         }
 
-                        int doorTop = BlockInfo::getDoorTopBit(flags);
+                        int doorTop = DoorInfo::getDoorTopBit(flags);
                         
                         int index = 0;
-                        for(float vert : BlockInfo::doorModels[modelIndex]) {
+                        for(float vert : DoorInfo::doorModels[modelIndex]) {
                             float thisvert = 0.0f;
                             if(index == 0){
                                 thisvert = vert + coord.x;

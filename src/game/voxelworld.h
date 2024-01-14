@@ -17,6 +17,7 @@
 #include <boost/lockfree/queue.hpp>
 #include "../util/random.h"
 #include "../util/blockinfo.h"
+#include "../game/specialblocks/door.h"
 
 class VoxelWorld {
 public:

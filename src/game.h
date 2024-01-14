@@ -16,6 +16,7 @@
 #include <random>
 #include "util/particle.h"
 #include "util/blockinfo.h"
+#include "game/specialblocks/door.h"
 
 #define GRAV 7.0
 

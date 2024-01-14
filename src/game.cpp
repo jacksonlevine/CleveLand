@@ -9,7 +9,7 @@ collCage([this](BlockCoord b){
     uint32_t blockBitsHere = voxelWorld.blockAt(b);
     uint32_t blockIDHere = blockBitsHere & BlockInfo::BLOCK_ID_BITS;
     if(blockIDHere == 11) {
-        if(BlockInfo::getDoorOpenBit(blockBitsHere) == 1) {
+        if(DoorInfo::getDoorOpenBit(blockBitsHere) == 1) {
             return false;
         } else {
             return true;
@@ -1166,7 +1166,7 @@ void Game::castBreakRay() {
         uint32_t blockBitsHere = voxelWorld.blockAt(rayResult.blockHit);
         uint32_t blockIDHere = blockBitsHere & BlockInfo::BLOCK_ID_BITS;
         if(blockIDHere == 11) {
-            int top = BlockInfo::getDoorTopBit(blockBitsHere);
+            int top = DoorInfo::getDoorTopBit(blockBitsHere);
             BlockCoord otherHalf;
             if(top == 1) {
                 otherHalf = rayResult.blockHit + BlockCoord(0, -1, 0);
@@ -1235,7 +1235,7 @@ void Game::castPlaceRay() {
         uint32_t blockBitsHere = voxelWorld.blockAt(rayResult.blockHit);
         uint32_t blockIDHere = blockBitsHere & BlockInfo::BLOCK_ID_BITS;
         if(blockIDHere == 11) {
-            int top = BlockInfo::getDoorTopBit(blockBitsHere);
+            int top = DoorInfo::getDoorTopBit(blockBitsHere);
             BlockCoord otherHalf;
             if(top == 1) {
                 otherHalf = rayResult.blockHit + BlockCoord(0, -1, 0);
@@ -1244,8 +1244,8 @@ void Game::castPlaceRay() {
             }
             uint32_t otherHalfBits = voxelWorld.blockAt(otherHalf);
 
-            BlockInfo::toggleDoorOpenBit(blockBitsHere);
-            BlockInfo::toggleDoorOpenBit(otherHalfBits);
+            DoorInfo::toggleDoorOpenBit(blockBitsHere);
+            DoorInfo::toggleDoorOpenBit(otherHalfBits);
 
             voxelWorld.userDataMap.at(rayResult.chunksToRebuild.front()).insert_or_assign(otherHalf, otherHalfBits);    
             voxelWorld.userDataMap.at(rayResult.chunksToRebuild.front()).insert_or_assign(rayResult.blockHit, blockBitsHere);
@@ -1318,7 +1318,7 @@ void Game::castPlaceRay() {
                     uint32_t bottomID = 11;
                     uint32_t topID = 11;
 
-                    topID |= BlockInfo::DOORTOP_BITS;
+                    topID |= DoorInfo::DOORTOP_BITS;
 
                     float diffX = camera->position.x - placePoint.x;
                     float diffZ = camera->position.z - placePoint.z;
@@ -1354,15 +1354,15 @@ void Game::castPlaceRay() {
                     if((blockBitsRight & BlockInfo::BLOCK_ID_BITS) == 11) {
                         //std::cout << "Door to my right! \n";
                         uint32_t neighdir = BlockInfo::getDirectionBits(blockBitsRight);
-                        if(neighdir == direction && BlockInfo::getDoorTopBit(blockBitsRight) == 0) {
+                        if(neighdir == direction && DoorInfo::getDoorTopBit(blockBitsRight) == 0) {
                             BlockCoord rightUp = right + BlockCoord(0,1,0);
                             uint32_t neighTopBits = voxelWorld.blockAt(rightUp);
 
-                            BlockInfo::setOppositeDoorBits(topID, 1);
-                            BlockInfo::setOppositeDoorBits(bottomID, 1);
+                            DoorInfo::setOppositeDoorBits(topID, 1);
+                            DoorInfo::setOppositeDoorBits(bottomID, 1);
 
-                            BlockInfo::setOppositeDoorBits(blockBitsRight, 0);
-                            BlockInfo::setOppositeDoorBits(neighTopBits, 0);
+                            DoorInfo::setOppositeDoorBits(blockBitsRight, 0);
+                            DoorInfo::setOppositeDoorBits(neighTopBits, 0);
 
                             ChunkCoord chunkToReb2(
                             static_cast<int>(std::floor(static_cast<float>(right.x)/voxelWorld.chunkWidth)),
@@ -1375,15 +1375,15 @@ void Game::castPlaceRay() {
                     if((blockBitsLeft & BlockInfo::BLOCK_ID_BITS) == 11) {
                         //std::cout << "Door to my left! \n";
                         uint32_t neighdir = BlockInfo::getDirectionBits(blockBitsLeft);
-                        if(neighdir == direction && BlockInfo::getDoorTopBit(blockBitsLeft) == 0) {
+                        if(neighdir == direction && DoorInfo::getDoorTopBit(blockBitsLeft) == 0) {
                             BlockCoord leftUp = left + BlockCoord(0,1,0);
                             uint32_t neighTopBits = voxelWorld.blockAt(leftUp);
 
-                            BlockInfo::setOppositeDoorBits(topID, 0);
-                            BlockInfo::setOppositeDoorBits(bottomID, 0);
+                            DoorInfo::setOppositeDoorBits(topID, 0);
+                            DoorInfo::setOppositeDoorBits(bottomID, 0);
 
-                            BlockInfo::setOppositeDoorBits(blockBitsLeft, 1);
-                            BlockInfo::setOppositeDoorBits(neighTopBits, 1);
+                            DoorInfo::setOppositeDoorBits(blockBitsLeft, 1);
+                            DoorInfo::setOppositeDoorBits(neighTopBits, 1);
 
                             ChunkCoord chunkToReb2(
                             static_cast<int>(std::floor(static_cast<float>(left.x)/voxelWorld.chunkWidth)),
