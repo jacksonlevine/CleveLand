@@ -6,7 +6,16 @@
 
 Game::Game() : lastFrame(0), focused(false), camera(nullptr),
 collCage([this](BlockCoord b){
-    return voxelWorld.blockAt(b) != 0;
+    uint32_t blockBitsHere = voxelWorld.blockAt(b);
+    uint32_t blockIDHere = blockBitsHere & BlockInfo::BLOCK_ID_BITS;
+    if(blockIDHere == 11) {
+        if(BlockInfo::getDoorOpenBit(blockBitsHere) == 1) {
+            return false;
+        } else {
+            return true;
+        }
+    }
+    return blockIDHere != 0;
 }),
 user(glm::vec3(0,0,0), glm::vec3(0,0,0)),
 grounded(true)
@@ -1154,6 +1163,31 @@ void Game::castBreakRay() {
         true
     );
     if(rayResult.hit) {
+        uint32_t blockBitsHere = voxelWorld.blockAt(rayResult.blockHit);
+        uint32_t blockIDHere = blockBitsHere & BlockInfo::BLOCK_ID_BITS;
+        if(blockIDHere == 11) {
+            int top = BlockInfo::getDoorTopBit(blockBitsHere);
+            BlockCoord otherHalf;
+            if(top == 1) {
+                otherHalf = rayResult.blockHit + BlockCoord(0, -1, 0);
+            } else {
+                otherHalf = rayResult.blockHit + BlockCoord(0, 1, 0);
+            }
+
+            voxelWorld.userDataMap.at(rayResult.chunksToRebuild.front()).insert_or_assign(otherHalf, 0);    
+            voxelWorld.userDataMap.at(rayResult.chunksToRebuild.front()).insert_or_assign(rayResult.blockHit, 0);
+
+            auto chunkIt = voxelWorld.takenCareOfChunkSpots.find(rayResult.chunksToRebuild.front());
+                if(chunkIt != voxelWorld.takenCareOfChunkSpots.end()) {
+                    
+                    BlockChunk *chunk = chunkIt->second;
+
+                    while(!voxelWorld.deferredChunkQueue.push(chunk)) {
+
+                    }
+
+                }
+        }else
         if(rayResult.chunksToRebuild.size() > 0) {
             if(voxelWorld.userDataMap.find(rayResult.chunksToRebuild.front()) == voxelWorld.userDataMap.end()) {
                 voxelWorld.userDataMap.insert_or_assign(rayResult.chunksToRebuild.front(), 
@@ -1197,6 +1231,37 @@ void Game::castPlaceRay() {
         false
     );
     if(rayResult.hit) {
+
+        uint32_t blockBitsHere = voxelWorld.blockAt(rayResult.blockHit);
+        uint32_t blockIDHere = blockBitsHere & BlockInfo::BLOCK_ID_BITS;
+        if(blockIDHere == 11) {
+            int top = BlockInfo::getDoorTopBit(blockBitsHere);
+            BlockCoord otherHalf;
+            if(top == 1) {
+                otherHalf = rayResult.blockHit + BlockCoord(0, -1, 0);
+            } else {
+                otherHalf = rayResult.blockHit + BlockCoord(0, 1, 0);
+            }
+            uint32_t otherHalfBits = voxelWorld.blockAt(otherHalf);
+
+            BlockInfo::toggleDoorOpenBit(blockBitsHere);
+            BlockInfo::toggleDoorOpenBit(otherHalfBits);
+
+            voxelWorld.userDataMap.at(rayResult.chunksToRebuild.front()).insert_or_assign(otherHalf, otherHalfBits);    
+            voxelWorld.userDataMap.at(rayResult.chunksToRebuild.front()).insert_or_assign(rayResult.blockHit, blockBitsHere);
+
+            auto chunkIt = voxelWorld.takenCareOfChunkSpots.find(rayResult.chunksToRebuild.front());
+                if(chunkIt != voxelWorld.takenCareOfChunkSpots.end()) {
+                    
+                    BlockChunk *chunk = chunkIt->second;
+
+                    while(!voxelWorld.deferredChunkQueue.push(chunk)) {
+
+                    }
+
+                }
+        }else
+
         if(rayResult.chunksToRebuild.size() > 0) {
             if(voxelWorld.userDataMap.find(rayResult.chunksToRebuild.front()) == voxelWorld.userDataMap.end()) {
                 voxelWorld.userDataMap.insert_or_assign(rayResult.chunksToRebuild.front(), 
@@ -1234,19 +1299,133 @@ void Game::castPlaceRay() {
             if(voxelWorld.userDataMap.find(chunkToReb) == voxelWorld.userDataMap.end()) {
                 voxelWorld.userDataMap.insert_or_assign(chunkToReb, std::unordered_map<BlockCoord, unsigned int, IntTupHash>());
             }
-            voxelWorld.userDataMap.at(chunkToReb).insert_or_assign(placePoint, selectedBlockID);
+            if(selectedBlockID == 11){ //placing  door
+
+                static std::vector<BlockCoord> neighborAxes = {
+                    BlockCoord(1,0,0),
+                    BlockCoord(0,0,1),
+                    BlockCoord(1,0,0),
+                    BlockCoord(0,0,1),
+                };
+
+                BlockCoord placeAbove = placePoint + BlockCoord(0,1,0);
+                BlockCoord placeBelow = placePoint + BlockCoord(0,-1,0);
+
+                bool condition1 = voxelWorld.blockAt(placeAbove) == 0;
+                bool condition2 = voxelWorld.blockAt(placeBelow) != 0;
+
+                if(condition1 && condition2) {
+                    uint32_t bottomID = 11;
+                    uint32_t topID = 11;
+
+                    topID |= BlockInfo::DOORTOP_BITS;
+
+                    float diffX = camera->position.x - placePoint.x;
+                    float diffZ = camera->position.z - placePoint.z;
+
+                    int direction = 0;
+
+                    if (std::abs(diffX) > std::abs(diffZ)) {
+                        // The player is primarily aligned with the X-axis
+                        direction = diffX > 0 ? /*Plus X*/1 : /*Minus X*/3;
+                    } else {
+                        // The player is primarily aligned with the Z-axis
+                        direction = diffZ > 0 ? /*Plus Z*/2 : /*Minus Z*/0;
+                    }
+
+                    BlockInfo::setDirectionBits(bottomID, direction);
+                    BlockInfo::setDirectionBits(topID, direction);
+
+                    BlockCoord left;
+                    BlockCoord right;
+
+                    if(direction == 0 || direction == 1) {
+                        left = placePoint - neighborAxes[direction];
+                        right = placePoint + neighborAxes[direction];
+                    } else {
+                        left = placePoint + neighborAxes[direction];
+                        right = placePoint - neighborAxes[direction];
+                    }
+
+                    uint32_t blockBitsRight = voxelWorld.blockAt(right);
+                    uint32_t blockBitsLeft = voxelWorld.blockAt(left);
+                    std::cout << "Block bits left: " << (blockBitsLeft & BlockInfo::BLOCK_ID_BITS) << "\n";
+                    std::cout << "Block bits right: " << (blockBitsRight & BlockInfo::BLOCK_ID_BITS) << "\n";
+                    if((blockBitsRight & BlockInfo::BLOCK_ID_BITS) == 11) {
+                        std::cout << "Door to my right! \n";
+                        uint32_t neighdir = BlockInfo::getDirectionBits(blockBitsRight);
+                        if(neighdir == direction && BlockInfo::getDoorTopBit(blockBitsRight) == 0) {
+                            BlockCoord rightUp = right + BlockCoord(0,1,0);
+                            uint32_t neighTopBits = voxelWorld.blockAt(rightUp);
+
+                            BlockInfo::setOppositeDoorBits(topID, 1);
+                            BlockInfo::setOppositeDoorBits(bottomID, 1);
+
+                            BlockInfo::setOppositeDoorBits(blockBitsRight, 0);
+                            BlockInfo::setOppositeDoorBits(neighTopBits, 0);
+
+                            ChunkCoord chunkToReb2(
+                            static_cast<int>(std::floor(static_cast<float>(right.x)/voxelWorld.chunkWidth)),
+                            static_cast<int>(std::floor(static_cast<float>(right.z)/voxelWorld.chunkWidth)));
+
+                            voxelWorld.userDataMap.at(chunkToReb2).insert_or_assign(right, blockBitsRight);
+                            voxelWorld.userDataMap.at(chunkToReb2).insert_or_assign(rightUp, neighTopBits);
+                        }
+                    }
+                    if((blockBitsLeft & BlockInfo::BLOCK_ID_BITS) == 11) {
+                        std::cout << "Door to my left! \n";
+                        uint32_t neighdir = BlockInfo::getDirectionBits(blockBitsLeft);
+                        if(neighdir == direction && BlockInfo::getDoorTopBit(blockBitsLeft) == 0) {
+                            BlockCoord leftUp = left + BlockCoord(0,1,0);
+                            uint32_t neighTopBits = voxelWorld.blockAt(leftUp);
+
+                            BlockInfo::setOppositeDoorBits(topID, 0);
+                            BlockInfo::setOppositeDoorBits(bottomID, 0);
+
+                            BlockInfo::setOppositeDoorBits(blockBitsLeft, 1);
+                            BlockInfo::setOppositeDoorBits(neighTopBits, 1);
+
+                            ChunkCoord chunkToReb2(
+                            static_cast<int>(std::floor(static_cast<float>(left.x)/voxelWorld.chunkWidth)),
+                            static_cast<int>(std::floor(static_cast<float>(left.z)/voxelWorld.chunkWidth)));
+
+                            voxelWorld.userDataMap.at(chunkToReb2).insert_or_assign(left, blockBitsLeft);
+                            voxelWorld.userDataMap.at(chunkToReb2).insert_or_assign(leftUp, neighTopBits);
+                        }
+                    }
+
+
+                    voxelWorld.userDataMap.at(chunkToReb).insert_or_assign(placePoint, bottomID);
+                    voxelWorld.userDataMap.at(chunkToReb).insert_or_assign(placeAbove, topID);
 
                     auto chunkIt = voxelWorld.takenCareOfChunkSpots.find(chunkToReb);
                     if(chunkIt != voxelWorld.takenCareOfChunkSpots.end()) {
-                       
-                       BlockChunk *chunk = chunkIt->second;
+                        
+                        BlockChunk *chunk = chunkIt->second;
 
 
-                       while(!voxelWorld.deferredChunkQueue.push(chunk)) {
+                        while(!voxelWorld.deferredChunkQueue.push(chunk)) {
 
-                       }
+                        }
 
-                     }
+                    }
+                }
+            } else {
+                voxelWorld.userDataMap.at(chunkToReb).insert_or_assign(placePoint, selectedBlockID);
+
+                auto chunkIt = voxelWorld.takenCareOfChunkSpots.find(chunkToReb);
+                if(chunkIt != voxelWorld.takenCareOfChunkSpots.end()) {
+                    
+                    BlockChunk *chunk = chunkIt->second;
+
+
+                    while(!voxelWorld.deferredChunkQueue.push(chunk)) {
+
+                    }
+
+                }
+            }
+                
 
         }
     }

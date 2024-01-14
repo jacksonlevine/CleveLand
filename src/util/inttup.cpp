@@ -56,6 +56,16 @@ IntTup operator+(IntTup first,
     return first;
 }
 
+IntTup operator-(IntTup first,
+                 const IntTup& second)
+{
+    first.x -= second.x;
+    first.y -= second.y;
+    first.z -= second.z;
+
+    return first;
+}
+
 IntTup::IntTup(int x, int y, int z)
 {
     this->x = x;

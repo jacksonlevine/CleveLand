@@ -42,13 +42,13 @@ public:
         ChunkCoord, 
         std::unordered_map<
             BlockCoord, 
-            unsigned int, 
+            uint32_t, 
             IntTupHash>, 
         IntTupHash>        userDataMap;
 
     std::unordered_map<
             BlockCoord, 
-            unsigned int, 
+            uint32_t, 
             IntTupHash>
                            nonUserDataMap;
 
@@ -85,7 +85,7 @@ public:
     std::mutex meshQueueMutex;
 
     float noiseFunction(int x, int y, int z);
-    unsigned int blockAt(BlockCoord coord);
+    uint32_t blockAt(BlockCoord coord);
 
     void runStep(float deltaTime);
     

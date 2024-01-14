@@ -227,8 +227,8 @@ void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool im
     };
 
 
-    
-
+    static std::vector<float> doorBottomUVs = BlockInfo::getDoorUVs(TextureFace(11,0));
+    static std::vector<float> doorTopUVs = BlockInfo::getDoorUVs(TextureFace(11,1));
 
 
     std::vector<float> verts;
@@ -242,14 +242,57 @@ void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool im
             for(int y = startY; y < startY + chunkHeight; ++y) {
                 BlockCoord coord(x,y,z);
                 int neighborIndex = 0;
-                unsigned int block = blockAt(coord);
+                uint32_t combined = blockAt(coord);
+                uint32_t block = combined & BlockInfo::BLOCK_ID_BITS;
+                uint32_t flags = combined & BlockInfo::BLOCK_FLAG_BITS;
                 if(block != 0) {
                     
+                    if(block == 11) {
+                        int direction = BlockInfo::getDirectionBits(flags);
+                        int open = BlockInfo::getDoorOpenBit(flags);
+                        int opposite = BlockInfo::getOppositeDoorBits(flags);
 
+                        int modelIndex;
+                        if(opposite == 1) {
+                            modelIndex = (direction - open);
+                            if(modelIndex < 0) {
+                                modelIndex = 3;
+                            }
+                        } else {
+                            modelIndex = (direction + open) % 4;
+                        }
+
+                        int doorTop = BlockInfo::getDoorTopBit(flags);
+                        
+                        int index = 0;
+                        for(float vert : BlockInfo::doorModels[modelIndex]) {
+                            float thisvert = 0.0f;
+                            if(index == 0){
+                                thisvert = vert + coord.x;
+                            } else
+                            if(index == 1){
+                                thisvert = vert + coord.y;
+                            } else
+                            if(index == 2){
+                                thisvert = vert + coord.z;
+                            } else {
+                                thisvert = vert;
+                            }
+                            tverts.push_back(thisvert);
+                            index = (index + 1) % 5;
+                        }
+
+                        if(doorTop) {
+                            tuvs.insert(tuvs.end(),doorTopUVs.begin(), doorTopUVs.end());
+                        } else {
+                            tuvs.insert(tuvs.end(),doorBottomUVs.begin(), doorBottomUVs.end());
+                        }
+                    } else
                     if(std::find(BlockInfo::transparents.begin(), BlockInfo::transparents.end(), block) != BlockInfo::transparents.end()) {
 
                         for(BlockCoord &neigh : neighbors) {
-                            unsigned int neighblock = blockAt(coord + neigh);
+                            uint32_t neighblockcombined = blockAt(coord + neigh);
+                            uint32_t neighblock = neighblockcombined & BlockInfo::BLOCK_ID_BITS;
                             if(neighblock == 0) {
                                 tverts.insert(tverts.end(), {
                                     faces[neighborIndex][0] + coord.x, faces[neighborIndex][1] + coord.y, faces[neighborIndex][2] + coord.z, faces[neighborIndex][3],
@@ -304,10 +347,11 @@ void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool im
 
 
                         for(BlockCoord &neigh : neighbors) {
-                            unsigned int neighblock = blockAt(coord + neigh);
+                            uint32_t neighblockcombined = blockAt(coord + neigh);
+                            uint32_t neighblock = neighblockcombined & BlockInfo::BLOCK_ID_BITS;
                             bool solidNeighboringTransparent = (std::find(BlockInfo::transparents.begin(), BlockInfo::transparents.end(), neighblock) != BlockInfo::transparents.end() && std::find(BlockInfo::transparents.begin(), BlockInfo::transparents.end(), block) == BlockInfo::transparents.end());
                             if(neighblock == 0 || solidNeighboringTransparent) {
-                                BlockCoord transparentCubeHere = coord + neigh;
+                                BlockCoord lightCubeHere = coord + neigh;
                                 verts.insert(verts.end(), {
                                     faces[neighborIndex][0] + coord.x, faces[neighborIndex][1] + coord.y, faces[neighborIndex][2] + coord.z, faces[neighborIndex][3],
                                     faces[neighborIndex][4], 
@@ -585,7 +629,7 @@ void VoxelWorld::generateChunk(ChunkCoord chunkcoord) {
 
 
 
-unsigned int VoxelWorld::blockAt(BlockCoord coord) {
+uint32_t VoxelWorld::blockAt(BlockCoord coord) {
     static int waterLevel = 20;
     ChunkCoord chunkcoord(
         static_cast<int>(std::floor(static_cast<float>(coord.x)/chunkWidth)), 
@@ -692,13 +736,13 @@ void VoxelWorld::loadWorldFromFile(const char *path) {
                         localIndex++;
                     }
                     currentChunkCoord = thisChunkCoord;
-                    std::unordered_map<BlockCoord, unsigned int, IntTupHash> thisBlockMap;
+                    std::unordered_map<BlockCoord, uint32_t, IntTupHash> thisBlockMap;
                     userDataMap.insert_or_assign(currentChunkCoord, thisBlockMap);
                 } else {
                     std::string word;
                     int localIndex = 0;
                     BlockCoord thisBlockCoord;
-                    unsigned int thisID;
+                    uint32_t thisID;
                     while(linestream >> word) {
                         if(localIndex == 1) {
                             thisBlockCoord.x = std::stoi(word);
@@ -710,7 +754,7 @@ void VoxelWorld::loadWorldFromFile(const char *path) {
                             thisBlockCoord.z = std::stoi(word);
                         }
                         if(localIndex == 4) {
-                            thisID = static_cast<unsigned int>(std::stoi(word));
+                            thisID = static_cast<uint32_t>(std::stoi(word));
                         }
                         localIndex++;
                     }

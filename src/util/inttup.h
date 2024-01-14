@@ -21,6 +21,8 @@ public:
 
 IntTup operator+(IntTup first, const IntTup& second);
 
+IntTup operator-(IntTup first, const IntTup& second);
+
 struct IntTupHash {
     std::size_t operator()(const IntTup& tup) const;
 };
