@@ -1349,10 +1349,10 @@ void Game::castPlaceRay() {
 
                     uint32_t blockBitsRight = voxelWorld.blockAt(right);
                     uint32_t blockBitsLeft = voxelWorld.blockAt(left);
-                    std::cout << "Block bits left: " << (blockBitsLeft & BlockInfo::BLOCK_ID_BITS) << "\n";
-                    std::cout << "Block bits right: " << (blockBitsRight & BlockInfo::BLOCK_ID_BITS) << "\n";
+                    //std::cout << "Block bits left: " << (blockBitsLeft & BlockInfo::BLOCK_ID_BITS) << "\n";
+                    //std::cout << "Block bits right: " << (blockBitsRight & BlockInfo::BLOCK_ID_BITS) << "\n";
                     if((blockBitsRight & BlockInfo::BLOCK_ID_BITS) == 11) {
-                        std::cout << "Door to my right! \n";
+                        //std::cout << "Door to my right! \n";
                         uint32_t neighdir = BlockInfo::getDirectionBits(blockBitsRight);
                         if(neighdir == direction && BlockInfo::getDoorTopBit(blockBitsRight) == 0) {
                             BlockCoord rightUp = right + BlockCoord(0,1,0);
@@ -1373,7 +1373,7 @@ void Game::castPlaceRay() {
                         }
                     }
                     if((blockBitsLeft & BlockInfo::BLOCK_ID_BITS) == 11) {
-                        std::cout << "Door to my left! \n";
+                        //std::cout << "Door to my left! \n";
                         uint32_t neighdir = BlockInfo::getDirectionBits(blockBitsLeft);
                         if(neighdir == direction && BlockInfo::getDoorTopBit(blockBitsLeft) == 0) {
                             BlockCoord leftUp = left + BlockCoord(0,1,0);
