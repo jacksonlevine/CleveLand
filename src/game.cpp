@@ -338,6 +338,46 @@ void Game::draw() {
             glDrawArrays(GL_TRIANGLES, 0, logoDisplayData.size()/5);
 
 
+            const char* message = "Version 0.0.1";
+
+            std::vector<float> displayData;
+
+
+            float letHeight = (32.0f/windowHeight);
+            float letWidth = (32.0f/windowWidth);
+            float lettersCount = std::strlen(message);
+            float totletwid = letWidth * lettersCount;
+            glm::vec2 letterStart(-totletwid/2, -letHeight/2 + 0.2f);
+
+            GlyphFace glyph;
+
+            for(int i = 0; i < lettersCount; i++) {
+                glyph.setCharCode(static_cast<int>(message[i]));
+                glm::vec2 thisLetterStart(letterStart.x + i*letWidth, letterStart.y);
+                displayData.insert(displayData.end(), {
+                    thisLetterStart.x, thisLetterStart.y,                     glyph.bl.x, glyph.bl.y, -1.0f,
+                    thisLetterStart.x, thisLetterStart.y+letHeight,           glyph.tl.x, glyph.tl.y, -1.0f,
+                    thisLetterStart.x+letWidth, thisLetterStart.y+letHeight, glyph.tr.x, glyph.tr.y, -1.0f,
+
+                    thisLetterStart.x+letWidth, thisLetterStart.y+letHeight, glyph.tr.x, glyph.tr.y, -1.0f,
+                    thisLetterStart.x+letWidth, thisLetterStart.y,           glyph.br.x, glyph.br.y, -1.0f,
+                    thisLetterStart.x, thisLetterStart.y,                     glyph.bl.x, glyph.bl.y, -1.0f
+                });
+            }
+
+            static GLuint vbo2 = 0;
+            if(vbo2 == 0) {
+                glGenBuffers(1, &vbo2);
+            }
+
+                bindMenuGeometry(vbo2, 
+                displayData.data(),
+                displayData.size());
+
+            glBindTexture(GL_TEXTURE_2D, menuTexture);
+            glDrawArrays(GL_TRIANGLES, 0, displayData.size()/5);
+
+
         }
 
     }
