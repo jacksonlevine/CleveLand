@@ -17,6 +17,7 @@
 #include "util/particle.h"
 #include "util/blockinfo.h"
 #include "game/specialblocks/door.h"
+#include "util/settings.h"
 
 #define GRAV 7.0
 
@@ -181,6 +182,15 @@ public:
     void goToSettingsMenu();
 
     inline static bool changingViewDistance = false;
+
+    inline static Settings settings;
+
+    inline static void saveSettings() {
+        std::vector<Setting> sets = {
+            Setting{std::string("viewDistance"), std::to_string(viewDistance)}
+        };
+        settings.saveSettings(sets);
+    }
 
     Game();
 private:

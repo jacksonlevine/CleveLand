@@ -90,6 +90,22 @@ grounded(true)
     };
 
     loopFunc = &splashFunc;
+
+    std::vector<Setting> sets = {
+        Setting{std::string("viewDistance"), std::to_string(viewDistance)}
+    };
+    settings.loadOrSaveSettings(sets);
+
+    for(Setting &set : sets) {
+
+        if(set.name == std::string("viewDistance")) {
+            viewDistance = std::stoi(set.value);
+        }
+
+    }
+
+
+
 }
 
 void Game::getAverageDelta() {
@@ -469,7 +485,7 @@ void Game::stepChunkDraw() {
     //     std::cout << std::endl;
     // }
 
-    static float numMustLoad = 200;
+    static float numMustLoad = (viewDistance*2)*(viewDistance*2);
 
     GLuint mvp_loc = glGetUniformLocation(worldShader->shaderID, "mvp");
     glUniformMatrix4fv(mvp_loc, 1, GL_FALSE, glm::value_ptr(camera->mvp));
@@ -990,6 +1006,8 @@ void Game::changeViewDistance(int newValue) {
         });
         voxelWorld.chunkUpdateThread.detach();
     changingViewDistance = false;
+
+    saveSettings();
 }
 
 void Game::drawSelectedBlock() {
