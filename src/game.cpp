@@ -355,7 +355,7 @@ void Game::draw() {
             glDrawArrays(GL_TRIANGLES, 0, logoDisplayData.size()/5);
 
 
-            const char* message = "Version 0.0.1";
+            const char* message = "Version 0.0.1a";
 
             std::vector<float> displayData;
 

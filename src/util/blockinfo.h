@@ -60,7 +60,11 @@ public:
     };
 
     inline static std::vector<int> transparents = {
-        2, 7, 8, 11
+        2, 8,
+    };
+
+    inline static std::vector<int> semiTransparents = {
+        7, 11
     };
 
     inline static uint32_t BLOCK_ID_BITS = 0b0000'0000'0000'0000'1111'1111'1111'1111;
