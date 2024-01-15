@@ -13,8 +13,8 @@ void VoxelWorld::runStep(float deltaTime) {
 }
 
 
-void VoxelWorld::chunkUpdateThreadFunction(int* loadRadius) {
-    
+void VoxelWorld::chunkUpdateThreadFunction(int loadRadius) {
+    stillRunningThread = true;
     std::cout << "Thread started \n";
     glm::vec3 lastCamPosDivided;
     bool first = true;
@@ -32,6 +32,9 @@ void VoxelWorld::chunkUpdateThreadFunction(int* loadRadius) {
         BlockChunk* chunk = 0;
         while(deferredChunkQueue.pop(chunk)) {
             rebuildChunk(chunk, chunk->position, true);
+            if(!runChunkThread) {
+                break;
+            }
         }
 
         if(currCamPosDivided != lastCamPosDivided || first || shouldTryReload) {
@@ -44,12 +47,12 @@ void VoxelWorld::chunkUpdateThreadFunction(int* loadRadius) {
             shouldTryReload = false;
 
 
-           std::vector<BlockChunk*> sortedChunkPtrs = getPreferredChunkPtrList(*loadRadius, cameraChunkPos);
+           std::vector<BlockChunk*> sortedChunkPtrs = getPreferredChunkPtrList(loadRadius, cameraChunkPos);
 
 
                 int takenChunkIndex = 0;
-                for(int x = cameraChunkPos.x - *loadRadius; x < cameraChunkPos.x + *loadRadius; ++x) {
-                    for(int z = cameraChunkPos.z - *loadRadius; z < cameraChunkPos.z + *loadRadius; ++z) {
+                for(int x = cameraChunkPos.x - loadRadius; x < cameraChunkPos.x + loadRadius; ++x) {
+                    for(int z = cameraChunkPos.z - loadRadius; z < cameraChunkPos.z + loadRadius; ++z) {
 
                         ChunkCoord thisChunkCoord(x,z);
                         if(takenCareOfChunkSpots.find(thisChunkCoord) == takenCareOfChunkSpots.end()) {
@@ -58,7 +61,7 @@ void VoxelWorld::chunkUpdateThreadFunction(int* loadRadius) {
 
                             takenChunkIndex++;
                         }
-                        if(!runChunkThread || deferredChunksToRebuild.size() > 0) {
+                        if(!runChunkThread) {
                             break;
                         }
                         if(first) {
@@ -66,7 +69,7 @@ void VoxelWorld::chunkUpdateThreadFunction(int* loadRadius) {
                         }
                     }
 
-                    if(!runChunkThread || deferredChunksToRebuild.size() > 0) {
+                    if(!runChunkThread ) {
                         break;
                     }
                 }
@@ -76,6 +79,7 @@ void VoxelWorld::chunkUpdateThreadFunction(int* loadRadius) {
     }
 
     std::cout << "Thread ended \n";
+    stillRunningThread = false;
 }
 
 std::vector<BlockChunk*> VoxelWorld::getPreferredChunkPtrList(int loadRadius, ChunkCoord& cameraChunkPos) {
@@ -405,6 +409,8 @@ void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool im
 
 
                 }
+
+                
             }
         }
     }
@@ -473,6 +479,7 @@ void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool im
 
 
     }
+
 
 
 }

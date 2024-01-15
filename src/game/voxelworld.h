@@ -18,6 +18,7 @@
 #include "../util/random.h"
 #include "../util/blockinfo.h"
 #include "../game/specialblocks/door.h"
+#include <atomic>
 
 class VoxelWorld {
 public:
@@ -65,15 +66,13 @@ public:
 
     void rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool immediateInPlace);
 
-    void chunkUpdateThreadFunction(int* loadRadius);
+    void chunkUpdateThreadFunction(int loadRadius);
 
     std::vector<BlockChunk*> getPreferredChunkPtrList(int loadRadius, ChunkCoord& cameraChunkPos);
 
     boost::lockfree::queue<int> geometryStoreQueue;
     boost::lockfree::queue<int> highPriorityGeometryStoreQueue;
 
-    std::mutex deferredChunksMutex;
-    std::vector<BlockChunk*> deferredChunksToRebuild;
 
     boost::lockfree::queue<BlockChunk*> deferredChunkQueue;
 
@@ -83,7 +82,6 @@ public:
 
     std::thread chunkUpdateThread;
 
-    std::mutex meshQueueMutex;
 
     float noiseFunction(int x, int y, int z);
     uint32_t blockAt(BlockCoord coord);
@@ -95,5 +93,7 @@ public:
     void loadWorldFromFile(const char *path) noexcept(false);
     
     inline static int initialLoadProgress = 0;
+
+    inline static std::atomic<bool> stillRunningThread = false;
 };
 #endif

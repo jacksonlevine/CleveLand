@@ -49,7 +49,8 @@ grounded(true)
     goToMainMenu();
 
     normalFunc = [this]() {
-            if(!loadRendering) {
+
+            if(!loadRendering && !changingViewDistance) {
                 stepMovementAndPhysics();
             }
             
@@ -405,8 +406,10 @@ void Game::draw() {
             }
             glDrawArrays(GL_TRIANGLES, 0, hud->displayData.size()/5);
         }
+        if(!changingViewDistance) {
+            stepChunkDraw();
+        }
 
-        stepChunkDraw();
 
         
         glBindVertexArray(VAO);
@@ -717,12 +720,55 @@ void Game::displayEscapeMenu() {
 
             goToMainMenu();
         }),
-        GUIButton(0.0f, -0.1f, "Back to game", 0.0f, 2.0f, [this](){
+        GUIButton(0.0f, -0.1f, "Settings", 0.0f, 3.0f, [this](){
+            goToSettingsMenu();
+        }),
+        GUIButton(0.0f, -0.2f, "Back to game", 0.0f, 2.0f, [this](){
             camera->firstMouse = true;
             camera->setFocused(true);
             currentGuiButtons = nullptr;
         }),
     };
+    for(GUIButton &button : buttons) {
+        button.rebuildDisplayData();
+        button.uploaded = false;
+    }
+    currentGuiButtons = &buttons;
+}
+
+
+void Game::goToSettingsMenu() {
+
+    static std::string rendDist = (std::string("Render Distance: ") + std::to_string(viewDistance));
+
+    static std::function<void()> updateNum = [this](){
+
+        rendDist = std::string("Render Distance: ") + std::to_string(viewDistance);
+        currentGuiButtons->at(0).label = rendDist.c_str(); 
+        for(GUIButton &button : *currentGuiButtons) {
+            button.rebuildDisplayData();
+            button.uploaded = false;
+        }
+    };  
+    static std::vector<GUIButton> buttons = {
+        GUIButton(0.0f, 0.0f, (std::string("Render Distance: ") + std::to_string(viewDistance)).c_str(), 0.0f, -1.0f, [this](){
+            
+        }),
+        GUIButton(-0.2f, -0.1f, "<", 0.0f, 3.0f, [this](){
+            changeViewDistance(std::max(viewDistance-1, 2));
+            updateNum();
+            
+        }),
+        GUIButton(0.2f, -0.1f, ">", 0.0f, 4.0f, [this](){
+            changeViewDistance(std::min(viewDistance+1, 24));
+            updateNum();
+        }),
+        GUIButton(0.0f, -0.2f, "Back", 0.0f, 5.0f, [this](){
+            displayEscapeMenu();
+        }),
+    };
+
+
     for(GUIButton &button : buttons) {
         button.rebuildDisplayData();
         button.uploaded = false;
@@ -888,7 +934,18 @@ void Game::saveGame(const char* path) {
 void Game::changeViewDistance(int newValue) {
 
     voxelWorld.runChunkThread = false;
-    viewDistance = newValue;
+    changingViewDistance = true;
+    // if(voxelWorld.chunkUpdateThread.joinable()) {
+    //     voxelWorld.chunkUpdateThread.join();
+    // }
+
+    while(voxelWorld.stillRunningThread) {
+        //wait
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    }
+
+
+    
 
     int throwaway = 0;
     while(voxelWorld.geometryStoreQueue.pop(throwaway)) {
@@ -922,12 +979,17 @@ void Game::changeViewDistance(int newValue) {
     registry.clear();
 
     voxelWorld.populateChunksAndGeometryStores(registry, viewDistance);
-    voxelWorld.runChunkThread = true;
 
-    voxelWorld.chunkUpdateThread = std::thread([this](){
-        voxelWorld.chunkUpdateThreadFunction(&viewDistance);
-    });
-    voxelWorld.chunkUpdateThread.detach();
+
+    viewDistance = newValue;
+
+        voxelWorld.runChunkThread = true;
+
+        voxelWorld.chunkUpdateThread = std::thread([this](){
+            voxelWorld.chunkUpdateThreadFunction(viewDistance);
+        });
+        voxelWorld.chunkUpdateThread.detach();
+    changingViewDistance = false;
 }
 
 void Game::drawSelectedBlock() {
@@ -1027,7 +1089,7 @@ void Game::goToSingleplayerWorld(const char *worldname) {
 
     voxelWorld.runChunkThread = true;
     voxelWorld.chunkUpdateThread = std::thread([this](){
-        voxelWorld.chunkUpdateThreadFunction(&viewDistance);
+        voxelWorld.chunkUpdateThreadFunction(viewDistance);
         });
     voxelWorld.chunkUpdateThread.detach();
 

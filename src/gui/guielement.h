@@ -25,10 +25,11 @@ public:
     std::function<void()> myFunction;
     
     void rebuildDisplayData();
+
+    const char *label;
 private:
     float xOffset;
     float yOffset;
-    const char *label;
     float manualWidth;
 };
 

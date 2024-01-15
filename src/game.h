@@ -176,6 +176,12 @@ public:
 
     void drawSelectedBlock();
 
+
+
+    void goToSettingsMenu();
+
+    inline static bool changingViewDistance = false;
+
     Game();
 private:
     double lastFrame;
