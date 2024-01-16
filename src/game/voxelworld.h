@@ -76,7 +76,7 @@ public:
 
     void populateChunksAndGeometryStores(entt::registry &registry, int viewDistance);
 
-    void rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool immediateInPlace);
+    void rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool immediateInPlace, bool light);
 
     void chunkUpdateThreadFunction(int loadRadius);
 
@@ -87,6 +87,14 @@ public:
 
 
     boost::lockfree::queue<BlockChunk*> deferredChunkQueue;
+
+    boost::lockfree::queue<BlockChunk*> lightUpdateQueue;
+
+    std::unordered_map<
+        ChunkCoord,
+        bool,
+        IntTupHash
+    >                   hasHadInitialLightPass;
 
     
     inline static bool shouldTryReload = false;

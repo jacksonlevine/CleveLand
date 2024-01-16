@@ -707,6 +707,7 @@ void Game::displayEscapeMenu() {
 
             voxelWorld.userDataMap.clear();
             voxelWorld.nonUserDataMap.clear();
+            voxelWorld.hasHadInitialLightPass.clear();
             int throwaway = 0;
             while(voxelWorld.geometryStoreQueue.pop(throwaway)) {
 
@@ -983,7 +984,7 @@ void Game::changeViewDistance(int newValue) {
     voxelWorld.takenCareOfChunkSpots.clear();
     voxelWorld.geometryStorePool.clear();
     voxelWorld.chunks.clear();
-
+    voxelWorld.hasHadInitialLightPass.clear();
 
     auto meshesView = registry.view<MeshComponent>();
     for(const entt::entity e : meshesView) {
@@ -1312,7 +1313,8 @@ void Game::castBreakRay() {
 
                 }
         }else
-        if(rayResult.chunksToRebuild.size() > 0) {
+        if(blockIDHere == 12) {
+            if(rayResult.chunksToRebuild.size() > 0) {
             if(voxelWorld.userDataMap.find(rayResult.chunksToRebuild.front()) == voxelWorld.userDataMap.end()) {
                 voxelWorld.userDataMap.insert_or_assign(rayResult.chunksToRebuild.front(), 
                 std::unordered_map<BlockCoord, unsigned int, IntTupHash>());
@@ -1321,6 +1323,63 @@ void Game::castBreakRay() {
             voxelWorld.userDataMap.at(rayResult.chunksToRebuild.front()).insert_or_assign(rayResult.blockHit, 0);
 
                 
+
+                for(ChunkCoord& ccoord : rayResult.chunksToRebuild) {
+                    auto chunkIt = voxelWorld.takenCareOfChunkSpots.find(ccoord);
+                    if(chunkIt != voxelWorld.takenCareOfChunkSpots.end()) {
+                        //std::cout << "it's here" << "\n";
+                      //  std::cout << "fucking index:" << chunkIt->second.geometryStorePoolIndex << "\n";
+                       // voxelWorld.rebuildChunk(chunkIt->second, chunkIt->second.position, true);
+
+
+                       BlockChunk *chunk = chunkIt->second;
+
+
+                       while(!voxelWorld.lightUpdateQueue.push(chunk)) {
+
+                       }
+
+
+                    }
+                }
+        }
+        } else
+        if(rayResult.chunksToRebuild.size() > 0) {
+            if(voxelWorld.userDataMap.find(rayResult.chunksToRebuild.front()) == voxelWorld.userDataMap.end()) {
+                voxelWorld.userDataMap.insert_or_assign(rayResult.chunksToRebuild.front(), 
+                std::unordered_map<BlockCoord, unsigned int, IntTupHash>());
+            }
+                   blockBreakParticles(rayResult.blockHit, 25);
+            voxelWorld.userDataMap.at(rayResult.chunksToRebuild.front()).insert_or_assign(rayResult.blockHit, 0);
+
+                std::set<BlockChunk *> implicated;
+                for(BlockCoord& neigh : BlockInfo::neighbors) {
+                    auto segIt = voxelWorld.lightMap.find(rayResult.blockHit + neigh);
+                    if(segIt != voxelWorld.lightMap.end()) {
+                        
+                        for(LightRay& ray : segIt->second.rays) {
+                            ChunkCoord chunkOfOrigin(
+                                std::floor(static_cast<float>(ray.origin.x)/voxelWorld.chunkWidth),
+                                std::floor(static_cast<float>(ray.origin.z)/voxelWorld.chunkWidth)
+                            );
+                            auto chunkIt = voxelWorld.takenCareOfChunkSpots.find(chunkOfOrigin);
+                            if(chunkIt != voxelWorld.takenCareOfChunkSpots.end()){
+                                implicated.insert(chunkIt->second);
+                            }
+                                
+                        }
+                        
+                    }
+                }
+                for(BlockChunk * pointer : implicated) {
+                    while(!voxelWorld.lightUpdateQueue.push(pointer)) {
+
+                    }
+                }
+                
+
+
+
 
                 for(ChunkCoord& ccoord : rayResult.chunksToRebuild) {
                     auto chunkIt = voxelWorld.takenCareOfChunkSpots.find(ccoord);
@@ -1534,7 +1593,50 @@ void Game::castPlaceRay() {
 
                     }
                 }
-            } else {
+            } else 
+            if (selectedBlockID == 12){
+                voxelWorld.userDataMap.at(chunkToReb).insert_or_assign(placePoint, selectedBlockID);
+
+                auto chunkIt = voxelWorld.takenCareOfChunkSpots.find(chunkToReb);
+                if(chunkIt != voxelWorld.takenCareOfChunkSpots.end()) {
+                    
+                    BlockChunk *chunk = chunkIt->second;
+
+
+                    while(!voxelWorld.lightUpdateQueue.push(chunk)) {
+
+                    }
+
+                }
+            }else {
+
+                std::set<BlockChunk *> implicated;
+                for(BlockCoord& neigh : BlockInfo::neighbors) {
+                    auto segIt = voxelWorld.lightMap.find(rayResult.blockHit + neigh);
+                    if(segIt != voxelWorld.lightMap.end()) {
+                        
+                        for(LightRay& ray : segIt->second.rays) {
+                            ChunkCoord chunkOfOrigin(
+                                std::floor(static_cast<float>(ray.origin.x)/voxelWorld.chunkWidth),
+                                std::floor(static_cast<float>(ray.origin.z)/voxelWorld.chunkWidth)
+                            );
+                            auto chunkIt = voxelWorld.takenCareOfChunkSpots.find(chunkOfOrigin);
+                            if(chunkIt != voxelWorld.takenCareOfChunkSpots.end()){
+                                implicated.insert(chunkIt->second);
+                            }
+                                
+                        }
+                        
+                    }
+                }
+                for(BlockChunk * pointer : implicated) {
+                    while(!voxelWorld.lightUpdateQueue.push(pointer)) {
+
+                    }
+                }
+
+
+
                 voxelWorld.userDataMap.at(chunkToReb).insert_or_assign(placePoint, selectedBlockID);
 
                 auto chunkIt = voxelWorld.takenCareOfChunkSpots.find(chunkToReb);
@@ -1787,12 +1889,13 @@ void Game::initializeShaders() {
             uniform sampler2D ourTexture;
             uniform vec3 camPos;
             uniform float viewDistance;
+            uniform float ambientBrightMult;
             void main()
             {
                 vec4 texColor = texture(ourTexture, TexCoord);
                 FragColor = texColor * vec4(vertexColor, 1.0);
 
-                vec4 fogColor = vec4(0.7, 0.8, 1.0, 1.0);
+                vec4 fogColor = vec4(0.7, 0.8, 1.0, 1.0) * ambientBrightMult;
                 float distance = (distance(pos, camPos)/(viewDistance*5.0f))/5.0f;
 
                 if(FragColor.a < 0.4) {

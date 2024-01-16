@@ -29,9 +29,17 @@ void VoxelWorld::chunkUpdateThreadFunction(int loadRadius) {
         BlockCoord cameraBlockPos(std::round(cameraPosition.x), std::round(cameraPosition.y), std::round(cameraPosition.z));
         ChunkCoord cameraChunkPos(std::floor(static_cast<float>(cameraBlockPos.x)/chunkWidth), std::floor(static_cast<float>(cameraBlockPos.z)/chunkWidth));
 
+        BlockChunk* chunk2 = 0;
+        while(lightUpdateQueue.pop(chunk2)) {
+            rebuildChunk(chunk2, chunk2->position, true, true);
+            if(!runChunkThread) {
+                break;
+            }
+        }
+
         BlockChunk* chunk = 0;
         while(deferredChunkQueue.pop(chunk)) {
-            rebuildChunk(chunk, chunk->position, true);
+            rebuildChunk(chunk, chunk->position, true, false);
             if(!runChunkThread) {
                 break;
             }
@@ -56,8 +64,13 @@ void VoxelWorld::chunkUpdateThreadFunction(int loadRadius) {
 
                         ChunkCoord thisChunkCoord(x,z);
                         if(takenCareOfChunkSpots.find(thisChunkCoord) == takenCareOfChunkSpots.end()) {
-
-                            rebuildChunk(sortedChunkPtrs[takenChunkIndex], thisChunkCoord, false);
+                            
+                            if(hasHadInitialLightPass.find(thisChunkCoord) == hasHadInitialLightPass.end()) {
+                                rebuildChunk(sortedChunkPtrs[takenChunkIndex], thisChunkCoord, false, true);
+                            } else {
+                                rebuildChunk(sortedChunkPtrs[takenChunkIndex], thisChunkCoord, false, false);
+                            }
+                            
 
                             takenChunkIndex++;
                         }
@@ -127,7 +140,7 @@ void VoxelWorld::populateChunksAndGeometryStores(entt::registry &registry, int v
 }
 
 
-void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool immediateInPlace) {
+void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool immediateInPlace, bool light) {
     if(!immediateInPlace) {
         if(takenCareOfChunkSpots.find(chunk->position) != takenCareOfChunkSpots.end()) {
             takenCareOfChunkSpots.erase(chunk->position);
@@ -135,9 +148,9 @@ void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool im
         chunk->position = newPosition;
         generateChunk(newPosition);
     }
-
-    lightPassOnChunk(newPosition);
-
+    if(light) {
+        lightPassOnChunk(newPosition);
+    }
 
 
     chunk->used = true;
@@ -666,6 +679,13 @@ void VoxelWorld::propogateLightOrigin(BlockCoord spot, BlockCoord origin, int va
 
 
 void VoxelWorld::lightPassOnChunk(ChunkCoord chunkCoord) {
+
+    if(hasHadInitialLightPass.find(chunkCoord) == hasHadInitialLightPass.end()) {
+        hasHadInitialLightPass.insert_or_assign(chunkCoord, true);
+    }
+
+
+
     std::set<BlockChunk*> implicatedChunks;
 
 
@@ -686,9 +706,9 @@ void VoxelWorld::lightPassOnChunk(ChunkCoord chunkCoord) {
                                 std::floor(static_cast<float>(ray.origin.x)/chunkWidth),
                                 std::floor(static_cast<float>(ray.origin.z)/chunkWidth)
                             );
-                            std::cout << "Checking " << chunkCoordOfOrigin.x << " " << chunkCoordOfOrigin.z << "\n";
+                            //std::cout << "Checking " << chunkCoordOfOrigin.x << " " << chunkCoordOfOrigin.z << "\n";
                             if(chunkCoordOfOrigin == chunkCoord) {
-                                std::cout << "We should be removing origin " << ray.origin.x << " " << ray.origin.y << " " << ray.origin.z << "\n";
+                                //std::cout << "We should be removing origin " << ray.origin.x << " " << ray.origin.y << " " << ray.origin.z << "\n";
                                 BlockCoord originWeRemoving = ray.origin;
 
                                 depropogateLightOrigin(originWeRemoving, originWeRemoving, &implicatedChunks);
