@@ -5,15 +5,17 @@
 #include <vector>
 #include <unordered_map>
 #include "chunkcoord.h"
+#include "blockinfo.h"
 
 struct LightRay {
-    glm::vec3 direction;
-    float value;
-    glm::vec3 origin;
+    std::vector<int> directions;
+    int value;
+    BlockCoord origin;
 };
 
 struct LightSegment {
     std::vector<LightRay> rays;
 };
+
 
 #endif

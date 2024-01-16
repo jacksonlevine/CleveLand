@@ -406,7 +406,7 @@ void Game::draw() {
     if(inGame) {
         //std::cout << loadRendering << "\n";
 
-        if(!loadRendering)
+        if(!loadRendering && !noHud)
         {
             glBindVertexArray(VAO);
             drawSelectedBlock();
@@ -429,8 +429,11 @@ void Game::draw() {
 
         
         glBindVertexArray(VAO);
-        updateAndDrawSelectCube();
-        drawBlockOverlay();
+        if(!noHud) {
+            updateAndDrawSelectCube();
+            drawBlockOverlay();
+        }
+            
     }
 
 
@@ -703,6 +706,7 @@ void Game::displayEscapeMenu() {
             camera->setFocused(false);
 
             voxelWorld.userDataMap.clear();
+            voxelWorld.nonUserDataMap.clear();
             int throwaway = 0;
             while(voxelWorld.geometryStoreQueue.pop(throwaway)) {
 
@@ -1576,31 +1580,8 @@ void Game::keyCallback(GLFWwindow *window, int key, int scancode, int action, in
 
     }
 
-    if(key == GLFW_KEY_U && action == 1) {
-        skyColor.r += 0.1;
-        std::cout << skyColor.r << "f, " << skyColor.g << "f, " << skyColor.b << "f\n";
-    }
-    if(key == GLFW_KEY_J && action == 1) {
-        skyColor.r -= 0.1;
-        std::cout << skyColor.r << "f, " << skyColor.g << "f, " << skyColor.b << "f\n";
-    }
-
-    if(key == GLFW_KEY_I && action == 1) {
-        skyColor.g += 0.1;
-        std::cout << skyColor.r << "f, " << skyColor.g << "f, " << skyColor.b << "f\n";
-    }
-    if(key == GLFW_KEY_K && action == 1) {
-        skyColor.g -= 0.1;
-        std::cout << skyColor.r << "f, " << skyColor.g << "f, " << skyColor.b << "f\n";
-    }
-
-    if(key == GLFW_KEY_O && action == 1) {
-        skyColor.b += 0.1;
-        std::cout << skyColor.r << "f, " << skyColor.g << "f, " << skyColor.b << "f\n";
-    }
-    if(key == GLFW_KEY_L && action == 1) {
-        skyColor.b -= 0.1;
-        std::cout << skyColor.r << "f, " << skyColor.g << "f, " << skyColor.b << "f\n";
+    if(key == GLFW_KEY_1) {
+        noHud = action;
     }
 }
 

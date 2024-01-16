@@ -56,6 +56,10 @@ public:
         {TextureFace(11,0),//door bottom
         TextureFace(11,0),
         TextureFace(11,0),
+        },
+        {TextureFace(12,1),//door bottom
+        TextureFace(12,1),
+        TextureFace(12,1),
         }
     };
 
@@ -65,6 +69,10 @@ public:
 
     inline static std::vector<int> semiTransparents = {
         7, 11
+    };
+
+    inline static std::vector<int> lights = {
+        12
     };
 
     inline static uint32_t BLOCK_ID_BITS = 0b0000'0000'0000'0000'1111'1111'1111'1111;
@@ -82,7 +90,27 @@ public:
         input |= bits;
 
     }; 
+
+        //left right forward backward up down
+    inline static std::vector<BlockCoord> neighbors = {
+        BlockCoord(-1, 0, 0),
+        BlockCoord(1, 0, 0),
+        BlockCoord(0, 0, 1),
+        BlockCoord(0, 0, -1),
+        BlockCoord(0, 1, 0),
+        BlockCoord(0, -1, 0),
+    };
+
 };
+
+    enum Neighbors  {
+        LEFT,
+        RIGHT,
+        FRONT,
+        BACK,
+        TOP,
+        BOTTOM
+    };
 
 
 

@@ -19,6 +19,7 @@
 #include "../util/blockinfo.h"
 #include "../game/specialblocks/door.h"
 #include <atomic>
+#include "../util/lightinfo.h"
 
 class VoxelWorld {
 public:
@@ -53,6 +54,17 @@ public:
             uint32_t, 
             IntTupHash>
                            nonUserDataMap;
+
+
+    std::unordered_map<
+            BlockCoord,
+            LightSegment,
+            IntTupHash
+    >                       lightMap;
+
+    void depropogateLightOrigin(BlockCoord spot, BlockCoord origin, std::set<BlockChunk*> *imp);
+    void propogateLightOrigin(BlockCoord spot, BlockCoord origin, int value, std::set<BlockChunk*> *imp);
+    void lightPassOnChunk(ChunkCoord chunkcoord);
 
 
 

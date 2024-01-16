@@ -192,6 +192,8 @@ public:
         settings.saveSettings(sets);
     }
 
+    inline static int noHud = 0;
+
     Game();
 private:
     double lastFrame;
