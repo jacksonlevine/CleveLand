@@ -1895,7 +1895,7 @@ void Game::initializeShaders() {
                 vec4 texColor = texture(ourTexture, TexCoord);
                 FragColor = texColor * vec4(vertexColor, 1.0);
 
-                vec4 fogColor = vec4(0.7, 0.8, 1.0, 1.0) * ambientBrightMult;
+                vec4 fogColor = vec4(0.7, 0.8, 1.0, 1.0) * vec4(ambientBrightMult, ambientBrightMult, ambientBrightMult, 1.0);
                 float distance = (distance(pos, camPos)/(viewDistance*5.0f))/5.0f;
 
                 if(FragColor.a < 0.4) {
