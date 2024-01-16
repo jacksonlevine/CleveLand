@@ -307,19 +307,27 @@ void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool im
                                     }
                                 }
 
+                                float blockLightVal = 0.0f;
+                                auto segIt = lightMap.find(lightCubeHere);
+                                if(segIt != lightMap.end()) {
+                                    for(LightRay& ray : segIt->second.rays) {
+                                        blockLightVal = std::min(blockLightVal + ray.value, 16.0f);
+                                    }
+                                }
+
 
                                 tverts.insert(tverts.end(), {
-                                    faces[neighborIndex][0] + coord.x, faces[neighborIndex][1] + coord.y, faces[neighborIndex][2] + coord.z, faces[neighborIndex][3],
+                                    faces[neighborIndex][0] + coord.x, faces[neighborIndex][1] + coord.y, faces[neighborIndex][2] + coord.z, faces[neighborIndex][3]+blockLightVal,
                                     faces[neighborIndex][4]+ (skyBlocked ? -4.0f : 0.0f), 
-                                    faces[neighborIndex][5] + coord.x, faces[neighborIndex][6] + coord.y, faces[neighborIndex][7] + coord.z, faces[neighborIndex][8],
+                                    faces[neighborIndex][5] + coord.x, faces[neighborIndex][6] + coord.y, faces[neighborIndex][7] + coord.z, faces[neighborIndex][8]+blockLightVal,
                                     faces[neighborIndex][9]+ (skyBlocked ? -4.0f : 0.0f), 
-                                    faces[neighborIndex][10] + coord.x, faces[neighborIndex][11] + coord.y, faces[neighborIndex][12] + coord.z, faces[neighborIndex][13],
+                                    faces[neighborIndex][10] + coord.x, faces[neighborIndex][11] + coord.y, faces[neighborIndex][12] + coord.z, faces[neighborIndex][13]+blockLightVal,
                                     faces[neighborIndex][14]+ (skyBlocked ? -4.0f : 0.0f), 
-                                    faces[neighborIndex][15] + coord.x, faces[neighborIndex][16] + coord.y, faces[neighborIndex][17] + coord.z, faces[neighborIndex][18],
+                                    faces[neighborIndex][15] + coord.x, faces[neighborIndex][16] + coord.y, faces[neighborIndex][17] + coord.z, faces[neighborIndex][18]+blockLightVal,
                                     faces[neighborIndex][19]+ (skyBlocked ? -4.0f : 0.0f), 
-                                    faces[neighborIndex][20] + coord.x, faces[neighborIndex][21] + coord.y, faces[neighborIndex][22] + coord.z, faces[neighborIndex][23],
+                                    faces[neighborIndex][20] + coord.x, faces[neighborIndex][21] + coord.y, faces[neighborIndex][22] + coord.z, faces[neighborIndex][23]+blockLightVal,
                                     faces[neighborIndex][24]+ (skyBlocked ? -4.0f : 0.0f), 
-                                    faces[neighborIndex][25] + coord.x, faces[neighborIndex][26] + coord.y, faces[neighborIndex][27] + coord.z, faces[neighborIndex][28],
+                                    faces[neighborIndex][25] + coord.x, faces[neighborIndex][26] + coord.y, faces[neighborIndex][27] + coord.z, faces[neighborIndex][28]+blockLightVal,
                                     faces[neighborIndex][29]+ (skyBlocked ? -4.0f : 0.0f)
                                 });
                                 if(neighborIndex == TOP) {
@@ -621,6 +629,34 @@ void VoxelWorld::propogateLightOrigin(BlockCoord spot, BlockCoord origin, int va
 
                 propogateLightOrigin(spot + BlockInfo::neighbors[dir], origin, value - 2, imp);
 
+            }
+
+        } else { //if there is a ray of this origin here, then if it is less than our value, bring it up to it, and propogate on.
+            if(rayIt->value < value) {
+                rayIt->value = value;
+
+            
+                int neighborIndex = 0;
+                //figure out the directions its going
+                for(BlockCoord& neigh : BlockInfo::neighbors) {
+                    uint32_t blockBitsHere = blockAt(spot + neigh);
+                    uint32_t blockIDHere = blockBitsHere & BlockInfo::BLOCK_ID_BITS;
+                    bool goingHere = (blockIDHere == 0 || 
+                    std::find(BlockInfo::transparents.begin(), BlockInfo::transparents.end(), blockIDHere) != BlockInfo::transparents.end() ||
+                    std::find(BlockInfo::semiTransparents.begin(), BlockInfo::semiTransparents.end(), blockIDHere) != BlockInfo::semiTransparents.end());
+                    if(goingHere) {
+                        if(std::find(rayIt->directions.begin(), rayIt->directions.end(), neighborIndex) == rayIt->directions.end()) {
+                            rayIt->directions.push_back(neighborIndex);
+                        }
+                    }
+                    neighborIndex++;
+                }
+
+                for(int dir : rayIt->directions) {
+
+                    propogateLightOrigin(spot + BlockInfo::neighbors[dir], origin, value - 2, imp);
+
+                }
             }
 
         }
