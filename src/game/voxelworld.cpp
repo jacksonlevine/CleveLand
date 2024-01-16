@@ -528,13 +528,13 @@ void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool im
 void VoxelWorld::depropogateLightOrigin(BlockCoord spot, BlockCoord origin, std::set<BlockChunk*> *imp) {
 
     ChunkCoord chunkCoordOfOrigin(
-        std::round(static_cast<float>(origin.x)/chunkWidth),
-        std::round(static_cast<float>(origin.z)/chunkWidth)
+        std::floor(static_cast<float>(origin.x)/chunkWidth),
+        std::floor(static_cast<float>(origin.z)/chunkWidth)
     );
 
     ChunkCoord chunkCoordHere(
-        std::round(static_cast<float>(spot.x)/chunkWidth),
-        std::round(static_cast<float>(spot.z)/chunkWidth)
+        std::floor(static_cast<float>(spot.x)/chunkWidth),
+        std::floor(static_cast<float>(spot.z)/chunkWidth)
     );
 
     if(chunkCoordOfOrigin != chunkCoordHere) {
@@ -570,13 +570,13 @@ void VoxelWorld::propogateLightOrigin(BlockCoord spot, BlockCoord origin, int va
     if(value > 0) {
 
         ChunkCoord chunkCoordOfOrigin(
-            std::round(static_cast<float>(origin.x)/chunkWidth),
-            std::round(static_cast<float>(origin.z)/chunkWidth)
+            std::floor(static_cast<float>(origin.x)/chunkWidth),
+            std::floor(static_cast<float>(origin.z)/chunkWidth)
         );
 
         ChunkCoord chunkCoordHere(
-            std::round(static_cast<float>(spot.x)/chunkWidth),
-            std::round(static_cast<float>(spot.z)/chunkWidth)
+            std::floor(static_cast<float>(spot.x)/chunkWidth),
+            std::floor(static_cast<float>(spot.z)/chunkWidth)
         );
 
        if(chunkCoordOfOrigin != chunkCoordHere) {
@@ -647,8 +647,8 @@ void VoxelWorld::lightPassOnChunk(ChunkCoord chunkCoord) {
                     if(lightIt != lightMap.end()) {
                         for(LightRay& ray : lightIt->second.rays) {
                             ChunkCoord chunkCoordOfOrigin(
-                                std::round(static_cast<float>(ray.origin.x)/chunkWidth),
-                                std::round(static_cast<float>(ray.origin.z)/chunkWidth)
+                                std::floor(static_cast<float>(ray.origin.x)/chunkWidth),
+                                std::floor(static_cast<float>(ray.origin.z)/chunkWidth)
                             );
                             std::cout << "Checking " << chunkCoordOfOrigin.x << " " << chunkCoordOfOrigin.z << "\n";
                             if(chunkCoordOfOrigin == chunkCoord) {
