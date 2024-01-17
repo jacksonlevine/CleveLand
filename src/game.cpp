@@ -355,7 +355,7 @@ void Game::draw() {
             glDrawArrays(GL_TRIANGLES, 0, logoDisplayData.size()/5);
 
 
-            const char* message = "Version 0.0.1a";
+            const char* message = "Version 0.0.3 dev";
 
             std::vector<float> displayData;
 
@@ -818,25 +818,105 @@ void Game::goToMainMenu() {
 
 void Game::goToSingleplayerWorldsMenu() {
     static std::vector<GUIButton> buttons = {
-        GUIButton(0.0f, 0.2f, "World 1", 0.0f, 1.0f, [this](){
+        GUIButton(0.0f, 0.2f, "World 1", 0.55f, 1.0f, [this](){
             goToSingleplayerWorld("world1");
         }),
-        GUIButton(0.0f, 0.1f, "World 2", 0.0f, 2.0f, [this](){
+        GUIButton(0.0f, 0.1f, "World 2", 0.55f, 2.0f, [this](){
             goToSingleplayerWorld("world2");
         }),
-        GUIButton(0.0f, 0.0f, "World 3", 0.0f, 3.0f, [this](){
+        GUIButton(0.0f, 0.0f, "World 3", 0.55f, 3.0f, [this](){
             goToSingleplayerWorld("world3");
         }),
-        GUIButton(0.0f, -0.1f, "World 4", 0.0f, 4.0f, [this](){
+        GUIButton(0.0f, -0.1f, "World 4", 0.55f, 4.0f, [this](){
             goToSingleplayerWorld("world4");
         }),
-        GUIButton(0.0f, -0.2f, "World 5", 0.0f, 5.0f, [this](){
+        GUIButton(0.0f, -0.2f, "World 5", 0.55f, 5.0f, [this](){
             goToSingleplayerWorld("world5");
         }),
-        GUIButton(0.0f, -0.3f, "Back to main menu", 0.0f, 6.0f, [this](){
+        GUIButton(0.0f, -0.4f, "Back to main menu", 0.0f, 6.0f, [this](){
             this->goToMainMenu();
         }),
     };
+
+    static std::vector<std::string> labels = {
+        std::string("World 1"),
+        std::string("World 2"),
+        std::string("World 3"),
+        std::string("World 4"),
+        std::string("World 5")
+    };
+
+    for(int i = 0; i < 5; i++) {
+        std::string thisPath = "saves/world";
+        thisPath += std::to_string(i+1);
+        if(voxelWorld.checkVersionOfSave(thisPath.c_str()) == 1) {
+            labels[i] = (std::string("World ") + std::to_string(i+1)) + " (Classic)";
+            buttons[i].label = labels[i].c_str();
+        } else {
+            labels[i] = (std::string("World ") + std::to_string(i+1));
+            buttons[i].label = labels[i].c_str();
+        }
+    }
+
+    for(int i = 1; i < 6; ++i) {
+        std::string thisPath = "saves/world";
+        thisPath += std::to_string(i);
+        if(voxelWorld.saveExists(thisPath.c_str())) {
+            auto buttonIt = std::find_if(buttons.begin(), buttons.end(), [i](GUIButton& button){
+                return button.elementID == i + 6;
+            });
+            if(buttonIt == buttons.end()) {
+                buttons.push_back(
+                    GUIButton(0.7f, 0.2f + (-0.1f * (i-1)), "X", 0.0f, static_cast<float>(i + 6), [this, i](){
+                        goToConfirmDeleteWorld(i);
+                    })
+                );
+            }
+        } else {
+            auto buttonIt = std::find_if(buttons.begin(), buttons.end(), [i](GUIButton& button){
+                return button.elementID == i + 6;
+            });
+            if(buttonIt != buttons.end()) {
+                buttons.erase(buttonIt);
+            }
+        }
+    } 
+    for(GUIButton &button : buttons) {
+        button.rebuildDisplayData();
+        button.uploaded = false;
+    }
+    currentGuiButtons = &buttons;
+}
+
+void Game::goToConfirmDeleteWorld(int num) {
+    static std::function<void()> deleteFunc;
+
+    deleteFunc = [this, num]() {
+        voxelWorld.deleteFolder(std::string("saves/world") + std::to_string(num));
+        goToSingleplayerWorldsMenu();
+        //std::cout << "Would delete " << std::string("saves/world") + std::to_string(num) << "\n";
+    };
+
+    static std::vector<GUIButton> buttons = {
+        GUIButton(0.0f, 0.2f, "Are you sure you want to delete ", 0.55f, -97.0f, [](){}),
+        GUIButton(0.0f, 0.1f, "There is NO UNDO for this action.", 0.55f, -97.0f, [](){}),
+        GUIButton(0.0f, -0.1f, "Delete this world", 0.55f, 1.0f, [this](){
+            
+        }),
+        GUIButton(0.0f, -0.2f, "Cancel", 0.55f, 2.0f, [this](){
+            goToSingleplayerWorldsMenu();
+        }),
+    };
+
+    buttons.at(2).myFunction = deleteFunc;
+
+    static std::vector<std::string> labels = {
+        std::string("Are you sure you want to delete ")
+    };
+
+    labels.at(0) = std::string("Are you sure you want to delete World ") + std::to_string(num) + " forever?";
+    buttons.at(0).label = labels.at(0).c_str();
+
     for(GUIButton &button : buttons) {
         button.rebuildDisplayData();
         button.uploaded = false;
@@ -848,7 +928,12 @@ void Game::loadOrCreateSaveGame(const char* path) {
     if(voxelWorld.saveExists(path)) {
         voxelWorld.loadWorldFromFile(path);
     } else {
+        voxelWorld.worldGenVersion = 2;
+        voxelWorld.currentNoiseFunction = &(voxelWorld.worldGenFunctions.at(2));
         voxelWorld.seed = time(NULL);
+        camera->position = glm::vec3(0,70,0);
+        camera->velocity = glm::vec3(0,0,0);
+        camera->updatePosition();
         voxelWorld.saveWorldToFile(path);
     }
     
@@ -1840,6 +1925,9 @@ void Game::initializeShaders() {
                 }
                 if(elementID == -99.0f) {
                     FragColor = FragColor - vec4(0.5, 0.5, 0.5, 0.0);
+                }
+                if(elementID == -97.0f) {
+                    discard;
                 }
                 if(elementID == -98.0f) {
                     FragColor = FragColor - vec4(0.3, 0.3, 0.3, 0.0);

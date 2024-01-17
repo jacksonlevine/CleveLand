@@ -44,7 +44,10 @@ void GUIButton::rebuildDisplayData() {
     float tothei = unitHeight;
     float totletwid = letWidth * lettersCount;
 
-    totwid = std::max(manualWidth, totwid);
+
+    float manWid = (manualWidth * 1280.0f) / windowWidth;
+
+    totwid = std::max(manWid, totwid);
 
     glm::vec2 leftStart(-totwid/2 + xOffset, -tothei/2 + yOffset);
     glm::vec2 middleStart(leftStart.x + unitWidth, leftStart.y);

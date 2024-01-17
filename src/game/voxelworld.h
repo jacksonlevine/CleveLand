@@ -23,7 +23,12 @@
 
 class VoxelWorld {
 public:
-    unsigned int seed;
+    inline static unsigned int seed = 0;
+
+    inline static std::function<float(int, int, int)>* currentNoiseFunction = 0;
+
+
+    inline static int worldGenVersion = 1;
 
     inline static int chunkWidth = 16;
     inline static int chunkHeight = 128;
@@ -39,7 +44,7 @@ public:
     glm::vec3 cameraPosition;
     glm::vec3 cameraDirection;
 
-    Perlin perlin;
+    inline static Perlin perlin;
 
     std::unordered_map<
         ChunkCoord, 
@@ -82,13 +87,13 @@ public:
 
     std::vector<BlockChunk*> getPreferredChunkPtrList(int loadRadius, ChunkCoord& cameraChunkPos);
 
-    boost::lockfree::queue<int> geometryStoreQueue;
-    boost::lockfree::queue<int> highPriorityGeometryStoreQueue;
+    boost::lockfree::queue<int, boost::lockfree::capacity<2304>> geometryStoreQueue;
+    boost::lockfree::queue<int, boost::lockfree::capacity<2304>> highPriorityGeometryStoreQueue;
 
 
-    boost::lockfree::queue<BlockChunk*> deferredChunkQueue;
+    boost::lockfree::queue<BlockChunk*, boost::lockfree::capacity<2304>> deferredChunkQueue;
 
-    boost::lockfree::queue<BlockChunk*> lightUpdateQueue;
+    boost::lockfree::queue<BlockChunk*, boost::lockfree::capacity<2304>> lightUpdateQueue;
 
     std::unordered_map<
         ChunkCoord,
@@ -103,7 +108,37 @@ public:
     std::thread chunkUpdateThread;
 
 
-    float noiseFunction(int x, int y, int z);
+    inline static float noiseFunction(int x, int y, int z) {
+        return 
+        std::max(0.0f, (
+            20.0f + static_cast<float>(perlin.noise((static_cast<float>(x))/20.35f, (static_cast<float>(y+(seed/100)))/20.35f, (static_cast<float>(z))/20.35f)) * 5.0f
+        ) - std::max(((float)y/2.0f) + static_cast<float>(perlin.noise(x/65.0f, z/65.0f)) * 10.0f, 0.0f));
+    }
+
+
+    inline static float noiseFunction2(int x, int y, int z) {
+        return 
+        std::max(0.0f, (
+            20.0f + static_cast<float>(perlin.noise((static_cast<float>(x))/105.35f, (static_cast<float>(y))/105.35f, (static_cast<float>(z))/105.35f)) * 5.0f
+        ) - std::max(((float)y/4.0f) /*+ static_cast<float>(perlin.noise(x/15.0f, z/15.0f)) * 2.0f*/, 0.0f))
+        
+        - static_cast<float>(perlin.noise((static_cast<float>(x))/25.35f, (static_cast<float>(y))/25.35f, (static_cast<float>(z))/25.35f)) * 10.0f;
+    }
+
+    
+    inline static std::vector<std::function<float(int, int, int)>> worldGenFunctions = {
+        [](int x, int y, int z){
+            //placeholder
+            return 0.0f;
+        },
+        [](int x, int y, int z){
+            return VoxelWorld::noiseFunction(x,y,z);
+        },
+        [](int x, int y, int z){
+            return VoxelWorld::noiseFunction2(x,y,z);
+        }
+    };
+
     uint32_t blockAt(BlockCoord coord);
 
     void runStep(float deltaTime);
@@ -111,6 +146,8 @@ public:
     bool saveExists(const char* path);
     void saveWorldToFile(const char *path) noexcept(false);
     void loadWorldFromFile(const char *path) noexcept(false);
+    int checkVersionOfSave(const char *path);
+    void deleteFolder(std::string path);
     
     inline static int initialLoadProgress = 0;
 

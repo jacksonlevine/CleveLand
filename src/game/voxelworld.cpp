@@ -31,18 +31,19 @@ void VoxelWorld::chunkUpdateThreadFunction(int loadRadius) {
 
         BlockChunk* chunk2 = 0;
         while(lightUpdateQueue.pop(chunk2)) {
-            rebuildChunk(chunk2, chunk2->position, true, true);
             if(!runChunkThread) {
                 break;
             }
+            rebuildChunk(chunk2, chunk2->position, true, true);
+
         }
 
         BlockChunk* chunk = 0;
         while(deferredChunkQueue.pop(chunk)) {
-            rebuildChunk(chunk, chunk->position, true, false);
             if(!runChunkThread) {
                 break;
             }
+            rebuildChunk(chunk, chunk->position, true, false);
         }
 
         if(currCamPosDivided != lastCamPosDivided || first || shouldTryReload) {
@@ -74,16 +75,27 @@ void VoxelWorld::chunkUpdateThreadFunction(int loadRadius) {
 
                             takenChunkIndex++;
                         }
+                        
                         if(!runChunkThread) {
                             break;
                         }
                         if(first) {
                             initialLoadProgress += 1;
+                        } else {
+                            if(deferredChunkQueue.pop(chunk)) {
+                                rebuildChunk(chunk, chunk->position, true, false);
+                                break;
+                            }
                         }
                     }
-
                     if(!runChunkThread ) {
                         break;
+                    }
+                    if(!first) {
+                        if(deferredChunkQueue.pop(chunk)) {
+                                rebuildChunk(chunk, chunk->position, true, false);
+                                break;
+                        }
                     }
                 }
 
@@ -914,10 +926,6 @@ uint32_t VoxelWorld::blockAt(BlockCoord coord) {
         static_cast<int>(std::floor(static_cast<float>(coord.z)/chunkWidth))
     );
 
-    
-
-
-
     auto chunkit = userDataMap.find(chunkcoord);
     if(chunkit != userDataMap.end()) {
         auto blockit = chunkit->second.find(coord);
@@ -926,12 +934,12 @@ uint32_t VoxelWorld::blockAt(BlockCoord coord) {
         }
     }
 
-    if(noiseFunction(coord.x, coord.y, coord.z) > 10) {
-        if(noiseFunction(coord.x, coord.y+10, coord.z) > 10) {
+    if((*currentNoiseFunction)(coord.x, coord.y, coord.z) > 10) {
+        if((*currentNoiseFunction)(coord.x, coord.y+10, coord.z) > 10) {
             return 5;
         }
-        if(coord.y > waterLevel + 2 || noiseFunction(coord.x, coord.y+5, coord.z) > 10) {
-            if(noiseFunction(coord.x, coord.y+1, coord.z) < 10) {
+        if(coord.y > waterLevel + 2 || (*currentNoiseFunction)(coord.x, coord.y+5, coord.z) > 10) {
+            if((*currentNoiseFunction)(coord.x, coord.y+1, coord.z) < 10) {
                         
                         return 3;
                         
@@ -951,12 +959,7 @@ uint32_t VoxelWorld::blockAt(BlockCoord coord) {
     return 0;
 }
 
-float VoxelWorld::noiseFunction(int x, int y, int z) {
-    return 
-    std::max(0.0f, (
-        20.0f + static_cast<float>(perlin.noise((static_cast<float>(x))/20.35f, (static_cast<float>(y+(seed/100)))/20.35f, (static_cast<float>(z))/20.35f)) * 5.0f
-    ) - std::max(((float)y/2.0f) + static_cast<float>(perlin.noise(x/65.0f, z/65.0f)) * 10.0f, 0.0f));
-}
+
 
 bool VoxelWorld::saveExists(const char* path) {
     std::string worldPath(path);
@@ -972,7 +975,7 @@ void VoxelWorld::saveWorldToFile(const char *path) {
 
     std::ofstream outputFile(worldPath, std::ios::trunc);
     if(outputFile.is_open()) {
-        outputFile << seed << '\n';
+        outputFile << "version " << worldGenVersion << " " << seed << '\n';
         for(auto &[chunkcoord, map] : userDataMap) {
             outputFile << chunkcoord.x << " " << chunkcoord.z << "\n";
             for(auto &[blockcoord, blockid] : map) {
@@ -986,6 +989,27 @@ void VoxelWorld::saveWorldToFile(const char *path) {
     }
 }
 
+void VoxelWorld::deleteFolder(std::string pathString) {
+    std::filesystem::path path(pathString);
+
+    if (!std::filesystem::exists(path)) {
+        std::cerr << "Path does not exist: " << pathString << std::endl;
+        return;
+    }
+
+    // Recursively delete all contents
+    for (const auto& entry : std::filesystem::directory_iterator(path)) {
+        if (std::filesystem::is_directory(entry.path())) {
+            deleteFolder(entry.path().string());
+        } else {
+            std::filesystem::remove(entry.path());
+        }
+    }
+
+    // Delete the directory itself
+    std::filesystem::remove(path);
+}
+
 void VoxelWorld::loadWorldFromFile(const char *path) {
     userDataMap.clear();
     std::string worldPath(path);
@@ -997,7 +1021,25 @@ void VoxelWorld::loadWorldFromFile(const char *path) {
         int lineNumber = 0;
         while(std::getline(file, line)) {
             if(lineNumber == 0) {
-                seed = static_cast<unsigned int>(std::stoi(line));
+                std::istringstream linestream(line);
+                std::vector<std::string> words;
+                std::string word;
+
+                while(linestream >> word) {
+                    words.push_back(word);
+                }
+
+                if(words.at(0) == "version") {
+                    worldGenVersion = std::stoi(words.at(1));
+                    seed = static_cast<unsigned int>(std::stoi(words.at(2)));
+                } else {
+                    worldGenVersion = 1;
+                    seed = static_cast<unsigned int>(std::stoi(words.at(0)));
+                }
+                currentNoiseFunction = &(worldGenFunctions.at(worldGenVersion));
+                std::cout << "Worldgen version is " << worldGenVersion << "\n";
+
+                
             } else {
                 std::istringstream linestream(line);
                 if(line.front() != '%') {
@@ -1041,6 +1083,38 @@ void VoxelWorld::loadWorldFromFile(const char *path) {
             }
             lineNumber++;
         }
+        file.close();
+    } else {
+        throw std::exception("Could not open world file.");
+    }
+}
+
+int VoxelWorld::checkVersionOfSave(const char *path) {
+    std::string worldPath(path);
+    worldPath += "/world.save";
+    if(!std::filesystem::exists(worldPath)) {
+        return 2;
+    }
+    std::ifstream file(worldPath);
+    if(file.is_open()) {
+        std::string line;
+
+        std::getline(file, line);
+
+                std::istringstream linestream(line);
+                std::vector<std::string> words;
+                std::string word;
+
+                while(linestream >> word) {
+                    words.push_back(word);
+                }
+
+                if(words.at(0) == "version") {
+                    return std::stoi(words.at(1));
+                } else {
+                    return 1;
+                }
+
         file.close();
     } else {
         throw std::exception("Could not open world file.");
