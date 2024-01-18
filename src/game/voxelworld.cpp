@@ -21,41 +21,34 @@ float VoxelWorld::noiseFunction(int x, int y, int z) {
 
 float VoxelWorld::noiseFunction2(int x, int y, int z) {
 
-    float noise1 = 0.0f;
-    float noise2 = 0.0f;
+    y-= 20;
 
-    float p = perlin.noise((x+worldOffset.x)/500.0f, (z+worldOffset.z)/500.0f) * 10.0f;
-            
-        p = std::max(p, 0.0f);
-        p = std::min(p, 1.0f);
-
-    if(p < 0.99) {
-
-        y-= 20;
-
-        noise1 = std::max(0.0f, (
+        float noise1 = std::max(0.0f, (
             20.0f + static_cast<float>(perlin.noise((static_cast<float>(x))/20.35f, (static_cast<float>(y+(seed/100)))/20.35f, (static_cast<float>(z))/20.35f)) * 5.0f
         ) - std::max(((float)y/2.0f) + static_cast<float>(perlin.noise(x/65.0f, z/65.0f)) * 10.0f, 0.0f));
 
-    }
 
-    if(p > 0.01) {
+
+
 
         y += 60;
 
-        noise2 = 
+        float noise2 = 
         std::max(0.0f, (
              50.0f + static_cast<float>(perlin.noise((static_cast<float>(x+worldOffset.x))/205.35f, (static_cast<float>(y+worldOffset.y))/25.35f, (static_cast<float>(z+worldOffset.z))/205.35f)) * 10.0f
             + static_cast<float>(perlin.noise((static_cast<float>(x+10000+worldOffset.x))/305.35f, (static_cast<float>(y+worldOffset.y))/65.35f, (static_cast<float>(z+10000+worldOffset.z))/305.35f)) * 20.0f
 
-        ) - ((float)y/3.0f))
+        ) - std::max(((float)y/3.0f) /*+ static_cast<float>(perlin.noise(x/15.0f, z/15.0f)) * 2.0f*/, 0.0f))
         
          - 
          
          (std::min(0.5f, std::max(static_cast<float>(perlin.noise((static_cast<float>(x))/25.35f, (static_cast<float>(y))/25.35f, (static_cast<float>(z))/25.35f)) * 10.0f, 0.0f)) *  20.0f)
          ;
 
-    }
+        float p = perlin.noise(x/500.0f, z/500.0f) * 10.0f;
+            
+        p = std::max(p, 0.0f);
+        p = std::min(p, 1.0f);
 
         return glm::mix(noise1, noise2, p);
     }
@@ -224,6 +217,17 @@ void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool im
     int startZ = chunk->position.z * chunkWidth;
     int startY = 0;
 
+
+
+    static std::vector<glm::vec3> normals = {
+        glm::vec3(-1, 0, 0),
+        glm::vec3(1, 0, 0),
+        glm::vec3(0, 0, 1),
+        glm::vec3(0, 0, -1),
+        glm::vec3(0, 1, 0),
+        glm::vec3(0, -1, 0),
+    };
+
     static std::vector<std::vector<float>> faces = {
            
     {
@@ -382,53 +386,50 @@ void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool im
                                     }
                                 }
 
-                                std::vector<float> &thisFace = faces[neighborIndex];
 
                                 tverts.insert(tverts.end(), {
-                                    thisFace[0] + coord.x, thisFace[1] + coord.y, thisFace[2] + coord.z, thisFace[3]+blockLightVal,
-                                    thisFace[4]+ (skyBlocked ? -4.0f : 0.0f), 
-                                    thisFace[5] + coord.x, thisFace[6] + coord.y, thisFace[7] + coord.z, thisFace[8]+blockLightVal,
-                                    thisFace[9]+ (skyBlocked ? -4.0f : 0.0f), 
-                                    thisFace[10] + coord.x, thisFace[11] + coord.y, thisFace[12] + coord.z, thisFace[13]+blockLightVal,
-                                    thisFace[14]+ (skyBlocked ? -4.0f : 0.0f), 
-                                    thisFace[15] + coord.x, thisFace[16] + coord.y, thisFace[17] + coord.z, thisFace[18]+blockLightVal,
-                                    thisFace[19]+ (skyBlocked ? -4.0f : 0.0f), 
-                                    thisFace[20] + coord.x, thisFace[21] + coord.y, thisFace[22] + coord.z, thisFace[23]+blockLightVal,
-                                    thisFace[24]+ (skyBlocked ? -4.0f : 0.0f), 
-                                    thisFace[25] + coord.x, thisFace[26] + coord.y, thisFace[27] + coord.z, thisFace[28]+blockLightVal,
-                                    thisFace[29]+ (skyBlocked ? -4.0f : 0.0f)
+                                    faces[neighborIndex][0] + coord.x, faces[neighborIndex][1] + coord.y, faces[neighborIndex][2] + coord.z, faces[neighborIndex][3]+blockLightVal,
+                                    faces[neighborIndex][4]+ (skyBlocked ? -4.0f : 0.0f), 
+                                    faces[neighborIndex][5] + coord.x, faces[neighborIndex][6] + coord.y, faces[neighborIndex][7] + coord.z, faces[neighborIndex][8]+blockLightVal,
+                                    faces[neighborIndex][9]+ (skyBlocked ? -4.0f : 0.0f), 
+                                    faces[neighborIndex][10] + coord.x, faces[neighborIndex][11] + coord.y, faces[neighborIndex][12] + coord.z, faces[neighborIndex][13]+blockLightVal,
+                                    faces[neighborIndex][14]+ (skyBlocked ? -4.0f : 0.0f), 
+                                    faces[neighborIndex][15] + coord.x, faces[neighborIndex][16] + coord.y, faces[neighborIndex][17] + coord.z, faces[neighborIndex][18]+blockLightVal,
+                                    faces[neighborIndex][19]+ (skyBlocked ? -4.0f : 0.0f), 
+                                    faces[neighborIndex][20] + coord.x, faces[neighborIndex][21] + coord.y, faces[neighborIndex][22] + coord.z, faces[neighborIndex][23]+blockLightVal,
+                                    faces[neighborIndex][24]+ (skyBlocked ? -4.0f : 0.0f), 
+                                    faces[neighborIndex][25] + coord.x, faces[neighborIndex][26] + coord.y, faces[neighborIndex][27] + coord.z, faces[neighborIndex][28]+blockLightVal,
+                                    faces[neighborIndex][29]+ (skyBlocked ? -4.0f : 0.0f)
                                 });
-                                std::vector<TextureFace> &thisTex = BlockInfo::texs[block];
-
                                 if(neighborIndex == TOP) {
                                     tuvs.insert(tuvs.end() , {
-                                        thisTex[0].bl.x, thisTex[0].bl.y,
-                                        thisTex[0].br.x, thisTex[0].br.y,
-                                        thisTex[0].tr.x, thisTex[0].tr.y,
+                                        BlockInfo::texs[block][0].bl.x, BlockInfo::texs[block][0].bl.y,
+                                        BlockInfo::texs[block][0].br.x, BlockInfo::texs[block][0].br.y,
+                                        BlockInfo::texs[block][0].tr.x, BlockInfo::texs[block][0].tr.y,
 
-                                        thisTex[0].tr.x, thisTex[0].tr.y,
-                                        thisTex[0].tl.x, thisTex[0].tl.y,
-                                        thisTex[0].bl.x, thisTex[0].bl.y
+                                        BlockInfo::texs[block][0].tr.x, BlockInfo::texs[block][0].tr.y,
+                                        BlockInfo::texs[block][0].tl.x, BlockInfo::texs[block][0].tl.y,
+                                        BlockInfo::texs[block][0].bl.x, BlockInfo::texs[block][0].bl.y
                                     });
                                 } else if(neighborIndex == BOTTOM) {
                                     tuvs.insert(tuvs.end() , {
-                                        thisTex[2].bl.x, thisTex[2].bl.y,
-                                        thisTex[2].br.x, thisTex[2].br.y,
-                                        thisTex[2].tr.x, thisTex[2].tr.y,
+                                        BlockInfo::texs[block][2].bl.x, BlockInfo::texs[block][2].bl.y,
+                                        BlockInfo::texs[block][2].br.x, BlockInfo::texs[block][2].br.y,
+                                        BlockInfo::texs[block][2].tr.x, BlockInfo::texs[block][2].tr.y,
 
-                                        thisTex[2].tr.x, thisTex[2].tr.y,
-                                        thisTex[2].tl.x, thisTex[2].tl.y,
-                                        thisTex[2].bl.x, thisTex[2].bl.y
+                                        BlockInfo::texs[block][2].tr.x, BlockInfo::texs[block][2].tr.y,
+                                        BlockInfo::texs[block][2].tl.x, BlockInfo::texs[block][2].tl.y,
+                                        BlockInfo::texs[block][2].bl.x, BlockInfo::texs[block][2].bl.y
                                     });
                                 } else {
                                     tuvs.insert(tuvs.end() , {
-                                        thisTex[1].bl.x, thisTex[1].bl.y,
-                                        thisTex[1].br.x, thisTex[1].br.y,
-                                        thisTex[1].tr.x, thisTex[1].tr.y,
+                                        BlockInfo::texs[block][1].bl.x, BlockInfo::texs[block][1].bl.y,
+                                        BlockInfo::texs[block][1].br.x, BlockInfo::texs[block][1].br.y,
+                                        BlockInfo::texs[block][1].tr.x, BlockInfo::texs[block][1].tr.y,
 
-                                        thisTex[1].tr.x, thisTex[1].tr.y,
-                                        thisTex[1].tl.x, thisTex[1].tl.y,
-                                        thisTex[1].bl.x, thisTex[1].bl.y
+                                        BlockInfo::texs[block][1].tr.x, BlockInfo::texs[block][1].tr.y,
+                                        BlockInfo::texs[block][1].tl.x, BlockInfo::texs[block][1].tl.y,
+                                        BlockInfo::texs[block][1].bl.x, BlockInfo::texs[block][1].bl.y
                                     });
                                 }
                             }
@@ -472,54 +473,49 @@ void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool im
                                     }
                                 }
 
-                                std::vector<float> &thisFace = faces[neighborIndex];
-
                                 verts.insert(verts.end(), {
-                                    thisFace[0] + coord.x, thisFace[1] + coord.y, thisFace[2] + coord.z, thisFace[3] + blockLightVal,
-                                    thisFace[4]+ (skyBlocked ? -4.0f : 0.0f), 
-                                    thisFace[5] + coord.x, thisFace[6] + coord.y, thisFace[7] + coord.z, thisFace[8] + blockLightVal,
-                                    thisFace[9]+ (skyBlocked ? -4.0f : 0.0f), 
-                                    thisFace[10] + coord.x, thisFace[11] + coord.y, thisFace[12] + coord.z, thisFace[13] + blockLightVal,
-                                    thisFace[14]+ (skyBlocked ? -4.0f : 0.0f), 
-                                    thisFace[15] + coord.x, thisFace[16] + coord.y, thisFace[17] + coord.z, thisFace[18] + blockLightVal,
-                                    thisFace[19]+ (skyBlocked ? -4.0f : 0.0f), 
-                                    thisFace[20] + coord.x, thisFace[21] + coord.y, thisFace[22] + coord.z, thisFace[23] + blockLightVal,
-                                    thisFace[24]+ (skyBlocked ? -4.0f : 0.0f), 
-                                    thisFace[25] + coord.x, thisFace[26] + coord.y, thisFace[27] + coord.z, thisFace[28] + blockLightVal,
-                                    thisFace[29]+ (skyBlocked ? -4.0f : 0.0f)
+                                    faces[neighborIndex][0] + coord.x, faces[neighborIndex][1] + coord.y, faces[neighborIndex][2] + coord.z, faces[neighborIndex][3] + blockLightVal,
+                                    faces[neighborIndex][4]+ (skyBlocked ? -4.0f : 0.0f), 
+                                    faces[neighborIndex][5] + coord.x, faces[neighborIndex][6] + coord.y, faces[neighborIndex][7] + coord.z, faces[neighborIndex][8] + blockLightVal,
+                                    faces[neighborIndex][9]+ (skyBlocked ? -4.0f : 0.0f), 
+                                    faces[neighborIndex][10] + coord.x, faces[neighborIndex][11] + coord.y, faces[neighborIndex][12] + coord.z, faces[neighborIndex][13] + blockLightVal,
+                                    faces[neighborIndex][14]+ (skyBlocked ? -4.0f : 0.0f), 
+                                    faces[neighborIndex][15] + coord.x, faces[neighborIndex][16] + coord.y, faces[neighborIndex][17] + coord.z, faces[neighborIndex][18] + blockLightVal,
+                                    faces[neighborIndex][19]+ (skyBlocked ? -4.0f : 0.0f), 
+                                    faces[neighborIndex][20] + coord.x, faces[neighborIndex][21] + coord.y, faces[neighborIndex][22] + coord.z, faces[neighborIndex][23] + blockLightVal,
+                                    faces[neighborIndex][24]+ (skyBlocked ? -4.0f : 0.0f), 
+                                    faces[neighborIndex][25] + coord.x, faces[neighborIndex][26] + coord.y, faces[neighborIndex][27] + coord.z, faces[neighborIndex][28] + blockLightVal,
+                                    faces[neighborIndex][29]+ (skyBlocked ? -4.0f : 0.0f)
                                 });
-
-                                std::vector<TextureFace> &thisTex = BlockInfo::texs[block];
-
                                 if(neighborIndex == TOP) {
                                     uvs.insert(uvs.end() , {
-                                        thisTex[0].bl.x, thisTex[0].bl.y,
-                                        thisTex[0].br.x, thisTex[0].br.y,
-                                        thisTex[0].tr.x, thisTex[0].tr.y,
+                                        BlockInfo::texs[block][0].bl.x, BlockInfo::texs[block][0].bl.y,
+                                        BlockInfo::texs[block][0].br.x, BlockInfo::texs[block][0].br.y,
+                                        BlockInfo::texs[block][0].tr.x, BlockInfo::texs[block][0].tr.y,
 
-                                        thisTex[0].tr.x, thisTex[0].tr.y,
-                                        thisTex[0].tl.x, thisTex[0].tl.y,
-                                        thisTex[0].bl.x, thisTex[0].bl.y
+                                        BlockInfo::texs[block][0].tr.x, BlockInfo::texs[block][0].tr.y,
+                                        BlockInfo::texs[block][0].tl.x, BlockInfo::texs[block][0].tl.y,
+                                        BlockInfo::texs[block][0].bl.x, BlockInfo::texs[block][0].bl.y
                                     });
                                 } else if(neighborIndex == BOTTOM) {
                                     uvs.insert(uvs.end() , {
-                                        thisTex[2].bl.x, thisTex[2].bl.y,
-                                        thisTex[2].br.x, thisTex[2].br.y,
-                                        thisTex[2].tr.x, thisTex[2].tr.y,
+                                        BlockInfo::texs[block][2].bl.x, BlockInfo::texs[block][2].bl.y,
+                                        BlockInfo::texs[block][2].br.x, BlockInfo::texs[block][2].br.y,
+                                        BlockInfo::texs[block][2].tr.x, BlockInfo::texs[block][2].tr.y,
 
-                                        thisTex[2].tr.x, thisTex[2].tr.y,
-                                        thisTex[2].tl.x, thisTex[2].tl.y,
-                                        thisTex[2].bl.x, thisTex[2].bl.y
+                                        BlockInfo::texs[block][2].tr.x, BlockInfo::texs[block][2].tr.y,
+                                        BlockInfo::texs[block][2].tl.x, BlockInfo::texs[block][2].tl.y,
+                                        BlockInfo::texs[block][2].bl.x, BlockInfo::texs[block][2].bl.y
                                     });
                                 } else {
                                     uvs.insert(uvs.end() , {
-                                        thisTex[1].bl.x, thisTex[1].bl.y,
-                                        thisTex[1].br.x, thisTex[1].br.y,
-                                        thisTex[1].tr.x, thisTex[1].tr.y,
+                                        BlockInfo::texs[block][1].bl.x, BlockInfo::texs[block][1].bl.y,
+                                        BlockInfo::texs[block][1].br.x, BlockInfo::texs[block][1].br.y,
+                                        BlockInfo::texs[block][1].tr.x, BlockInfo::texs[block][1].tr.y,
 
-                                        thisTex[1].tr.x, thisTex[1].tr.y,
-                                        thisTex[1].tl.x, thisTex[1].tl.y,
-                                        thisTex[1].bl.x, thisTex[1].bl.y
+                                        BlockInfo::texs[block][1].tr.x, BlockInfo::texs[block][1].tr.y,
+                                        BlockInfo::texs[block][1].tl.x, BlockInfo::texs[block][1].tl.y,
+                                        BlockInfo::texs[block][1].bl.x, BlockInfo::texs[block][1].bl.y
                                     });
                                 }
                             }
