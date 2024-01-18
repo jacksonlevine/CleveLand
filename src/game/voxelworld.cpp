@@ -29,7 +29,7 @@ float VoxelWorld::noiseFunction2(int x, int y, int z) {
         p = std::max(p, 0.0f);
         p = std::min(p, 1.0f);
 
-    if(p < 0.99) {
+    if(p < 0.999) {
 
         y-= 20;
 
@@ -39,7 +39,7 @@ float VoxelWorld::noiseFunction2(int x, int y, int z) {
 
     }
 
-    if(p > 0.01) {
+    if(p > 0.001) {
 
         y += 60;
 
@@ -48,7 +48,7 @@ float VoxelWorld::noiseFunction2(int x, int y, int z) {
              50.0f + static_cast<float>(perlin.noise((static_cast<float>(x+worldOffset.x))/205.35f, (static_cast<float>(y+worldOffset.y))/25.35f, (static_cast<float>(z+worldOffset.z))/205.35f)) * 10.0f
             + static_cast<float>(perlin.noise((static_cast<float>(x+10000+worldOffset.x))/305.35f, (static_cast<float>(y+worldOffset.y))/65.35f, (static_cast<float>(z+10000+worldOffset.z))/305.35f)) * 20.0f
 
-        ) - ((float)y/3.0f))
+        ) - std::max(((float)y/3.0f) /*+ static_cast<float>(perlin.noise(x/15.0f, z/15.0f)) * 2.0f*/, 0.0f))
         
          - 
          
