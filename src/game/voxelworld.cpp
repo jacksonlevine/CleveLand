@@ -184,23 +184,24 @@ void VoxelWorld::populateChunksAndGeometryStores(entt::registry &registry, int v
 
 
 void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool immediateInPlace, bool light) {
+
+    float time = glfwGetTime();
+
+    std::unordered_map<BlockCoord, uint32_t, IntTupHash> memo;
+
     if(!immediateInPlace) {
         if(takenCareOfChunkSpots.find(chunk->position) != takenCareOfChunkSpots.end()) {
             takenCareOfChunkSpots.erase(chunk->position);
         }
         chunk->position = newPosition;
-        generateChunk(newPosition);
+        generateChunk(newPosition, memo);
     }
     if(light) {
-        lightPassOnChunk(newPosition);
+        lightPassOnChunk(newPosition, memo);
     }
 
 
     chunk->used = true;
-    
-    int startX = chunk->position.x * chunkWidth;
-    int startZ = chunk->position.z * chunkWidth;
-    int startY = 0;
 
     static std::vector<std::vector<float>> faces = {
            
@@ -265,18 +266,34 @@ void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool im
     static std::vector<float> doorTopUVs = DoorInfo::getDoorUVs(TextureFace(11,1));
 
 
+
+
+
     std::vector<float> verts;
     std::vector<float> uvs;
 
     std::vector<float> tverts;
     std::vector<float> tuvs;
 
+        
+    int startX = chunk->position.x * chunkWidth;
+    int startZ = chunk->position.z * chunkWidth;
+    int startY = 0;
+
+
+
+
+
+
+
+
+
     for(int x = startX; x < startX + chunkWidth; ++x) {
         for(int z = startZ; z < startZ + chunkWidth; ++z) {
             for(int y = startY; y < startY + chunkHeight; ++y) {
                 BlockCoord coord(x,y,z);
                 int neighborIndex = 0;
-                uint32_t combined = blockAt(coord);
+                uint32_t combined = blockAtMemo(coord, memo);
                 uint32_t block = combined & BlockInfo::BLOCK_ID_BITS;
                 uint32_t flags = combined & BlockInfo::BLOCK_FLAG_BITS;
                 if(block != 0) {
@@ -329,7 +346,7 @@ void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool im
                     semiTrans) {
 
                         for(BlockCoord &neigh : BlockInfo::neighbors) {
-                            uint32_t neighblockcombined = blockAt(coord + neigh);
+                            uint32_t neighblockcombined = blockAtMemo(coord + neigh, memo);
                             uint32_t neighblock = neighblockcombined & BlockInfo::BLOCK_ID_BITS;
                             bool neighSemiTrans = std::find(BlockInfo::semiTransparents.begin(), BlockInfo::semiTransparents.end(), neighblock) != BlockInfo::semiTransparents.end();
                             bool waterBorderingTransparent = (block == 2 && neighblock != 2);
@@ -343,7 +360,7 @@ void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool im
                                     while(yTest < chunkHeight) {
                                         yTest++;
                                         BlockCoord test(lightCubeHere.x, yTest, lightCubeHere.z);
-                                        uint32_t blockHere = blockAt(test);
+                                        uint32_t blockHere = blockAtMemo(test, memo);
                                         uint32_t blockIDHere = blockHere & BlockInfo::BLOCK_ID_BITS;
                                         if(blockIDHere != 0 && std::find(BlockInfo::transparents.begin(), BlockInfo::transparents.end(), blockIDHere) == BlockInfo::transparents.end()) {
                                             skyBlocked = true;
@@ -417,7 +434,7 @@ void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool im
 
 
                         for(BlockCoord &neigh : BlockInfo::neighbors) {
-                            uint32_t neighblockcombined = blockAt(coord + neigh);
+                            uint32_t neighblockcombined = blockAtMemo(coord + neigh, memo);
                             uint32_t neighblock = neighblockcombined & BlockInfo::BLOCK_ID_BITS;
                             bool neighborTransparent = std::find(BlockInfo::transparents.begin(), BlockInfo::transparents.end(), neighblock) != BlockInfo::transparents.end() ||
                             std::find(BlockInfo::semiTransparents.begin(), BlockInfo::semiTransparents.end(), neighblock) != BlockInfo::semiTransparents.end();
@@ -433,7 +450,7 @@ void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool im
                                     while(yTest < chunkHeight) {
                                         yTest++;
                                         BlockCoord test(lightCubeHere.x, yTest, lightCubeHere.z);
-                                        uint32_t blockHere = blockAt(test);
+                                        uint32_t blockHere = blockAtMemo(test, memo);
                                         uint32_t blockIDHere = blockHere & BlockInfo::BLOCK_ID_BITS;
                                         if(blockIDHere != 0 && std::find(BlockInfo::transparents.begin(), BlockInfo::transparents.end(), blockIDHere) == BlockInfo::transparents.end()) {
                                             skyBlocked = true;
@@ -579,8 +596,9 @@ void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool im
 
     }
 
-
-
+    float elapsed = glfwGetTime() - time;
+    timeChunkMeshing += elapsed;
+    numberOfSamples += 1;
 }
 
 
@@ -627,7 +645,7 @@ void VoxelWorld::depropogateLightOrigin(BlockCoord spot, BlockCoord origin, std:
 
 }
 
-void VoxelWorld::propogateLightOrigin(BlockCoord spot, BlockCoord origin, int value, std::set<BlockChunk*> *imp) {
+void VoxelWorld::propogateLightOrigin(BlockCoord spot, BlockCoord origin, int value, std::set<BlockChunk*> *imp, std::unordered_map<BlockCoord, uint32_t, IntTupHash>& memo) {
     if(value > 0) {
 
         ChunkCoord chunkCoordOfOrigin(
@@ -666,7 +684,7 @@ void VoxelWorld::propogateLightOrigin(BlockCoord spot, BlockCoord origin, int va
             thisRay.origin = origin;
             //figure out the directions its going
             for(BlockCoord& neigh : BlockInfo::neighbors) {
-                uint32_t blockBitsHere = blockAt(spot + neigh);
+                uint32_t blockBitsHere = blockAtMemo(spot + neigh, memo);
                 uint32_t blockIDHere = blockBitsHere & BlockInfo::BLOCK_ID_BITS;
                 bool goingHere = (blockIDHere == 0 || 
                 std::find(BlockInfo::transparents.begin(), BlockInfo::transparents.end(), blockIDHere) != BlockInfo::transparents.end() ||
@@ -680,7 +698,7 @@ void VoxelWorld::propogateLightOrigin(BlockCoord spot, BlockCoord origin, int va
             segIt->second.rays.push_back(thisRay);
             for(int dir : thisRay.directions) {
 
-                propogateLightOrigin(spot + BlockInfo::neighbors[dir], origin, value - 2, imp);
+                propogateLightOrigin(spot + BlockInfo::neighbors[dir], origin, value - 2, imp, memo);
 
             }
 
@@ -692,7 +710,7 @@ void VoxelWorld::propogateLightOrigin(BlockCoord spot, BlockCoord origin, int va
                 int neighborIndex = 0;
                 //figure out the directions its going
                 for(BlockCoord& neigh : BlockInfo::neighbors) {
-                    uint32_t blockBitsHere = blockAt(spot + neigh);
+                    uint32_t blockBitsHere = blockAtMemo(spot + neigh, memo);
                     uint32_t blockIDHere = blockBitsHere & BlockInfo::BLOCK_ID_BITS;
                     bool goingHere = (blockIDHere == 0 || 
                     std::find(BlockInfo::transparents.begin(), BlockInfo::transparents.end(), blockIDHere) != BlockInfo::transparents.end() ||
@@ -707,7 +725,7 @@ void VoxelWorld::propogateLightOrigin(BlockCoord spot, BlockCoord origin, int va
 
                 for(int dir : rayIt->directions) {
 
-                    propogateLightOrigin(spot + BlockInfo::neighbors[dir], origin, value - 2, imp);
+                    propogateLightOrigin(spot + BlockInfo::neighbors[dir], origin, value - 2, imp, memo);
 
                 }
             }
@@ -718,7 +736,7 @@ void VoxelWorld::propogateLightOrigin(BlockCoord spot, BlockCoord origin, int va
 
 
 
-void VoxelWorld::lightPassOnChunk(ChunkCoord chunkCoord) {
+void VoxelWorld::lightPassOnChunk(ChunkCoord chunkCoord, std::unordered_map<BlockCoord, uint32_t, IntTupHash>& memo) {
 
     if(hasHadInitialLightPass.find(chunkCoord) == hasHadInitialLightPass.end()) {
         hasHadInitialLightPass.insert_or_assign(chunkCoord, true);
@@ -768,10 +786,10 @@ void VoxelWorld::lightPassOnChunk(ChunkCoord chunkCoord) {
             for(int z = 0; z < chunkWidth; ++z) {
                 for(int y = 0; y < chunkHeight; ++y) {
                     BlockCoord coord(chunkCoord.x * chunkWidth + x, y, chunkCoord.z * chunkWidth + z);
-                    uint32_t blockBitsHere = blockAt(coord);
+                    uint32_t blockBitsHere = blockAtMemo(coord, memo);
                     uint32_t blockIDHere = blockBitsHere & BlockInfo::BLOCK_ID_BITS;
                     if(blockIDHere == 12) {
-                        propogateLightOrigin(coord, coord, 16, &implicatedChunks);
+                        propogateLightOrigin(coord, coord, 16, &implicatedChunks, memo);
                     }
                 }
             }
@@ -806,7 +824,7 @@ void VoxelWorld::lightPassOnChunk(ChunkCoord chunkCoord) {
 
 
 
-void VoxelWorld::generateChunk(ChunkCoord chunkcoord) {
+void VoxelWorld::generateChunk(ChunkCoord chunkcoord, std::unordered_map<BlockCoord, uint32_t, IntTupHash>& memo) {
 
     srand(seed + chunkcoord.x + chunkcoord.y);
 
@@ -881,7 +899,7 @@ void VoxelWorld::generateChunk(ChunkCoord chunkcoord) {
                 BlockCoord coord(chunkcoord.x * chunkWidth + x, y, chunkcoord.z * chunkWidth + z);
 
                 //Trees
-                if(blockAt(coord) == 3) {
+                if(blockAtMemo(coord, memo) == 3) {
                     int ran = randsmall();
                     if(ran > 126) {
                         BlockCoord here = coord;
@@ -898,6 +916,10 @@ void VoxelWorld::generateChunk(ChunkCoord chunkcoord) {
                             }
                             if(doingIt) {
                                 nonUserDataMap.insert_or_assign(here, 6);
+                                auto memoIt = memo.find(here);
+                                if(memoIt != memo.end()){
+                                    memo.erase(here);
+                                }
                             }
                         }
                         for(BlockCoord& coor : leafSpots) {
@@ -916,6 +938,10 @@ void VoxelWorld::generateChunk(ChunkCoord chunkcoord) {
                                 );
                                 if(nonUserDataMap.find(coorHere) == nonUserDataMap.end()) {
                                     nonUserDataMap.insert_or_assign(coorHere, 7);
+                                    auto memoIt = memo.find(coorHere);
+                                    if(memoIt != memo.end()){
+                                        memo.erase(coorHere);
+                                    }
                                     auto chunkIt = takenCareOfChunkSpots.find(chunkHere);
                                     if(chunkIt != takenCareOfChunkSpots.end()) {
                                         implicatedChunks.insert(chunkIt->second);
@@ -986,6 +1012,17 @@ uint32_t VoxelWorld::blockAt(BlockCoord coord) {
         return 2;
     }
     return 0;
+}
+
+uint32_t VoxelWorld::blockAtMemo(BlockCoord coord, std::unordered_map<BlockCoord, uint32_t, IntTupHash>& memo) {
+    auto blockIt = memo.find(coord);
+    if(blockIt != memo.end()) {
+        return blockIt->second;
+    }
+
+    uint32_t res = blockAt(coord);
+    memo.insert_or_assign(coord, res);
+    return res;
 }
 
 

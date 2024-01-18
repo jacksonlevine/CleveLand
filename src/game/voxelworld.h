@@ -20,6 +20,7 @@
 #include "../game/specialblocks/door.h"
 #include <atomic>
 #include "../util/lightinfo.h"
+#include <GLFW/glfw3.h>
 
 class VoxelWorld {
 public:
@@ -71,15 +72,15 @@ public:
     >                       lightMap;
 
     void depropogateLightOrigin(BlockCoord spot, BlockCoord origin, std::set<BlockChunk*> *imp);
-    void propogateLightOrigin(BlockCoord spot, BlockCoord origin, int value, std::set<BlockChunk*> *imp);
-    void lightPassOnChunk(ChunkCoord chunkcoord);
+    void propogateLightOrigin(BlockCoord spot, BlockCoord origin, int value, std::set<BlockChunk*> *imp, std::unordered_map<BlockCoord, uint32_t, IntTupHash>& memo);
+    void lightPassOnChunk(ChunkCoord chunkcoord, std::unordered_map<BlockCoord, uint32_t, IntTupHash>& memo);
 
 
 
     std::vector<BlockChunk> chunks;
     std::vector<GeometryStore> geometryStorePool;
 
-    void generateChunk(ChunkCoord chunkcoord);
+    void generateChunk(ChunkCoord chunkcoord, std::unordered_map<BlockCoord, uint32_t, IntTupHash>& memo);
 
 
     void populateChunksAndGeometryStores(entt::registry &registry, int viewDistance);
@@ -145,5 +146,10 @@ public:
     inline static std::atomic<bool> stillRunningThread = false;
 
     inline static int waterLevel = 40;
+
+    inline static float timeChunkMeshing = 0.0f;
+    inline static int numberOfSamples = 0;
+
+    uint32_t blockAtMemo(BlockCoord coord, std::unordered_map<BlockCoord, uint32_t, IntTupHash>& memo);
 };
 #endif

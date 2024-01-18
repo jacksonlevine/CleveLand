@@ -266,6 +266,13 @@ void Game::drawSplashScreen() {
 }
 
 void Game::draw() {
+
+    if(voxelWorld.numberOfSamples >= 100) {
+        float average = voxelWorld.timeChunkMeshing / voxelWorld.numberOfSamples;
+        std::cout << "Average chunk time: " << average << "\n";
+        voxelWorld.timeChunkMeshing = 0.0f;
+        voxelWorld.numberOfSamples = 0;
+    }
     
     if(VAO == 0) {
         glGenVertexArrays(1, &VAO);
