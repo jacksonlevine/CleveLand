@@ -40,7 +40,7 @@ public:
 
     inline static bool firstMouse = true;
 
-    inline static float speedMulitplier = 10.5f;
+    inline static float speedMulitplier = 3.75f;
 
     inline static float far = 1500.0f;
     inline static float near = 0.01f;
