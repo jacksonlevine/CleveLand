@@ -12,6 +12,52 @@ void VoxelWorld::runStep(float deltaTime) {
     }
 }
 
+float VoxelWorld::noiseFunction(int x, int y, int z) {
+        return 
+        std::max(0.0f, (
+            20.0f + static_cast<float>(perlin.noise((static_cast<float>(x))/20.35f, (static_cast<float>(y+(seed/100)))/20.35f, (static_cast<float>(z))/20.35f)) * 5.0f
+        ) - std::max(((float)y/2.0f) + static_cast<float>(perlin.noise(x/65.0f, z/65.0f)) * 10.0f, 0.0f));
+    }
+
+float VoxelWorld::noiseFunction2(int x, int y, int z) {
+
+    y-= 20;
+
+        float noise1 = std::max(0.0f, (
+            20.0f + static_cast<float>(perlin.noise((static_cast<float>(x))/20.35f, (static_cast<float>(y+(seed/100)))/20.35f, (static_cast<float>(z))/20.35f)) * 5.0f
+        ) - std::max(((float)y/2.0f) + static_cast<float>(perlin.noise(x/65.0f, z/65.0f)) * 10.0f, 0.0f));
+
+
+
+
+
+        y += 60;
+
+        float noise2 = 
+        std::max(0.0f, (
+             50.0f + static_cast<float>(perlin.noise((static_cast<float>(x+worldOffset.x))/205.35f, (static_cast<float>(y+worldOffset.y))/25.35f, (static_cast<float>(z+worldOffset.z))/205.35f)) * 10.0f
+            + static_cast<float>(perlin.noise((static_cast<float>(x+10000+worldOffset.x))/305.35f, (static_cast<float>(y+worldOffset.y))/65.35f, (static_cast<float>(z+10000+worldOffset.z))/305.35f)) * 20.0f
+
+        ) - std::max(((float)y/3.0f) /*+ static_cast<float>(perlin.noise(x/15.0f, z/15.0f)) * 2.0f*/, 0.0f))
+        
+         - 
+         
+         (std::min(0.5f, std::max(static_cast<float>(perlin.noise((static_cast<float>(x))/25.35f, (static_cast<float>(y))/25.35f, (static_cast<float>(z))/25.35f)) * 10.0f, 0.0f)) *  20.0f)
+         ;
+
+        float p = perlin.noise(x/500.0f, z/500.0f) * 10.0f;
+            
+        p = std::max(p, 0.0f);
+        p = std::min(p, 1.0f);
+
+        return glm::mix(noise1, noise2, p);
+    }
+
+
+void VoxelWorld::getOffsetFromSeed() {
+    srand(seed);
+    worldOffset = glm::ivec3(rand()*100, rand()*100, rand()*100);
+}
 
 void VoxelWorld::chunkUpdateThreadFunction(int loadRadius) {
     stillRunningThread = true;
@@ -920,7 +966,8 @@ void VoxelWorld::generateChunk(ChunkCoord chunkcoord) {
 
 
 uint32_t VoxelWorld::blockAt(BlockCoord coord) {
-    static int waterLevel = 20;
+
+    
     ChunkCoord chunkcoord(
         static_cast<int>(std::floor(static_cast<float>(coord.x)/chunkWidth)), 
         static_cast<int>(std::floor(static_cast<float>(coord.z)/chunkWidth))
@@ -1031,9 +1078,12 @@ void VoxelWorld::loadWorldFromFile(const char *path) {
 
                 if(words.at(0) == "version") {
                     worldGenVersion = std::stoi(words.at(1));
+                    waterLevel = 40;
                     seed = static_cast<unsigned int>(std::stoi(words.at(2)));
+                    getOffsetFromSeed();
                 } else {
                     worldGenVersion = 1;
+                    waterLevel = 20;
                     seed = static_cast<unsigned int>(std::stoi(words.at(0)));
                 }
                 currentNoiseFunction = &(worldGenFunctions.at(worldGenVersion));

@@ -122,6 +122,12 @@ void Game::getAverageDelta() {
 }
 
 void Game::stepMovementAndPhysics() {
+
+
+            if(initialTimer > 0.0f) {
+                initialTimer -= deltaTime;
+            } else {
+
             static float currentJumpY = 0.0f;
             float allowableJumpHeight = 1.1f;
             static bool jumpingUp = false;
@@ -201,7 +207,9 @@ void Game::stepMovementAndPhysics() {
                 }
             }
             camera->goToPosition(proposedPos);
+            }
 }
+
 
 void Game::drawSplashScreen() {
 
@@ -931,9 +939,10 @@ void Game::loadOrCreateSaveGame(const char* path) {
         voxelWorld.worldGenVersion = 2;
         voxelWorld.currentNoiseFunction = &(voxelWorld.worldGenFunctions.at(2));
         voxelWorld.seed = time(NULL);
-        camera->position = glm::vec3(0,70,0);
+        voxelWorld.getOffsetFromSeed();
+        camera->position = glm::vec3(0,100,0);
         camera->velocity = glm::vec3(0,0,0);
-        camera->updatePosition();
+        //camera->updatePosition();
         voxelWorld.saveWorldToFile(path);
     }
     
@@ -1006,9 +1015,6 @@ void Game::loadOrCreateSaveGame(const char* path) {
             lineIndex++;
         }
     playerFile.close();
-    } else {
-        std::cerr << "Couldn't open player file when loading. \n";
-    }
     camera->yaw = loadedYaw;
     camera->pitch = loadedPitch;
     camera->position = loadedPosition;
@@ -1016,7 +1022,11 @@ void Game::loadOrCreateSaveGame(const char* path) {
     camera->firstMouse = true;
     camera->right = glm::normalize(glm::cross(glm::vec3(0.0f, 1.0f, 0.0f), camera->direction));
     camera->up = glm::cross(camera->direction, camera->right);
-    camera->updatePosition();
+    //camera->updatePosition();
+    } else {
+        std::cerr << "Couldn't open player file when loading. \n";
+    }
+    
 }
 
 void Game::saveGame(const char* path) {
@@ -1180,7 +1190,7 @@ void Game::drawSelectedBlock() {
 
 void Game::goToSingleplayerWorld(const char *worldname) {
 
-
+    initialTimer = 2.0f;
     voxelWorld.initialLoadProgress = 0;
     loadRendering = true;
 

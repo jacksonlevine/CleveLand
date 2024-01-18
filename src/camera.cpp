@@ -7,7 +7,7 @@ Camera3D::Camera3D(Game *gs) : gs(gs), focused(false) {
 
     direction = glm::vec3(0.0f, 0.0f, 1.0f);
 
-    position = glm::vec3(0.0f, 40.0f, 0.0f);
+    position = glm::vec3(0.0f, 100.0f, 0.0f);
 
     right = glm::normalize(glm::cross(glm::vec3(0.0f, 1.0f, 0.0f), direction));
     up = glm::cross(direction, right);

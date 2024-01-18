@@ -35,6 +35,9 @@ public:
 
     inline static bool runChunkThread = false;
 
+     inline static glm::ivec3 worldOffset = glm::ivec3(0,0,0);
+    void getOffsetFromSeed();
+
     std::unordered_map<
         ChunkCoord,
         BlockChunk*,
@@ -108,22 +111,10 @@ public:
     std::thread chunkUpdateThread;
 
 
-    inline static float noiseFunction(int x, int y, int z) {
-        return 
-        std::max(0.0f, (
-            20.0f + static_cast<float>(perlin.noise((static_cast<float>(x))/20.35f, (static_cast<float>(y+(seed/100)))/20.35f, (static_cast<float>(z))/20.35f)) * 5.0f
-        ) - std::max(((float)y/2.0f) + static_cast<float>(perlin.noise(x/65.0f, z/65.0f)) * 10.0f, 0.0f));
-    }
+    static float noiseFunction(int x, int y, int z);
 
 
-    inline static float noiseFunction2(int x, int y, int z) {
-        return 
-        std::max(0.0f, (
-            20.0f + static_cast<float>(perlin.noise((static_cast<float>(x))/105.35f, (static_cast<float>(y))/105.35f, (static_cast<float>(z))/105.35f)) * 5.0f
-        ) - std::max(((float)y/4.0f) /*+ static_cast<float>(perlin.noise(x/15.0f, z/15.0f)) * 2.0f*/, 0.0f))
-        
-        - static_cast<float>(perlin.noise((static_cast<float>(x))/25.35f, (static_cast<float>(y))/25.35f, (static_cast<float>(z))/25.35f)) * 10.0f;
-    }
+    static float noiseFunction2(int x, int y, int z);
 
     
     inline static std::vector<std::function<float(int, int, int)>> worldGenFunctions = {
@@ -152,5 +143,7 @@ public:
     inline static int initialLoadProgress = 0;
 
     inline static std::atomic<bool> stillRunningThread = false;
+
+    inline static int waterLevel = 40;
 };
 #endif

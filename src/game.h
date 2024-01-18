@@ -62,6 +62,8 @@ public:
     inline static float mousedOverElement = 0.0f;
     inline static float clickedOnElement = 0.0f;
 
+    inline static float initialTimer = 2.0f;
+
     inline static std::vector<GUIButton> *currentGuiButtons = nullptr;
 
     std::string currentSingleplayerWorldPath;
@@ -191,6 +193,8 @@ public:
         };
         settings.saveSettings(sets);
     }
+
+   
 
     inline static int noHud = 0;
 
