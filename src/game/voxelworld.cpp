@@ -407,9 +407,50 @@ void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool im
                                     }
                                 }
 
-                                std::vector<float> &thisFace = faces[neighborIndex];
+                                float blockShift = 0.0f;
+                                float blockBottomShift = 0.0f;
+                                float bottomTextureShift = 0.0f;
+                                if(block == 2 && blockAtMemo(coord + BlockCoord(0,1,0), memo) != 2) {
+                                    blockShift = -0.125f;
+                                    blockBottomShift = 0.125f;
+                                    bottomTextureShift = 2/288.0f;
+                                }
 
-                                tverts.insert(tverts.end(), {
+                                
+
+                                std::vector<float> &thisFace = faces[neighborIndex];
+                                
+                                std::vector<TextureFace> &thisTex = BlockInfo::texs[block];
+
+                                if(neighborIndex == TOP) {
+
+                                    tverts.insert(tverts.end(), {
+                                    thisFace[0] + coord.x, thisFace[1] + coord.y + blockShift, thisFace[2] + coord.z, thisFace[3]+blockLightVal,
+                                    thisFace[4]+ (skyBlocked ? -4.0f : 0.0f), 
+                                    thisFace[5] + coord.x, thisFace[6] + coord.y + blockShift, thisFace[7] + coord.z, thisFace[8]+blockLightVal,
+                                    thisFace[9]+ (skyBlocked ? -4.0f : 0.0f), 
+                                    thisFace[10] + coord.x, thisFace[11] + coord.y + blockShift, thisFace[12] + coord.z, thisFace[13]+blockLightVal,
+                                    thisFace[14]+ (skyBlocked ? -4.0f : 0.0f), 
+                                    thisFace[15] + coord.x, thisFace[16] + coord.y + blockShift, thisFace[17] + coord.z, thisFace[18]+blockLightVal,
+                                    thisFace[19]+ (skyBlocked ? -4.0f : 0.0f), 
+                                    thisFace[20] + coord.x, thisFace[21] + coord.y + blockShift, thisFace[22] + coord.z, thisFace[23]+blockLightVal,
+                                    thisFace[24]+ (skyBlocked ? -4.0f : 0.0f), 
+                                    thisFace[25] + coord.x, thisFace[26] + coord.y + blockShift, thisFace[27] + coord.z, thisFace[28]+blockLightVal,
+                                    thisFace[29]+ (skyBlocked ? -4.0f : 0.0f)
+                                });
+
+                                    tuvs.insert(tuvs.end() , {
+                                        thisTex[0].bl.x, thisTex[0].bl.y,
+                                        thisTex[0].br.x, thisTex[0].br.y,
+                                        thisTex[0].tr.x, thisTex[0].tr.y,
+
+                                        thisTex[0].tr.x, thisTex[0].tr.y,
+                                        thisTex[0].tl.x, thisTex[0].tl.y,
+                                        thisTex[0].bl.x, thisTex[0].bl.y
+                                    });
+                                } else if(neighborIndex == BOTTOM) {
+
+                                    tverts.insert(tverts.end(), {
                                     thisFace[0] + coord.x, thisFace[1] + coord.y, thisFace[2] + coord.z, thisFace[3]+blockLightVal,
                                     thisFace[4]+ (skyBlocked ? -4.0f : 0.0f), 
                                     thisFace[5] + coord.x, thisFace[6] + coord.y, thisFace[7] + coord.z, thisFace[8]+blockLightVal,
@@ -422,20 +463,8 @@ void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool im
                                     thisFace[24]+ (skyBlocked ? -4.0f : 0.0f), 
                                     thisFace[25] + coord.x, thisFace[26] + coord.y, thisFace[27] + coord.z, thisFace[28]+blockLightVal,
                                     thisFace[29]+ (skyBlocked ? -4.0f : 0.0f)
-                                });
-                                std::vector<TextureFace> &thisTex = BlockInfo::texs[block];
-
-                                if(neighborIndex == TOP) {
-                                    tuvs.insert(tuvs.end() , {
-                                        thisTex[0].bl.x, thisTex[0].bl.y,
-                                        thisTex[0].br.x, thisTex[0].br.y,
-                                        thisTex[0].tr.x, thisTex[0].tr.y,
-
-                                        thisTex[0].tr.x, thisTex[0].tr.y,
-                                        thisTex[0].tl.x, thisTex[0].tl.y,
-                                        thisTex[0].bl.x, thisTex[0].bl.y
                                     });
-                                } else if(neighborIndex == BOTTOM) {
+
                                     tuvs.insert(tuvs.end() , {
                                         thisTex[2].bl.x, thisTex[2].bl.y,
                                         thisTex[2].br.x, thisTex[2].br.y,
@@ -446,14 +475,31 @@ void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool im
                                         thisTex[2].bl.x, thisTex[2].bl.y
                                     });
                                 } else {
+
+                                    tverts.insert(tverts.end(), {
+                                    thisFace[0] + coord.x, thisFace[1] + coord.y, thisFace[2] + coord.z, thisFace[3]+blockLightVal,
+                                    thisFace[4]+ (skyBlocked ? -4.0f : 0.0f), 
+                                    thisFace[5] + coord.x, thisFace[6] + coord.y, thisFace[7] + coord.z, thisFace[8]+blockLightVal,
+                                    thisFace[9]+ (skyBlocked ? -4.0f : 0.0f), 
+                                    thisFace[10] + coord.x, thisFace[11] + coord.y  + blockShift, thisFace[12] + coord.z, thisFace[13]+blockLightVal,
+                                    thisFace[14]+ (skyBlocked ? -4.0f : 0.0f), 
+                                    thisFace[15] + coord.x, thisFace[16] + coord.y  + blockShift, thisFace[17] + coord.z, thisFace[18]+blockLightVal,
+                                    thisFace[19]+ (skyBlocked ? -4.0f : 0.0f), 
+                                    thisFace[20] + coord.x, thisFace[21] + coord.y  + blockShift, thisFace[22] + coord.z, thisFace[23]+blockLightVal,
+                                    thisFace[24]+ (skyBlocked ? -4.0f : 0.0f), 
+                                    thisFace[25] + coord.x, thisFace[26] + coord.y, thisFace[27] + coord.z, thisFace[28]+blockLightVal,
+                                    thisFace[29]+ (skyBlocked ? -4.0f : 0.0f)
+                                    });
+
+
                                     tuvs.insert(tuvs.end() , {
-                                        thisTex[1].bl.x, thisTex[1].bl.y,
-                                        thisTex[1].br.x, thisTex[1].br.y,
+                                        thisTex[1].bl.x, thisTex[1].bl.y  - bottomTextureShift,
+                                        thisTex[1].br.x, thisTex[1].br.y  - bottomTextureShift,
                                         thisTex[1].tr.x, thisTex[1].tr.y,
 
                                         thisTex[1].tr.x, thisTex[1].tr.y,
                                         thisTex[1].tl.x, thisTex[1].tl.y,
-                                        thisTex[1].bl.x, thisTex[1].bl.y
+                                        thisTex[1].bl.x, thisTex[1].bl.y - bottomTextureShift
                                     });
                                 }
                             }
@@ -1127,7 +1173,11 @@ void VoxelWorld::loadWorldFromFile(const char *path) {
 
                 if(words.at(0) == "version") {
                     worldGenVersion = std::stoi(words.at(1));
-                    waterLevel = 40;
+                    if(worldGenVersion == 1) {
+                        waterLevel = 20;
+                    } else {
+                        waterLevel = 40;
+                    }
                     seed = static_cast<unsigned int>(std::stoi(words.at(2)));
                     getOffsetFromSeed();
                 } else {

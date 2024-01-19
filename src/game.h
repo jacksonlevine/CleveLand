@@ -19,13 +19,15 @@
 #include "game/specialblocks/door.h"
 #include "util/settings.h"
 
-#define GRAV 7.0
 
 class Camera3D;
 
 class Game {
 public:
-    inline static int viewDistance = 7;
+    inline static int viewDistance = 3;
+
+    inline static float underWaterView = 0.0f;
+    inline static bool inWater = false;
 
     double deltaTime;
     float averageDeltaTime;
@@ -35,6 +37,8 @@ public:
 
     bool focused;
     inline static bool inGame = false;
+
+    inline static float GRAV = 6.5f;
 
     GLFWwindow *window;
     Camera3D *camera;
@@ -162,8 +166,10 @@ public:
     void drawParticles();
     float determineFloorBelowHere(glm::vec3 here, BlockCoord goingAway);
 
-    std::vector<glm::vec3> randomSpotsAroundCube(const glm::vec3& center, int count);
+    std::vector<glm::vec3> randomSpotsAroundCube(const glm::vec3& center, int count, float spread);
     void blockBreakParticles(BlockCoord here, int count);
+
+    void splashyParticles(BlockCoord here, int count);
     void cleanUpParticleDisplayData();
 
     void runPeriodicTick();

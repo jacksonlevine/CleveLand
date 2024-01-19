@@ -2,6 +2,7 @@
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
+#include <cmath>
 
 
 Game::Game() : lastFrame(0), focused(false), camera(nullptr),
@@ -15,7 +16,7 @@ collCage([this](BlockCoord b){
             return true;
         }
     }
-    return blockIDHere != 0;
+    return (blockIDHere != 0 && blockIDHere != 2);
 }),
 user(glm::vec3(0,0,0), glm::vec3(0,0,0)),
 grounded(true)
@@ -134,48 +135,75 @@ void Game::stepMovementAndPhysics() {
 
             static float timeFallingScalar = 1.0f;
 
-            if(!grounded && !jumpingUp) {
-                timeFallingScalar = std::min(timeFallingScalar + averageDeltaTime*5.0f, 3.0f);
-            } else {
+               if(std::find(collCage.solid.begin(), collCage.solid.end(), FLOOR) == collCage.solid.end())
+                {
+                    grounded = false;
+                }
+
+                glm::vec3 collCageCenter = camera->position + glm::vec3(0, -1.0, 0);
+                collCage.update_readings(collCageCenter);
+
+            if(inWater) {
+
                 timeFallingScalar = 1.0f;
-            }
+                if(!grounded) {
+                    camera->velocity += glm::vec3(0.0, -2.0*averageDeltaTime, 0.0);
+                    if(camera->downPressed)
+                    {
+                        camera->velocity += glm::vec3(0.0, -5.0*averageDeltaTime, 0.0);
+                    }
+                }
+                
+
+                if(camera->upPressed)
+                {
+                    camera->velocity += glm::vec3(0.0, 5.0*averageDeltaTime, 0.0);
+                }
+
+                
+
+            } else {
 
 
-            glm::vec3 collCageCenter = camera->position + glm::vec3(0, -1.0, 0);
-            collCage.update_readings(collCageCenter);
 
-            if(std::find(collCage.solid.begin(), collCage.solid.end(), FLOOR) == collCage.solid.end())
-            {
-                grounded = false;
-            }
-
-            if(!grounded && !jumpingUp /*&& jumpTimer <= 0.0f*/)
-            {
-                camera->velocity += glm::vec3(0.0, -GRAV*timeFallingScalar*averageDeltaTime, 0.0);
-            }
-
-            if(jumpingUp) {
-                if(camera->position.y < currentJumpY + allowableJumpHeight) {
-                    camera->velocity += glm::vec3(0.0f, (((currentJumpY+allowableJumpHeight+0.3f) - camera->position.y)*10.0f)*averageDeltaTime, 0.0f);
+                if(!grounded && !jumpingUp) {
+                    timeFallingScalar = std::min(timeFallingScalar + averageDeltaTime*5.0f, 3.0f);
                 } else {
-                    jumpingUp = false;
+                    timeFallingScalar = 1.0f;
+                }
+
+
+                
+
+             
+
+                if(!grounded && !jumpingUp /*&& jumpTimer <= 0.0f*/)
+                {
+                    camera->velocity += glm::vec3(0.0, -GRAV*timeFallingScalar*averageDeltaTime, 0.0);
+                }
+
+                if(jumpingUp) {
+                    if(camera->position.y < currentJumpY + allowableJumpHeight) {
+                        camera->velocity += glm::vec3(0.0f, (((currentJumpY+allowableJumpHeight+0.3f) - camera->position.y)*10.0f)*averageDeltaTime, 0.0f);
+                    } else {
+                        jumpingUp = false;
+                    }
+                }
+
+                // if(jumpTimer > 0.0f) {
+                //     jumpTimer = std::max(0.0, jumpTimer - deltaTime);
+                // }
+
+                if(camera->upPressed && grounded)
+                {
+                    //camera->velocity += glm::vec3(0.0, 100.0*deltaTime, 0.0);
+                    grounded = false;
+                    //jumpTimer = deltaTime*10.0f;
+                    currentJumpY = camera->position.y;
+                    jumpingUp = true;
+                    camera->upPressed = 0;
                 }
             }
-
-            // if(jumpTimer > 0.0f) {
-            //     jumpTimer = std::max(0.0, jumpTimer - deltaTime);
-            // }
-
-            if(camera->upPressed && grounded)
-            {
-                //camera->velocity += glm::vec3(0.0, 100.0*deltaTime, 0.0);
-                grounded = false;
-                //jumpTimer = deltaTime*10.0f;
-                currentJumpY = camera->position.y;
-                jumpingUp = true;
-                camera->upPressed = 0;
-            }
-
 
 
             
@@ -284,12 +312,18 @@ void Game::draw() {
 
 
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
     glClearColor(0.639, 0.71, 1.0, 0.5);
 
     
 
     glBindVertexArray(VAO);
-    drawSky(skyColor.r, skyColor.g, skyColor.b, 1.0f,    1.0f, 1.0f, 1.0f, 1.0f, camera->pitch);
+    if(underWaterView == 1.0f) {
+        drawSky(0.2f, 0.2f, 1.0f, 1.0f,    0.2f, 0.2f, 1.0f, 1.0f,   camera->pitch);
+    } else {
+        drawSky(skyColor.r, skyColor.g, skyColor.b, 1.0f,    1.0f, 1.0f, 1.0f, 1.0f, camera->pitch);
+    }
+    
     
     drawParticles();
 
@@ -344,15 +378,24 @@ void Game::draw() {
             float shiftUp = 0.5f;
 
 
-            std::vector<float> logoDisplayData = {
-                logoLowerLeft.x, logoLowerLeft.y + shiftUp,                    0.0f, 1.0f,   -1.0f,
-                logoLowerLeft.x, logoLowerLeft.y+relHeight+ shiftUp,          0.0f, 0.0f,   -1.0f,
-                logoLowerLeft.x+relWidth, logoLowerLeft.y+relHeight+ shiftUp, 1.0f, 0.0f,   -1.0f,
+            std::vector<float> logoDisplayData;
 
-                logoLowerLeft.x+relWidth, logoLowerLeft.y+relHeight+ shiftUp, 1.0f, 0.0f,   -1.0f,
-                logoLowerLeft.x+relWidth, logoLowerLeft.y+ shiftUp,           1.0f, 1.0f,   -1.0f,
-                logoLowerLeft.x, logoLowerLeft.y+ shiftUp,                    0.0f, 1.0f,   -1.0f
-            };
+            float oneOverNine = 1.0f/9.0f;
+
+            for(int i = 0; i < 9; ++i) {
+                logoDisplayData.insert(logoDisplayData.end(), {
+                    logoLowerLeft.x + i*(relWidth/9),               logoLowerLeft.y + shiftUp,                    0.0f + i*oneOverNine,      1.0f,   -67.0f - (i*1.0f),
+                    logoLowerLeft.x + i*(relWidth/9),               logoLowerLeft.y+relHeight+ shiftUp,          0.0f + i*oneOverNine,       0.0f,   -67.0f - (i*1.0f),
+                    logoLowerLeft.x +(relWidth/9) + i*(relWidth/9), logoLowerLeft.y+relHeight+ shiftUp,         oneOverNine + i*oneOverNine, 0.0f,   -67.0f - (i*1.0f),
+
+                    logoLowerLeft.x +(relWidth/9) + i*(relWidth/9), logoLowerLeft.y+relHeight+ shiftUp,          oneOverNine + i*oneOverNine, 0.0f,   -67.0f - (i*1.0f),
+                    logoLowerLeft.x +(relWidth/9) + i*(relWidth/9), logoLowerLeft.y+ shiftUp,                    oneOverNine + i*oneOverNine, 1.0f,   -67.0f - (i*1.0f),
+                    logoLowerLeft.x + i*(relWidth/9),               logoLowerLeft.y+ shiftUp,                    0.0f + i*oneOverNine,        1.0f,   -67.0f - (i*1.0f)
+                });
+            }
+
+            GLuint timeLocation = glGetUniformLocation(menuShader->shaderID, "time");
+            glUniform1f(timeLocation, static_cast<float>(std::fmod(glfwGetTime()-2.0, 7.0f)));
 
         
             glBindTexture(GL_TEXTURE_2D, logoTexture);
@@ -514,9 +557,55 @@ void Game::stepChunkDraw() {
 
     GLuint viewDistLoc = glGetUniformLocation(worldShader->shaderID, "viewDistance");
     glUniform1f(viewDistLoc, viewDistance);
+
+    BlockCoord headCoord(
+        std::round(camera->position.x),
+        std::round(camera->position.y),
+        std::round(camera->position.z)
+    );
+    if(voxelWorld.blockAt(headCoord) == 2) {
+        underWaterView = 1.0f;
+    } else {
+        underWaterView = 0.0f;
+    }
+
+    BlockCoord feetCoord(
+        std::round(camera->position.x),
+        std::ceil(camera->position.y-1.25f),
+        std::round(camera->position.z)
+    );
+
+    BlockCoord feetCoord2(
+        std::round(camera->position.x),
+        std::round(camera->position.y-1.0f),
+        std::round(camera->position.z)
+    );
+
+    static bool previousInWater  = false;
+
+
+    if(voxelWorld.blockAt(feetCoord) == 2) {
+        inWater = true;
+        if(previousInWater != inWater) {
+            previousInWater = inWater;
+            splashyParticles(feetCoord2, 15);
+        }
+    } 
+
+    if(voxelWorld.blockAt(feetCoord2) != 2)
+    {
+        inWater = false;
+        previousInWater = false;
+    }
+
+
     GLuint ambBrightMultLoc = glGetUniformLocation(worldShader->shaderID, "ambientBrightMult");
 
     glUniform1f(ambBrightMultLoc, ambientBrightnessMult);
+
+    GLuint uwLoc = glGetUniformLocation(worldShader->shaderID, "underWater");
+    glUniform1f(uwLoc, underWaterView);
+
     voxelWorld.cameraPosition = camera->position;
     voxelWorld.cameraDirection = camera->direction;
 
@@ -1386,7 +1475,8 @@ void Game::castBreakRay() {
         camera->position,
         camera->direction,
         [this](BlockCoord coord){
-            return voxelWorld.blockAt(coord) != 0;
+            uint32_t block = voxelWorld.blockAt(coord);
+            return block != 0 && block != 2;
         },
         true
     );
@@ -1512,7 +1602,8 @@ void Game::castPlaceRay() {
         camera->position,
         camera->direction,
         [this](BlockCoord coord){
-            return voxelWorld.blockAt(coord) != 0;
+            uint32_t block = voxelWorld.blockAt(coord);
+            return block != 0 && block != 2;
         },
         false
     );
@@ -1884,7 +1975,8 @@ void Game::updateAndDrawSelectCube() {
     camera->position,
     camera->direction,
     [this](BlockCoord coord){
-            return voxelWorld.blockAt(coord) != 0;
+            uint32_t block = voxelWorld.blockAt(coord);
+            return block != 0 && block != 2;
     },
     false
     );
@@ -1913,12 +2005,28 @@ void Game::initializeShaders() {
             layout (location = 1) in vec2 texcoord;
             layout (location = 2) in float elementid;
 
+
             out vec2 TexCoord;
             out float elementID;
+
+            uniform float time;
+
+            float gaussian(float x, float mean, float stdDev) {
+                float a = 1.0 / (stdDev * sqrt(2.0 * 3.14159265));
+                float b = exp(-pow(x - mean, 2.0) / (2.0 * pow(stdDev, 2.0)));
+                return a * b;
+            }
 
             void main()
             {
                 gl_Position = vec4(pos, 0.0, 1.0);
+
+                if(elementid <= -67.0f && elementid >= -75.0f) {
+                    float peak = 1.0 + (abs(elementid) - 67)/2.0;
+                    float radius = 0.45;
+                    gl_Position.y += gaussian(time*3.0, peak, radius)/3.5;
+                }
+
                 TexCoord = texcoord;
                 elementID = elementid;
             }
@@ -1996,6 +2104,7 @@ void Game::initializeShaders() {
             uniform vec3 camPos;
             uniform float viewDistance;
             uniform float ambientBrightMult;
+            uniform float underWater;
             void main()
             {
                 vec4 texColor = texture(ourTexture, TexCoord);
@@ -2004,8 +2113,19 @@ void Game::initializeShaders() {
                 vec4 fogColor = vec4(0.7, 0.8, 1.0, 1.0) * vec4(ambientBrightMult, ambientBrightMult, ambientBrightMult, 1.0);
                 float distance = (distance(pos, camPos)/(viewDistance*5.0f))/5.0f;
 
+                if(underWater == 1.0) {
+                    fogColor = vec4(0.0, 0.0, 0.6, 1.0) * vec4(ambientBrightMult, ambientBrightMult, ambientBrightMult, 1.0);
+                    distance = distance * 10.0;
+                }
+
+                
+
                 if(FragColor.a < 0.4) {
                     discard;
+                }
+
+                if(FragColor.a < 1.0) {
+                    FragColor.a += distance*2.5f;
                 }
 
                 FragColor = mix(FragColor, fogColor, min(1, max(distance, 0)));
@@ -2175,12 +2295,12 @@ void Game::initializeShaders() {
     );
 }
 
-std::vector<glm::vec3> Game::randomSpotsAroundCube(const glm::vec3& center, int count) {
+std::vector<glm::vec3> Game::randomSpotsAroundCube(const glm::vec3& center, int count, float spread) {
     std::vector<glm::vec3> randomVecs;
 
     std::random_device rd;
     std::mt19937 gen(rd());
-    std::uniform_real_distribution<float> dis(-0.3f, 0.3f);
+    std::uniform_real_distribution<float> dis(-spread, spread);
 
     for (int i = 0; i < count; ++i) {
         glm::vec3 randomVec;
@@ -2197,7 +2317,7 @@ std::vector<glm::vec3> Game::randomSpotsAroundCube(const glm::vec3& center, int 
 
 void Game::blockBreakParticles(BlockCoord here, int count) {
     glm::vec3 center(here.x, here.y, here.z);
-    std::vector<glm::vec3> spots = randomSpotsAroundCube(center, count);
+    std::vector<glm::vec3> spots = randomSpotsAroundCube(center, count, 0.3f);
 
     int blockID = voxelWorld.blockAt(here);
 
@@ -2257,6 +2377,48 @@ void Game::blockBreakParticles(BlockCoord here, int count) {
     }
     particlesUploaded = false;
 }
+
+void Game::splashyParticles(BlockCoord here, int count) {
+    glm::vec3 center(here.x, here.y, here.z);
+    std::vector<glm::vec3> spots = randomSpotsAroundCube(center, count, 1.0f);
+
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_real_distribution<float> dis(-0.1f, 0.1f);
+    
+    float time = static_cast<float>(glfwGetTime());
+
+    for(glm::vec3 &spot : spots) {
+        glm::vec3 dest = spot + glm::vec3(0,20,0);
+
+        float floorAtDest = determineFloorBelowHere(dest, here);
+        float lifetime = 0.3f + dis(gen);
+        float timeCreated = static_cast<float>(glfwGetTime());
+        float gravity = 32.0f;
+
+        particleDisplayData.push_back(
+            Particle {
+            glm::vec3(spot.x, spot.y-1.0f, spot.z), 
+            2.0f, 
+            timeCreated,
+            lifetime, 
+            glm::vec3(dest.x, dest.y, dest.z),
+            gravity, 
+            floorAtDest
+            }
+        );
+
+        // std::cout << spot.x << " " <<  spot.y << " " << spot.z << " "  << static_cast<float>(blockID) << " " << timeCreated << " " << lifetime << " " << dest.x << " " <<  dest.y << " " << 
+        //  dest.z << " " << gravity << " " <<  floorAtDest << "\n";
+    }
+    particlesUploaded = false;
+}
+
+
+
+
+
+
 
 void Game::runPeriodicTick() {
     static float timer = 0.0f;
@@ -2823,7 +2985,7 @@ void Game::stepTextureAnim() {
     }
 
     //Water
-    glm::ivec4 baseColor(0, 45, 100, 210);
+    glm::ivec4 baseColor(0, 45, 100, 140);
     glm::ivec2 coord(0,0);
     int startY = 270, startX = 36, squareSize = 18;
     for(int y = startY; y < startY + squareSize; ++y) {
