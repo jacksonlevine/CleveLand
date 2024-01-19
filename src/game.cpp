@@ -266,13 +266,14 @@ void Game::drawSplashScreen() {
 }
 
 void Game::draw() {
-
-    if(voxelWorld.numberOfSamples >= 100) {
-        float average = voxelWorld.timeChunkMeshing / voxelWorld.numberOfSamples;
-        std::cout << "Average chunk time: " << average << "\n";
-        voxelWorld.timeChunkMeshing = 0.0f;
-        voxelWorld.numberOfSamples = 0;
-    }
+    #ifdef DEV
+        if(voxelWorld.numberOfSamples >= 100) {
+            float average = voxelWorld.timeChunkMeshing / voxelWorld.numberOfSamples;
+            std::cout << "Average chunk time: " << average << "\n";
+            voxelWorld.timeChunkMeshing = 0.0f;
+            voxelWorld.numberOfSamples = 0;
+        }
+    #endif
     
     if(VAO == 0) {
         glGenVertexArrays(1, &VAO);
@@ -1029,7 +1030,7 @@ void Game::loadOrCreateSaveGame(const char* path) {
     camera->firstMouse = true;
     camera->right = glm::normalize(glm::cross(glm::vec3(0.0f, 1.0f, 0.0f), camera->direction));
     camera->up = glm::cross(camera->direction, camera->right);
-    //camera->updatePosition();
+    camera->updatePosition();
     } else {
         std::cerr << "Couldn't open player file when loading. \n";
     }

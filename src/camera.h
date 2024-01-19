@@ -42,7 +42,7 @@ public:
 
     inline static float speedMulitplier = 3.75f;
 
-    inline static float far = 1500.0f;
+    inline static float far = 1300.0f;
     inline static float near = 0.01f;
 
     inline static glm::vec3 initialPosition = glm::vec3(0, 120, 0);

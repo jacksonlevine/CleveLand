@@ -21,20 +21,33 @@ float VoxelWorld::noiseFunction(int x, int y, int z) {
 
 float VoxelWorld::noiseFunction2(int x, int y, int z) {
 
+        float noise1;
+        float noise2;
+
+        y -= 20;
+
+        noise1 =
+        std::max(0.0f, (
+            20.0f + static_cast<float>(perlin.noise((static_cast<float>(x+worldOffset.x))/25.35f, (static_cast<float>(y))/20.35f, (static_cast<float>(z+worldOffset.z))/25.35f)) * 5.0f
+        ) - std::max(((float)y/2.0f) + static_cast<float>(perlin.noise(x/65.0f, z/65.0f)) * 10.0f, 0.0f));
 
         y += 60;
 
-        return
+        noise2 =
         std::max(0.0f, (
-             50.0f + static_cast<float>(perlin.noise((static_cast<float>(x+worldOffset.x))/205.35f, (static_cast<float>(y+worldOffset.y))/25.35f, (static_cast<float>(z+worldOffset.z))/205.35f)) * 10.0f
-            + static_cast<float>(perlin.noise((static_cast<float>(x+10000+worldOffset.x))/305.35f, (static_cast<float>(y+worldOffset.y))/65.35f, (static_cast<float>(z+10000+worldOffset.z))/305.35f)) * 20.0f
+             50.0f + static_cast<float>(perlin.noise((static_cast<float>(x+worldOffset.x))/55.35f, (static_cast<float>(y+worldOffset.y))/25.35f, (static_cast<float>(z+worldOffset.z))/55.35f)) * 10.0f
+            + static_cast<float>(perlin.noise((static_cast<float>(x+10000+worldOffset.x))/25.35f, (static_cast<float>(y+worldOffset.y))/65.35f, (static_cast<float>(z+10000+worldOffset.z))/25.35f)) * 20.0f
 
-        ) - std::max(((float)y/3.0f) /*+ static_cast<float>(perlin.noise(x/15.0f, z/15.0f)) * 2.0f*/, 0.0f))
-        
-         - 
-         
-         (std::min(0.5f, std::max(static_cast<float>(perlin.noise((static_cast<float>(x))/25.35f, (static_cast<float>(y))/25.35f, (static_cast<float>(z))/25.35f)) * 10.0f, 0.0f)) *  20.0f)
-         ;
+        ) - std::max(((float)y/3.0f) /*+ static_cast<float>(perlin.noise(x/15.0f, z/15.0f)) * 2.0f*/, 0.0f));
+
+         float p = perlin.noise((x+worldOffset.x)/500.0f, (z+worldOffset.z)/500.0f) * 10.0f;
+            
+        p = std::max(p, 0.0f);
+        p = std::min(p, 1.0f);
+
+        return glm::mix(noise1, noise2, p*0.5f);
+
+
 
     }
 
@@ -46,7 +59,9 @@ void VoxelWorld::getOffsetFromSeed() {
 
 void VoxelWorld::chunkUpdateThreadFunction(int loadRadius) {
     stillRunningThread = true;
-    std::cout << "Thread started \n";
+    #ifdef DEV
+        std::cout << "Thread started \n";
+    #endif
     glm::vec3 lastCamPosDivided;
     bool first = true;
 
@@ -80,9 +95,11 @@ void VoxelWorld::chunkUpdateThreadFunction(int loadRadius) {
         if(currCamPosDivided != lastCamPosDivided || first || shouldTryReload) {
             lastCamPosDivided = currCamPosDivided;
 
+            #ifdef DEV
             if(first) {
                 std::cout << "First \n";
             }
+            #endif
 
             shouldTryReload = false;
 
@@ -134,7 +151,9 @@ void VoxelWorld::chunkUpdateThreadFunction(int loadRadius) {
         }
     }
 
+    #ifdef DEV
     std::cout << "Thread ended \n";
+    #endif
     stillRunningThread = false;
 }
 
@@ -317,6 +336,14 @@ void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool im
                         }
 
                         int doorTop = DoorInfo::getDoorTopBit(flags);
+
+                        float blockLightVal = 0.0f;
+                        auto segIt = lightMap.find(coord);
+                        if(segIt != lightMap.end()) {
+                            for(LightRay& ray : segIt->second.rays) {
+                                blockLightVal = std::min(blockLightVal + ray.value, 16.0f);
+                            }
+                        }
                         
                         int index = 0;
                         for(float vert : DoorInfo::doorModels[modelIndex]) {
@@ -329,6 +356,9 @@ void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool im
                             } else
                             if(index == 2){
                                 thisvert = vert + coord.z;
+                            } else 
+                            if(index == 3) {
+                                thisvert = vert + blockLightVal;
                             } else {
                                 thisvert = vert;
                             }
