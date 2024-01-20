@@ -886,7 +886,7 @@ void VoxelWorld::lightPassOnChunk(ChunkCoord chunkCoord, std::unordered_map<Bloc
                     }
                     ambientSources.erase(coord);
                     
-                    if(blockAtMemo(coord, memo) != 0) 
+                    if(blockAtMemo(coord, memo) != 0 && coord.x % 3 == 0 && coord.z % 3 == 0) 
                     {
                             
                             BlockCoord lightCubeHere = coord;
@@ -918,7 +918,8 @@ void VoxelWorld::lightPassOnChunk(ChunkCoord chunkCoord, std::unordered_map<Bloc
 
         //add re-figged amb sources
         for(BlockCoord newCoord : newAmbSources) {
-            ambientSources.insert_or_assign(newCoord, true);
+                ambientSources.insert_or_assign(newCoord, true);
+
         }
 
 
@@ -935,7 +936,8 @@ void VoxelWorld::lightPassOnChunk(ChunkCoord chunkCoord, std::unordered_map<Bloc
                     }
                     auto ambIt = ambientSources.find(coord);
                     if(ambIt != ambientSources.end()) {
-                        propogateLightOrigin(coord, coord, 16, &implicatedChunks, memo, lightMapAmbient);
+                        if(coord.x % 3 == 0 && coord.z % 3 == 0)
+                            propogateLightOrigin(coord, coord, 16, &implicatedChunks, memo, lightMapAmbient);
                     }
                 }
             }
