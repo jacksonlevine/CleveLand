@@ -71,8 +71,23 @@ public:
             IntTupHash
     >                       lightMap;
 
-    void depropogateLightOrigin(BlockCoord spot, BlockCoord origin, std::set<BlockChunk*> *imp);
-    void propogateLightOrigin(BlockCoord spot, BlockCoord origin, int value, std::set<BlockChunk*> *imp, std::unordered_map<BlockCoord, uint32_t, IntTupHash>& memo);
+    std::unordered_map<
+            BlockCoord,
+            LightSegment,
+            IntTupHash
+    >                       lightMapAmbient;
+
+    void depropogateLightOrigin(BlockCoord spot, BlockCoord origin, std::set<BlockChunk*> *imp, std::unordered_map<
+            BlockCoord,
+            LightSegment,
+            IntTupHash
+    >& lightMap);
+    void propogateLightOrigin(BlockCoord spot, BlockCoord origin, int value, std::set<BlockChunk*> *imp, std::unordered_map<BlockCoord, uint32_t, IntTupHash>& memo, std::unordered_map<
+            BlockCoord,
+            LightSegment,
+            IntTupHash
+    > &lightMap);
+
     void lightPassOnChunk(ChunkCoord chunkcoord, std::unordered_map<BlockCoord, uint32_t, IntTupHash>& memo);
 
 

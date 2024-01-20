@@ -414,7 +414,7 @@ void Game::draw() {
             glDrawArrays(GL_TRIANGLES, 0, logoDisplayData.size()/5);
 
 
-            const char* message = "Version 0.0.3 dev";
+            const char* message = "Version 0.0.3a";
 
             std::vector<float> displayData;
 
@@ -1034,6 +1034,7 @@ void Game::loadOrCreateSaveGame(const char* path) {
         voxelWorld.loadWorldFromFile(path);
     } else {
         voxelWorld.worldGenVersion = 2;
+        voxelWorld.waterLevel = 40;
         voxelWorld.currentNoiseFunction = &(voxelWorld.worldGenFunctions.at(2));
         voxelWorld.seed = time(NULL);
         voxelWorld.getOffsetFromSeed();

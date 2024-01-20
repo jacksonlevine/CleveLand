@@ -680,7 +680,11 @@ void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool im
 
 
 
-void VoxelWorld::depropogateLightOrigin(BlockCoord spot, BlockCoord origin, std::set<BlockChunk*> *imp) {
+void VoxelWorld::depropogateLightOrigin(BlockCoord spot, BlockCoord origin, std::set<BlockChunk*> *imp, std::unordered_map<
+            BlockCoord,
+            LightSegment,
+            IntTupHash
+    >& lightMap  ) {
 
     ChunkCoord chunkCoordOfOrigin(
         std::floor(static_cast<float>(origin.x)/chunkWidth),
@@ -711,7 +715,7 @@ void VoxelWorld::depropogateLightOrigin(BlockCoord spot, BlockCoord origin, std:
             std::vector<int> directions = rayIt->directions;
             segIt->second.rays.erase(rayIt);
             for(int direction : directions) {
-                depropogateLightOrigin(spot + BlockInfo::neighbors[direction], origin, imp);
+                depropogateLightOrigin(spot + BlockInfo::neighbors[direction], origin, imp, lightMap);
             }
         }
 
@@ -721,7 +725,11 @@ void VoxelWorld::depropogateLightOrigin(BlockCoord spot, BlockCoord origin, std:
 
 }
 
-void VoxelWorld::propogateLightOrigin(BlockCoord spot, BlockCoord origin, int value, std::set<BlockChunk*> *imp, std::unordered_map<BlockCoord, uint32_t, IntTupHash>& memo) {
+void VoxelWorld::propogateLightOrigin(BlockCoord spot, BlockCoord origin, int value, std::set<BlockChunk*> *imp, std::unordered_map<BlockCoord, uint32_t, IntTupHash>& memo, std::unordered_map<
+            BlockCoord,
+            LightSegment,
+            IntTupHash
+    >  &lightMap) {
     if(value > 0) {
 
         ChunkCoord chunkCoordOfOrigin(
@@ -774,7 +782,7 @@ void VoxelWorld::propogateLightOrigin(BlockCoord spot, BlockCoord origin, int va
             segIt->second.rays.push_back(thisRay);
             for(int dir : thisRay.directions) {
 
-                propogateLightOrigin(spot + BlockInfo::neighbors[dir], origin, value - 2, imp, memo);
+                propogateLightOrigin(spot + BlockInfo::neighbors[dir], origin, value - 2, imp, memo, lightMap);
 
             }
 
@@ -801,7 +809,7 @@ void VoxelWorld::propogateLightOrigin(BlockCoord spot, BlockCoord origin, int va
 
                 for(int dir : rayIt->directions) {
 
-                    propogateLightOrigin(spot + BlockInfo::neighbors[dir], origin, value - 2, imp, memo);
+                    propogateLightOrigin(spot + BlockInfo::neighbors[dir], origin, value - 2, imp, memo, lightMap);
 
                 }
             }
@@ -836,6 +844,8 @@ void VoxelWorld::lightPassOnChunk(ChunkCoord chunkCoord, std::unordered_map<Bloc
                     auto lightIt = lightMap.find(coord);
                     if(lightIt != lightMap.end()) {
                         for(LightRay& ray : lightIt->second.rays) {
+
+
                             ChunkCoord chunkCoordOfOrigin(
                                 std::floor(static_cast<float>(ray.origin.x)/chunkWidth),
                                 std::floor(static_cast<float>(ray.origin.z)/chunkWidth)
@@ -845,9 +855,11 @@ void VoxelWorld::lightPassOnChunk(ChunkCoord chunkCoord, std::unordered_map<Bloc
                                 //std::cout << "We should be removing origin " << ray.origin.x << " " << ray.origin.y << " " << ray.origin.z << "\n";
                                 BlockCoord originWeRemoving = ray.origin;
 
-                                depropogateLightOrigin(originWeRemoving, originWeRemoving, &implicatedChunks);
+                                depropogateLightOrigin(originWeRemoving, originWeRemoving, &implicatedChunks, lightMap);
 
                             }
+
+                            
                         }
                         
                     }
@@ -865,7 +877,7 @@ void VoxelWorld::lightPassOnChunk(ChunkCoord chunkCoord, std::unordered_map<Bloc
                     uint32_t blockBitsHere = blockAtMemo(coord, memo);
                     uint32_t blockIDHere = blockBitsHere & BlockInfo::BLOCK_ID_BITS;
                     if(blockIDHere == 12) {
-                        propogateLightOrigin(coord, coord, 16, &implicatedChunks, memo);
+                        propogateLightOrigin(coord, coord, 16, &implicatedChunks, memo, lightMap);
                     }
                 }
             }
