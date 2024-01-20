@@ -24,7 +24,7 @@ class Camera3D;
 
 class Game {
 public:
-    inline static int viewDistance = 3;
+    inline static int viewDistance = 5;
 
     inline static float underWaterView = 0.0f;
     inline static bool inWater = false;
