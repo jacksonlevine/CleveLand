@@ -813,6 +813,11 @@ void Game::displayEscapeMenu() {
             voxelWorld.userDataMap.clear();
             voxelWorld.nonUserDataMap.clear();
             voxelWorld.hasHadInitialLightPass.clear();
+
+            voxelWorld.lightMap.clear();
+            voxelWorld.lightMapAmbient.clear();
+            voxelWorld.ambientSources.clear();
+            
             int throwaway = 0;
             while(voxelWorld.geometryStoreQueue.pop(throwaway)) {
 
@@ -1290,7 +1295,6 @@ void Game::goToSingleplayerWorld(const char *worldname) {
 
     initialTimer = 2.0f;
     voxelWorld.initialLoadProgress = 0;
-    loadRendering = true;
 
     voxelWorld.populateChunksAndGeometryStores(registry, viewDistance);
 
@@ -1302,7 +1306,8 @@ void Game::goToSingleplayerWorld(const char *worldname) {
 
     loadOrCreateSaveGame(currentSingleplayerWorldPath.c_str());
 
-
+    
+    loadRendering = true;
     voxelWorld.runChunkThread = true;
     voxelWorld.chunkUpdateThread = std::thread([this](){
         voxelWorld.chunkUpdateThreadFunction(viewDistance);

@@ -746,7 +746,7 @@ int distance(BlockCoord b1, BlockCoord b2) {
 }
 
 
-void VoxelWorld::propogateLightOrigin(BlockCoord spot, BlockCoord origin, int value, std::set<BlockChunk*> *imp, std::unordered_map<BlockCoord, uint32_t, IntTupHash>& memo, std::unordered_map<BlockCoord,LightSegment,IntTupHash>  &lightMap) {
+void VoxelWorld::propogateLightOrigin(BlockCoord spot, BlockCoord origin, int value, std::set<BlockChunk*> *imp, std::unordered_map<BlockCoord, uint32_t, IntTupHash>& memo, std::unordered_map<BlockCoord,LightSegment,IntTupHash>  &lightMap, bool amb) {
     if(value > 0) {
 
         ChunkCoord chunkCoordOfOrigin(
@@ -800,7 +800,7 @@ void VoxelWorld::propogateLightOrigin(BlockCoord spot, BlockCoord origin, int va
             for(int dir : thisRay.directions) {
                 BlockCoord neigh = spot + BlockInfo::neighbors[dir];
                 if(distance(neigh, origin) > distance(spot, origin))
-                    propogateLightOrigin(spot + BlockInfo::neighbors[dir], origin, value - 2, imp, memo, lightMap);
+                    propogateLightOrigin(spot + BlockInfo::neighbors[dir], origin, value - (amb ? 1.0f : 2.0f), imp, memo, lightMap, amb);
 
             }
 
@@ -828,7 +828,7 @@ void VoxelWorld::propogateLightOrigin(BlockCoord spot, BlockCoord origin, int va
                 for(int dir : rayIt->directions) {
                     BlockCoord neigh = spot + BlockInfo::neighbors[dir];
                     if(distance(neigh, origin) > distance(spot, origin))
-                        propogateLightOrigin(spot + BlockInfo::neighbors[dir], origin, value - 2, imp, memo, lightMap);
+                        propogateLightOrigin(spot + BlockInfo::neighbors[dir], origin, value - (amb ? 1.0f : 2.0f), imp, memo, lightMap, amb);
 
                 }
             }
@@ -886,7 +886,7 @@ void VoxelWorld::lightPassOnChunk(ChunkCoord chunkCoord, std::unordered_map<Bloc
                     }
                     ambientSources.erase(coord);
                     
-                    if(blockAtMemo(coord, memo) != 0 && coord.x % 3 == 0 && coord.z % 3 == 0) 
+                    if(blockAtMemo(coord, memo) != 0 && coord.x % 10 == 0 && coord.z % 10 == 0) 
                     {
                             
                             BlockCoord lightCubeHere = coord;
@@ -932,12 +932,11 @@ void VoxelWorld::lightPassOnChunk(ChunkCoord chunkCoord, std::unordered_map<Bloc
                     uint32_t blockBitsHere = blockAtMemo(coord, memo);
                     uint32_t blockIDHere = blockBitsHere & BlockInfo::BLOCK_ID_BITS;
                     if(blockIDHere == 12) {
-                        propogateLightOrigin(coord, coord, 12, &implicatedChunks, memo, lightMap);
+                        propogateLightOrigin(coord, coord, 12, &implicatedChunks, memo, lightMap, false);
                     }
                     auto ambIt = ambientSources.find(coord);
                     if(ambIt != ambientSources.end()) {
-                        if(coord.x % 3 == 0 && coord.z % 3 == 0)
-                            propogateLightOrigin(coord, coord, 16, &implicatedChunks, memo, lightMapAmbient);
+                            propogateLightOrigin(coord, coord, 16, &implicatedChunks, memo, lightMapAmbient, true);
                     }
                 }
             }
