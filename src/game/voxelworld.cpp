@@ -384,20 +384,29 @@ void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool im
 
                                 BlockCoord lightCubeHere = coord + neigh;
                                 //std::cout << lightCubeHere.x << " " << lightCubeHere.y << " " << lightCubeHere.z << "\n";
-                                bool skyBlocked = false;
-                                int yTest = lightCubeHere.y;
-                                if(neighborIndex != BOTTOM) {
-                                    while(yTest < chunkHeight) {
-                                        yTest++;
-                                        BlockCoord test(lightCubeHere.x, yTest, lightCubeHere.z);
-                                        uint32_t blockHere = blockAtMemo(test, memo);
-                                        uint32_t blockIDHere = blockHere & BlockInfo::BLOCK_ID_BITS;
-                                        if(blockIDHere != 0 && std::find(BlockInfo::transparents.begin(), BlockInfo::transparents.end(), blockIDHere) == BlockInfo::transparents.end()) {
-                                            skyBlocked = true;
-                                            break;
-                                        }
+
+                                float ambientLightVal = 3.0f;
+                                auto ambSegIt = lightMapAmbient.find(lightCubeHere);
+                                if(ambSegIt != lightMapAmbient.end()) {
+                                    for(LightRay& ray : ambSegIt->second.rays) {
+                                        ambientLightVal = std::min(ambientLightVal + ray.value, 16.0f);
                                     }
                                 }
+
+                                // bool skyBlocked = false;
+                                // int yTest = lightCubeHere.y;
+                                // if(neighborIndex != BOTTOM) {
+                                //     while(yTest < chunkHeight) {
+                                //         yTest++;
+                                //         BlockCoord test(lightCubeHere.x, yTest, lightCubeHere.z);
+                                //         uint32_t blockHere = blockAtMemo(test, memo);
+                                //         uint32_t blockIDHere = blockHere & BlockInfo::BLOCK_ID_BITS;
+                                //         if(blockIDHere != 0 && std::find(BlockInfo::transparents.begin(), BlockInfo::transparents.end(), blockIDHere) == BlockInfo::transparents.end()) {
+                                //             skyBlocked = true;
+                                //             break;
+                                //         }
+                                //     }
+                                // }
 
                                 float blockLightVal = 0.0f;
                                 auto segIt = lightMap.find(lightCubeHere);
@@ -426,17 +435,17 @@ void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool im
 
                                     tverts.insert(tverts.end(), {
                                     thisFace[0] + coord.x, thisFace[1] + coord.y + blockShift, thisFace[2] + coord.z, thisFace[3]+blockLightVal,
-                                    thisFace[4]+ (skyBlocked ? -4.0f : 0.0f), 
+                                    std::min(thisFace[4], ambientLightVal), 
                                     thisFace[5] + coord.x, thisFace[6] + coord.y + blockShift, thisFace[7] + coord.z, thisFace[8]+blockLightVal,
-                                    thisFace[9]+ (skyBlocked ? -4.0f : 0.0f), 
+                                    std::min(thisFace[9], ambientLightVal), 
                                     thisFace[10] + coord.x, thisFace[11] + coord.y + blockShift, thisFace[12] + coord.z, thisFace[13]+blockLightVal,
-                                    thisFace[14]+ (skyBlocked ? -4.0f : 0.0f), 
+                                    std::min(thisFace[14], ambientLightVal), 
                                     thisFace[15] + coord.x, thisFace[16] + coord.y + blockShift, thisFace[17] + coord.z, thisFace[18]+blockLightVal,
-                                    thisFace[19]+ (skyBlocked ? -4.0f : 0.0f), 
+                                    std::min(thisFace[19], ambientLightVal), 
                                     thisFace[20] + coord.x, thisFace[21] + coord.y + blockShift, thisFace[22] + coord.z, thisFace[23]+blockLightVal,
-                                    thisFace[24]+ (skyBlocked ? -4.0f : 0.0f), 
+                                    std::min(thisFace[24], ambientLightVal), 
                                     thisFace[25] + coord.x, thisFace[26] + coord.y + blockShift, thisFace[27] + coord.z, thisFace[28]+blockLightVal,
-                                    thisFace[29]+ (skyBlocked ? -4.0f : 0.0f)
+                                    std::min(thisFace[29], ambientLightVal)
                                 });
 
                                     tuvs.insert(tuvs.end() , {
@@ -452,17 +461,17 @@ void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool im
 
                                     tverts.insert(tverts.end(), {
                                     thisFace[0] + coord.x, thisFace[1] + coord.y, thisFace[2] + coord.z, thisFace[3]+blockLightVal,
-                                    thisFace[4]+ (skyBlocked ? -4.0f : 0.0f), 
+                                    std::min(thisFace[4], ambientLightVal), 
                                     thisFace[5] + coord.x, thisFace[6] + coord.y, thisFace[7] + coord.z, thisFace[8]+blockLightVal,
-                                    thisFace[9]+ (skyBlocked ? -4.0f : 0.0f), 
+                                    std::min(thisFace[9], ambientLightVal), 
                                     thisFace[10] + coord.x, thisFace[11] + coord.y, thisFace[12] + coord.z, thisFace[13]+blockLightVal,
-                                    thisFace[14]+ (skyBlocked ? -4.0f : 0.0f), 
+                                    std::min(thisFace[14], ambientLightVal), 
                                     thisFace[15] + coord.x, thisFace[16] + coord.y, thisFace[17] + coord.z, thisFace[18]+blockLightVal,
-                                    thisFace[19]+ (skyBlocked ? -4.0f : 0.0f), 
+                                    std::min(thisFace[19], ambientLightVal), 
                                     thisFace[20] + coord.x, thisFace[21] + coord.y, thisFace[22] + coord.z, thisFace[23]+blockLightVal,
-                                    thisFace[24]+ (skyBlocked ? -4.0f : 0.0f), 
+                                    std::min(thisFace[24], ambientLightVal), 
                                     thisFace[25] + coord.x, thisFace[26] + coord.y, thisFace[27] + coord.z, thisFace[28]+blockLightVal,
-                                    thisFace[29]+ (skyBlocked ? -4.0f : 0.0f)
+                                    std::min(thisFace[29], ambientLightVal)
                                     });
 
                                     tuvs.insert(tuvs.end() , {
@@ -478,17 +487,17 @@ void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool im
 
                                     tverts.insert(tverts.end(), {
                                     thisFace[0] + coord.x, thisFace[1] + coord.y, thisFace[2] + coord.z, thisFace[3]+blockLightVal,
-                                    thisFace[4]+ (skyBlocked ? -4.0f : 0.0f), 
+                                    std::min(thisFace[4], ambientLightVal), 
                                     thisFace[5] + coord.x, thisFace[6] + coord.y, thisFace[7] + coord.z, thisFace[8]+blockLightVal,
-                                    thisFace[9]+ (skyBlocked ? -4.0f : 0.0f), 
+                                    std::min(thisFace[9], ambientLightVal), 
                                     thisFace[10] + coord.x, thisFace[11] + coord.y  + blockShift, thisFace[12] + coord.z, thisFace[13]+blockLightVal,
-                                    thisFace[14]+ (skyBlocked ? -4.0f : 0.0f), 
+                                    std::min(thisFace[14], ambientLightVal), 
                                     thisFace[15] + coord.x, thisFace[16] + coord.y  + blockShift, thisFace[17] + coord.z, thisFace[18]+blockLightVal,
-                                    thisFace[19]+ (skyBlocked ? -4.0f : 0.0f), 
+                                    std::min(thisFace[19], ambientLightVal), 
                                     thisFace[20] + coord.x, thisFace[21] + coord.y  + blockShift, thisFace[22] + coord.z, thisFace[23]+blockLightVal,
-                                    thisFace[24]+ (skyBlocked ? -4.0f : 0.0f), 
+                                    std::min(thisFace[24], ambientLightVal), 
                                     thisFace[25] + coord.x, thisFace[26] + coord.y, thisFace[27] + coord.z, thisFace[28]+blockLightVal,
-                                    thisFace[29]+ (skyBlocked ? -4.0f : 0.0f)
+                                    std::min(thisFace[29], ambientLightVal)
                                     });
 
 
@@ -520,20 +529,28 @@ void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool im
                             if(neighblock == 0 || solidNeighboringTransparent) {
                                 BlockCoord lightCubeHere = coord + neigh;
                                 //std::cout << lightCubeHere.x << " " << lightCubeHere.y << " " << lightCubeHere.z << "\n";
-                                bool skyBlocked = false;
-                                int yTest = lightCubeHere.y;
-                                if(neighborIndex != BOTTOM) {
-                                    while(yTest < chunkHeight) {
-                                        yTest++;
-                                        BlockCoord test(lightCubeHere.x, yTest, lightCubeHere.z);
-                                        uint32_t blockHere = blockAtMemo(test, memo);
-                                        uint32_t blockIDHere = blockHere & BlockInfo::BLOCK_ID_BITS;
-                                        if(blockIDHere != 0 && std::find(BlockInfo::transparents.begin(), BlockInfo::transparents.end(), blockIDHere) == BlockInfo::transparents.end()) {
-                                            skyBlocked = true;
-                                            break;
-                                        }
+                                float ambientLightVal = 3.0f;
+                                auto ambSegIt = lightMapAmbient.find(lightCubeHere);
+                                if(ambSegIt != lightMapAmbient.end()) {
+                                    for(LightRay& ray : ambSegIt->second.rays) {
+                                        ambientLightVal = std::min(ambientLightVal + ray.value, 16.0f);
                                     }
                                 }
+
+                                // bool skyBlocked = false;
+                                // int yTest = lightCubeHere.y;
+                                // if(neighborIndex != BOTTOM) {
+                                //     while(yTest < chunkHeight) {
+                                //         yTest++;
+                                //         BlockCoord test(lightCubeHere.x, yTest, lightCubeHere.z);
+                                //         uint32_t blockHere = blockAtMemo(test, memo);
+                                //         uint32_t blockIDHere = blockHere & BlockInfo::BLOCK_ID_BITS;
+                                //         if(blockIDHere != 0 && std::find(BlockInfo::transparents.begin(), BlockInfo::transparents.end(), blockIDHere) == BlockInfo::transparents.end()) {
+                                //             skyBlocked = true;
+                                //             break;
+                                //         }
+                                //     }
+                                // }
 
                                 float blockLightVal = 0.0f;
                                 auto segIt = lightMap.find(lightCubeHere);
@@ -547,17 +564,17 @@ void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool im
 
                                 verts.insert(verts.end(), {
                                     thisFace[0] + coord.x, thisFace[1] + coord.y, thisFace[2] + coord.z, thisFace[3] + blockLightVal,
-                                    thisFace[4]+ (skyBlocked ? -4.0f : 0.0f), 
+                                     std::min(ambientLightVal, thisFace[4] ), 
                                     thisFace[5] + coord.x, thisFace[6] + coord.y, thisFace[7] + coord.z, thisFace[8] + blockLightVal,
-                                    thisFace[9]+ (skyBlocked ? -4.0f : 0.0f), 
+                                    std::min(ambientLightVal, thisFace[9] ), 
                                     thisFace[10] + coord.x, thisFace[11] + coord.y, thisFace[12] + coord.z, thisFace[13] + blockLightVal,
-                                    thisFace[14]+ (skyBlocked ? -4.0f : 0.0f), 
+                                    std::min(ambientLightVal, thisFace[14] ), 
                                     thisFace[15] + coord.x, thisFace[16] + coord.y, thisFace[17] + coord.z, thisFace[18] + blockLightVal,
-                                    thisFace[19]+ (skyBlocked ? -4.0f : 0.0f), 
+                                    std::min(ambientLightVal, thisFace[19] ), 
                                     thisFace[20] + coord.x, thisFace[21] + coord.y, thisFace[22] + coord.z, thisFace[23] + blockLightVal,
-                                    thisFace[24]+ (skyBlocked ? -4.0f : 0.0f), 
+                                    std::min(ambientLightVal, thisFace[24] ), 
                                     thisFace[25] + coord.x, thisFace[26] + coord.y, thisFace[27] + coord.z, thisFace[28] + blockLightVal,
-                                    thisFace[29]+ (skyBlocked ? -4.0f : 0.0f)
+                                    std::min(ambientLightVal, thisFace[29] )
                                 });
 
                                 std::vector<TextureFace> &thisTex = BlockInfo::texs[block];
@@ -680,11 +697,7 @@ void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool im
 
 
 
-void VoxelWorld::depropogateLightOrigin(BlockCoord spot, BlockCoord origin, std::set<BlockChunk*> *imp, std::unordered_map<
-            BlockCoord,
-            LightSegment,
-            IntTupHash
-    >& lightMap  ) {
+void VoxelWorld::depropogateLightOrigin(BlockCoord spot, BlockCoord origin, std::set<BlockChunk*> *imp, std::unordered_map<BlockCoord,LightSegment,IntTupHash>& lightMap  ) {
 
     ChunkCoord chunkCoordOfOrigin(
         std::floor(static_cast<float>(origin.x)/chunkWidth),
@@ -725,11 +738,15 @@ void VoxelWorld::depropogateLightOrigin(BlockCoord spot, BlockCoord origin, std:
 
 }
 
-void VoxelWorld::propogateLightOrigin(BlockCoord spot, BlockCoord origin, int value, std::set<BlockChunk*> *imp, std::unordered_map<BlockCoord, uint32_t, IntTupHash>& memo, std::unordered_map<
-            BlockCoord,
-            LightSegment,
-            IntTupHash
-    >  &lightMap) {
+int distance(BlockCoord b1, BlockCoord b2) {
+
+    return std::abs(b2.x - b1.x) + std::abs(b2.y - b1.y) + std::abs(b2.z - b1.z);
+    //return std::sqrt( std::abs(std::pow((b2.x - b1.x),2) + std::pow((b2.y - b1.y), 2) + std::pow((b2.z - b1.z),2)));
+
+}
+
+
+void VoxelWorld::propogateLightOrigin(BlockCoord spot, BlockCoord origin, int value, std::set<BlockChunk*> *imp, std::unordered_map<BlockCoord, uint32_t, IntTupHash>& memo, std::unordered_map<BlockCoord,LightSegment,IntTupHash>  &lightMap) {
     if(value > 0) {
 
         ChunkCoord chunkCoordOfOrigin(
@@ -781,8 +798,9 @@ void VoxelWorld::propogateLightOrigin(BlockCoord spot, BlockCoord origin, int va
 
             segIt->second.rays.push_back(thisRay);
             for(int dir : thisRay.directions) {
-
-                propogateLightOrigin(spot + BlockInfo::neighbors[dir], origin, value - 2, imp, memo, lightMap);
+                BlockCoord neigh = spot + BlockInfo::neighbors[dir];
+                if(distance(neigh, origin) > distance(spot, origin))
+                    propogateLightOrigin(spot + BlockInfo::neighbors[dir], origin, value - 2, imp, memo, lightMap);
 
             }
 
@@ -808,8 +826,9 @@ void VoxelWorld::propogateLightOrigin(BlockCoord spot, BlockCoord origin, int va
                 }
 
                 for(int dir : rayIt->directions) {
-
-                    propogateLightOrigin(spot + BlockInfo::neighbors[dir], origin, value - 2, imp, memo, lightMap);
+                    BlockCoord neigh = spot + BlockInfo::neighbors[dir];
+                    if(distance(neigh, origin) > distance(spot, origin))
+                        propogateLightOrigin(spot + BlockInfo::neighbors[dir], origin, value - 2, imp, memo, lightMap);
 
                 }
             }
@@ -829,11 +848,9 @@ void VoxelWorld::lightPassOnChunk(ChunkCoord chunkCoord, std::unordered_map<Bloc
 
 
     std::set<BlockChunk*> implicatedChunks;
+    std::unordered_set<BlockCoord, IntTupHash> newAmbSources;
 
 
-    auto chunkIt = userDataMap.find(chunkCoord);
-
-    if(chunkIt != userDataMap.end()) {
 
 
         //remove and depropogate light sources
@@ -859,12 +876,59 @@ void VoxelWorld::lightPassOnChunk(ChunkCoord chunkCoord, std::unordered_map<Bloc
 
                             }
 
-                            
+
                         }
                         
                     }
+                    auto ambIt = ambientSources.find(coord);
+                    if(ambIt != ambientSources.end()) {
+                        depropogateLightOrigin(coord, coord, &implicatedChunks, lightMapAmbient);
+                    }
+                    ambientSources.erase(coord);
+                    
+                    if(blockAtMemo(coord, memo) != 0) 
+                    {
+                        int neighborIndex = 0;
+                        for(BlockCoord& neigh : BlockInfo::neighbors) {
+                            
+                            BlockCoord lightCubeHere = neigh + coord;
+                            uint32_t blockHere = blockAtMemo(lightCubeHere, memo);
+                            uint32_t blockID = blockHere & BlockInfo::BLOCK_ID_BITS;
+                            if(blockID == 0 || std::find(BlockInfo::transparents.begin(), BlockInfo::transparents.end(), blockID) != BlockInfo::transparents.end())
+                            {
+                                bool skyBlocked = false;
+                                int yTest = lightCubeHere.y;
+                                if(neighborIndex != BOTTOM) {
+                                    while(yTest < chunkHeight) {
+                                        yTest++;
+                                        BlockCoord test(lightCubeHere.x, yTest, lightCubeHere.z);
+                                        uint32_t blockHere = blockAtMemo(test, memo);
+                                        uint32_t blockIDHere = blockHere & BlockInfo::BLOCK_ID_BITS;
+                                        if(blockIDHere != 0 && std::find(BlockInfo::transparents.begin(), BlockInfo::transparents.end(), blockIDHere) == BlockInfo::transparents.end()) {
+                                            skyBlocked = true;
+                                            break;
+                                        }
+                                    }
+                                    if(!skyBlocked) {
+                                        newAmbSources.insert(lightCubeHere);
+                                    }
+                                }
+                            }
+                            
+                            neighborIndex++;
+
+                        }
+                        
+                    }
+                    
                 }
             }
+        }
+
+
+        //add re-figged amb sources
+        for(BlockCoord newCoord : newAmbSources) {
+            ambientSources.insert_or_assign(newCoord, true);
         }
 
 
@@ -877,7 +941,11 @@ void VoxelWorld::lightPassOnChunk(ChunkCoord chunkCoord, std::unordered_map<Bloc
                     uint32_t blockBitsHere = blockAtMemo(coord, memo);
                     uint32_t blockIDHere = blockBitsHere & BlockInfo::BLOCK_ID_BITS;
                     if(blockIDHere == 12) {
-                        propogateLightOrigin(coord, coord, 16, &implicatedChunks, memo, lightMap);
+                        propogateLightOrigin(coord, coord, 12, &implicatedChunks, memo, lightMap);
+                    }
+                    auto ambIt = ambientSources.find(coord);
+                    if(ambIt != ambientSources.end()) {
+                        propogateLightOrigin(coord, coord, 16, &implicatedChunks, memo, lightMapAmbient);
                     }
                 }
             }
@@ -887,7 +955,6 @@ void VoxelWorld::lightPassOnChunk(ChunkCoord chunkCoord, std::unordered_map<Bloc
 
 
 
-    }
 
     for(BlockChunk *pointer : implicatedChunks) {
         while(!deferredChunkQueue.push(pointer)) {

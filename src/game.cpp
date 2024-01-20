@@ -1501,7 +1501,7 @@ void Game::castBreakRay() {
                     
                     BlockChunk *chunk = chunkIt->second;
 
-                    while(!voxelWorld.deferredChunkQueue.push(chunk)) {
+                    while(!voxelWorld.lightUpdateQueue.push(chunk)) {
 
                     }
 
@@ -1586,7 +1586,7 @@ void Game::castBreakRay() {
                        BlockChunk *chunk = chunkIt->second;
 
 
-                       while(!voxelWorld.deferredChunkQueue.push(chunk)) {
+                       while(!voxelWorld.lightUpdateQueue.push(chunk)) {
 
                        }
 
@@ -1633,7 +1633,7 @@ void Game::castPlaceRay() {
                     
                     BlockChunk *chunk = chunkIt->second;
 
-                    while(!voxelWorld.deferredChunkQueue.push(chunk)) {
+                    while(!voxelWorld.lightUpdateQueue.push(chunk)) {
 
                     }
 
@@ -1782,7 +1782,7 @@ void Game::castPlaceRay() {
                         BlockChunk *chunk = chunkIt->second;
 
 
-                        while(!voxelWorld.deferredChunkQueue.push(chunk)) {
+                        while(!voxelWorld.lightUpdateQueue.push(chunk)) {
 
                         }
 
@@ -1840,7 +1840,7 @@ void Game::castPlaceRay() {
                     BlockChunk *chunk = chunkIt->second;
 
 
-                    while(!voxelWorld.deferredChunkQueue.push(chunk)) {
+                    while(!voxelWorld.lightUpdateQueue.push(chunk)) {
 
                     }
 
