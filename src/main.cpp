@@ -1,7 +1,4 @@
 
-
-#define DEV
-
 #include "game.h"
 
 //#include "game/worldsavetests.h"

@@ -18,4 +18,18 @@ struct LightSegment {
 };
 
 
+
+struct AmbientLightRay {
+    std::vector<int> directions;
+    int value;
+    BlockCoord origin;
+    bool isOrigin;
+};
+
+struct AmbientLightSegment {
+    std::vector<AmbientLightRay> rays;
+};
+
+
+
 #endif
