@@ -782,7 +782,7 @@ void VoxelWorld::propogateLightOrigin(BlockCoord spot, BlockCoord origin, int va
             segIt->second.rays.push_back(thisRay);
             for(int dir : thisRay.directions) {
 
-                propogateLightOrigin(spot + BlockInfo::neighbors[dir], origin, value - 2, imp, memo, lightMap);
+                propogateLightOrigin(spot + BlockInfo::neighbors[dir], origin, value - 1, imp, memo, lightMap);
 
             }
 
@@ -809,7 +809,7 @@ void VoxelWorld::propogateLightOrigin(BlockCoord spot, BlockCoord origin, int va
 
                 for(int dir : rayIt->directions) {
 
-                    propogateLightOrigin(spot + BlockInfo::neighbors[dir], origin, value - 2, imp, memo, lightMap);
+                    propogateLightOrigin(spot + BlockInfo::neighbors[dir], origin, value - 1, imp, memo, lightMap);
 
                 }
             }
@@ -877,7 +877,7 @@ void VoxelWorld::lightPassOnChunk(ChunkCoord chunkCoord, std::unordered_map<Bloc
                     uint32_t blockBitsHere = blockAtMemo(coord, memo);
                     uint32_t blockIDHere = blockBitsHere & BlockInfo::BLOCK_ID_BITS;
                     if(blockIDHere == 12) {
-                        propogateLightOrigin(coord, coord, 16, &implicatedChunks, memo, lightMap);
+                        propogateLightOrigin(coord, coord, 8, &implicatedChunks, memo, lightMap);
                     }
                 }
             }

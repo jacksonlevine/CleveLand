@@ -15,6 +15,7 @@ struct LightRay {
 
 struct LightSegment {
     std::vector<LightRay> rays;
+    float sum();
 };
 
 
