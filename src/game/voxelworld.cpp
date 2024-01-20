@@ -888,36 +888,26 @@ void VoxelWorld::lightPassOnChunk(ChunkCoord chunkCoord, std::unordered_map<Bloc
                     
                     if(blockAtMemo(coord, memo) != 0) 
                     {
-                        int neighborIndex = 0;
-                        for(BlockCoord& neigh : BlockInfo::neighbors) {
                             
-                            BlockCoord lightCubeHere = neigh + coord;
-                            uint32_t blockHere = blockAtMemo(lightCubeHere, memo);
-                            uint32_t blockID = blockHere & BlockInfo::BLOCK_ID_BITS;
-                            if(blockID == 0 || std::find(BlockInfo::transparents.begin(), BlockInfo::transparents.end(), blockID) != BlockInfo::transparents.end())
-                            {
-                                bool skyBlocked = false;
-                                int yTest = lightCubeHere.y;
-                                if(neighborIndex != BOTTOM) {
-                                    while(yTest < chunkHeight) {
-                                        yTest++;
-                                        BlockCoord test(lightCubeHere.x, yTest, lightCubeHere.z);
-                                        uint32_t blockHere = blockAtMemo(test, memo);
-                                        uint32_t blockIDHere = blockHere & BlockInfo::BLOCK_ID_BITS;
-                                        if(blockIDHere != 0 && std::find(BlockInfo::transparents.begin(), BlockInfo::transparents.end(), blockIDHere) == BlockInfo::transparents.end()) {
-                                            skyBlocked = true;
-                                            break;
-                                        }
-                                    }
-                                    if(!skyBlocked) {
-                                        newAmbSources.insert(lightCubeHere);
+                            BlockCoord lightCubeHere = coord;
+
+                            bool skyBlocked = false;
+                            int yTest = lightCubeHere.y;
+                                while(yTest < chunkHeight) {
+                                    yTest++;
+                                    BlockCoord test(lightCubeHere.x, yTest, lightCubeHere.z);
+                                    uint32_t blockHere = blockAtMemo(test, memo);
+                                    uint32_t blockIDHere = blockHere & BlockInfo::BLOCK_ID_BITS;
+                                    if(blockIDHere != 0 && std::find(BlockInfo::transparents.begin(), BlockInfo::transparents.end(), blockIDHere) == BlockInfo::transparents.end()) {
+                                        skyBlocked = true;
+                                        break;
                                     }
                                 }
-                            }
-                            
-                            neighborIndex++;
+                                if(!skyBlocked) {
+                                    newAmbSources.insert(lightCubeHere);
+                                }
 
-                        }
+                            
                         
                     }
                     
