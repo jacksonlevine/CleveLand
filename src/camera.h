@@ -62,6 +62,7 @@ public:
 
 
     glm::vec3 proposePosition();
+    glm::vec3 proposeSlowPosition();
     void goToPosition(glm::vec3 pos);
 private:
     Game *gs;

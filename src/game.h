@@ -55,6 +55,7 @@ public:
     GLuint menuTexture;
     GLuint menuBackgroundTexture;
     GLuint splashTexture;
+    GLuint splashTexture2;
     GLuint logoTexture;
 
     unsigned char *worldTexturePixels;
@@ -154,7 +155,7 @@ public:
 
     inline static GLuint billqvbo = 0;
 
-    inline static glm::vec3 skyColor = glm::vec3(0.7f, 0.8f, 1.0f);
+    inline static glm::vec3 skyColor = glm::vec3(0.5f, 0.7f, 1.0f);
 
 
     void updateAndDrawSelectCube();
@@ -203,6 +204,16 @@ public:
    
 
     inline static int noHud = 0;
+
+
+    inline static glm::vec3 leanSpot = glm::vec3(0,0,0);
+    inline static int leaning = 0;
+
+    inline static float timeOfDay = 0.0f;
+    inline static float dayLength = 900.0f;
+
+    inline static float sunsetFactor = 0.0f;
+    inline static float sunriseFactor = 0.0f;
 
     Game();
 private:

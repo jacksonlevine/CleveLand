@@ -64,8 +64,26 @@ grounded(true)
             updateTime();
             runPeriodicTick();
 
+            static std::function<float(float, float, float)> gaussian = [](float x, float peak, float radius) {
+                float stdDev = radius / 3.0;  // Controls the spread
+                float variance = stdDev * stdDev;
+
+                // Gaussian formula
+                float b = exp(-pow(x - peak, 2.0) / (2.0 * variance));
+
+                // Normalize the peak to 1
+                float peakHeight = exp(-pow(peak - peak, 2.0) / (2.0 * variance));
+                return b / peakHeight;
+            };
+
             if(inGame) {
                 voxelWorld.runStep(deltaTime);
+                timeOfDay = std::fmod(timeOfDay + deltaTime, dayLength);
+                ambientBrightnessMult = std::max(0.05f, std::min(1.0f, gaussian(timeOfDay, dayLength/2.0f, dayLength/2.0f) * 1.3f));
+                //std::cout << std::to_string(ambientBrightnessMult) << "\n";
+
+                sunsetFactor = gaussian(timeOfDay, dayLength*(3.0f/4.0f), dayLength/16.0f);
+                sunriseFactor = gaussian(timeOfDay, dayLength/6.0f, dayLength/16.0f);
 
                 static float textureAnimInterval = 0.1f;
                 static float textureAnimTimer = 0.0f;
@@ -139,6 +157,12 @@ void Game::stepMovementAndPhysics() {
                if(std::find(collCage.solid.begin(), collCage.solid.end(), FLOOR) == collCage.solid.end())
                 {
                     grounded = false;
+                } else {
+                    if(leaning) {
+                        leanSpot = glm::vec3(std::round(camera->position.x),
+                        std::round(camera->position.y),
+                        std::round(camera->position.z));
+                    }
                 }
 
                 glm::vec3 collCageCenter = camera->position + glm::vec3(0, -1.0, 0);
@@ -167,7 +191,8 @@ void Game::stepMovementAndPhysics() {
 
 
 
-                if(!grounded && !jumpingUp) {
+
+                if(!grounded && !jumpingUp && !leaning) {
                     timeFallingScalar = std::min(timeFallingScalar + averageDeltaTime*5.0f, 3.0f);
                 } else {
                     timeFallingScalar = 1.0f;
@@ -178,7 +203,7 @@ void Game::stepMovementAndPhysics() {
 
              
 
-                if(!grounded && !jumpingUp /*&& jumpTimer <= 0.0f*/)
+                if(!grounded && !jumpingUp && !leaning /*&& jumpTimer <= 0.0f*/)
                 {
                     camera->velocity += glm::vec3(0.0, -GRAV*timeFallingScalar*averageDeltaTime, 0.0);
                 }
@@ -195,7 +220,7 @@ void Game::stepMovementAndPhysics() {
                 //     jumpTimer = std::max(0.0, jumpTimer - deltaTime);
                 // }
 
-                if(camera->upPressed && grounded)
+                if(camera->upPressed && grounded && !leaning)
                 {
                     //camera->velocity += glm::vec3(0.0, 100.0*deltaTime, 0.0);
                     grounded = false;
@@ -205,11 +230,13 @@ void Game::stepMovementAndPhysics() {
                     camera->upPressed = 0;
                 }
             }
-
-
+            glm::vec3 proposedPos;
+            if( leaning) {
+                proposedPos = camera->proposeSlowPosition();
+            } else {
+                proposedPos = camera->proposePosition();
+            }
             
-
-            glm::vec3 proposedPos = camera->proposePosition();
 
             std::vector<glm::vec3> corrections_made;
 
@@ -235,7 +262,19 @@ void Game::stepMovementAndPhysics() {
                     }
                 }
             }
-            camera->goToPosition(proposedPos);
+            if(leaning) {
+                if(std::sqrt(std::pow(proposedPos.x - leanSpot.x, 2) 
+                + std::pow(proposedPos.y - leanSpot.y, 2) 
+                + std::pow(proposedPos.z - leanSpot.z, 2)) < 0.7) {
+                    camera->goToPosition(proposedPos);
+                } else {
+                    camera->goToPosition(camera->position);
+                }
+                    
+            } else {
+                camera->goToPosition(proposedPos);
+            }
+            
             }
 }
 
@@ -250,7 +289,7 @@ void Game::drawSplashScreen() {
     glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
 
 
-    float splashImageWidth = 400;
+    float splashImageWidth = 700;
 
 
 
@@ -260,18 +299,34 @@ void Game::drawSplashScreen() {
 
 
     std::vector<float> splashDisplayData = {
-        splashLowerLeft.x, splashLowerLeft.y,                    0.0f, 1.0f,   -1.0f,
-        splashLowerLeft.x, splashLowerLeft.y+relHeight,          0.0f, 0.0f,   -1.0f,
-        splashLowerLeft.x+relWidth, splashLowerLeft.y+relHeight, 1.0f, 0.0f,   -1.0f,
+        splashLowerLeft.x, splashLowerLeft.y,                    0.0f, 1.0f,   -997.0f,
+        splashLowerLeft.x, splashLowerLeft.y+relHeight,          0.0f, 0.0f,   -997.0f,
+        splashLowerLeft.x+relWidth, splashLowerLeft.y+relHeight, 1.0f, 0.0f,   -997.0f,
 
-        splashLowerLeft.x+relWidth, splashLowerLeft.y+relHeight, 1.0f, 0.0f,   -1.0f,
-        splashLowerLeft.x+relWidth, splashLowerLeft.y,           1.0f, 1.0f,   -1.0f,
-        splashLowerLeft.x, splashLowerLeft.y,                    0.0f, 1.0f,   -1.0f
+        splashLowerLeft.x+relWidth, splashLowerLeft.y+relHeight, 1.0f, 0.0f,   -997.0f,
+        splashLowerLeft.x+relWidth, splashLowerLeft.y,           1.0f, 1.0f,   -997.0f,
+        splashLowerLeft.x, splashLowerLeft.y,                    0.0f, 1.0f,   -997.0f,
+
+   
+    };
+
+
+    std::vector<float> splashDisplayData2 = {
+        splashLowerLeft.x, splashLowerLeft.y,                    0.0f, 1.0f,   -998.0f,
+        splashLowerLeft.x, splashLowerLeft.y+relHeight,          0.0f, 0.0f,   -998.0f,
+        splashLowerLeft.x+relWidth, splashLowerLeft.y+relHeight, 1.0f, 0.0f,   -998.0f,
+
+        splashLowerLeft.x+relWidth, splashLowerLeft.y+relHeight, 1.0f, 0.0f,   -998.0f,
+        splashLowerLeft.x+relWidth, splashLowerLeft.y,           1.0f, 1.0f,   -998.0f,
+        splashLowerLeft.x, splashLowerLeft.y,                    0.0f, 1.0f,   -998.0f
     };
 
 
 
     glUseProgram(menuShader->shaderID);
+
+    GLuint timeLocation = glGetUniformLocation(menuShader->shaderID, "time");
+    glUniform1f(timeLocation, static_cast<float>(glfwGetTime()));
 
    
     glBindTexture(GL_TEXTURE_2D, splashTexture);
@@ -282,6 +337,11 @@ void Game::drawSplashScreen() {
         glGenBuffers(1, &vbo);
     }
 
+    static GLuint vbo2 = 0;
+    if(vbo2 == 0) {
+        glGenBuffers(1, &vbo2);
+    }
+
         bindMenuGeometry(vbo, 
         splashDisplayData.data(),
         splashDisplayData.size());
@@ -289,9 +349,19 @@ void Game::drawSplashScreen() {
 
     glDrawArrays(GL_TRIANGLES, 0, splashDisplayData.size()/5);
 
+    glBindTexture(GL_TEXTURE_2D, splashTexture2);
+    bindMenuGeometry(vbo2, 
+        splashDisplayData2.data(),
+        splashDisplayData2.size());
+
+    glDrawArrays(GL_TRIANGLES, 0, splashDisplayData2.size()/5);
     
 
     glfwSwapBuffers(window);
+}
+
+float similarity(glm::vec3 dir1, glm::vec3 dir2) {
+    return (glm::dot(glm::normalize(dir1), glm::normalize(dir2)) + 1.0) * 0.5;
 }
 
 void Game::draw() {
@@ -316,13 +386,15 @@ void Game::draw() {
 
     glClearColor(0.639, 0.71, 1.0, 0.5);
 
-    
+    glm::vec4 skyBottom(1.0f, 1.0f, 1.0f, 1.0f);
 
+    skyBottom = glm::mix(skyBottom, glm::vec4(1.0f, 0.651f, 0.0f, 1.0f), (similarity(camera->direction, glm::vec3(0, 0, -1)) * 0.7f) * sunsetFactor );
+    skyBottom = glm::mix(skyBottom, glm::vec4(1.0f, 0.651f, 0.0f, 1.0f), (similarity(camera->direction, glm::vec3(0, 0, 1)) * 0.7f) * sunriseFactor );
     glBindVertexArray(VAO);
     if(underWaterView == 1.0f) {
         drawSky(0.2f, 0.2f, 1.0f, 1.0f,    0.2f, 0.2f, 1.0f, 1.0f,   camera->pitch);
     } else {
-        drawSky(skyColor.r, skyColor.g, skyColor.b, 1.0f,    1.0f, 1.0f, 1.0f, 1.0f, camera->pitch);
+        drawSky(skyColor.r, skyColor.g, skyColor.b, 1.0f,    skyBottom.r, skyBottom.g, skyBottom.b, skyBottom.a, camera->pitch);
     }
     
     
@@ -556,6 +628,9 @@ void Game::stepChunkDraw() {
     GLuint cam_pos_loc = glGetUniformLocation(worldShader->shaderID, "camPos");
     glUniform3f(cam_pos_loc, camera->position.x, camera->position.y, camera->position.z);
 
+    GLuint cam_dir_loc = glGetUniformLocation(worldShader->shaderID, "camDir");
+    glUniform3f(cam_dir_loc, camera->direction.x, camera->direction.y, camera->direction.z);
+
     GLuint viewDistLoc = glGetUniformLocation(worldShader->shaderID, "viewDistance");
     glUniform1f(viewDistLoc, viewDistance);
 
@@ -603,6 +678,14 @@ void Game::stepChunkDraw() {
     GLuint ambBrightMultLoc = glGetUniformLocation(worldShader->shaderID, "ambientBrightMult");
 
     glUniform1f(ambBrightMultLoc, ambientBrightnessMult);
+
+    GLuint ssloc = glGetUniformLocation(worldShader->shaderID, "sunset");
+
+    glUniform1f(ssloc, sunsetFactor);
+
+    GLuint srloc = glGetUniformLocation(worldShader->shaderID, "sunrise");
+
+    glUniform1f(srloc, sunriseFactor);
 
     GLuint uwLoc = glGetUniformLocation(worldShader->shaderID, "underWater");
     glUniform1f(uwLoc, underWaterView);
@@ -1031,6 +1114,7 @@ void Game::goToConfirmDeleteWorld(int num) {
 }
 
 void Game::loadOrCreateSaveGame(const char* path) {
+    timeOfDay = dayLength/4.0f;
     if(voxelWorld.saveExists(path)) {
         voxelWorld.loadWorldFromFile(path);
     } else {
@@ -1109,6 +1193,9 @@ void Game::loadOrCreateSaveGame(const char* path) {
                         loadedPitch = std::stof(word);
                     }
                 }
+                if(lineIndex == 3) {
+                    timeOfDay = std::stof(word);
+                }
                 localIndex++;
             }
             lineIndex++;
@@ -1140,6 +1227,8 @@ void Game::saveGame(const char* path) {
         camera->direction.z << "\n";
 
         playerFile << camera->yaw << " " << camera->pitch << "\n";
+
+        playerFile << timeOfDay << "\n";
     } else {
         std::cerr << "Couldn't open player file when saving. \n";
     }
@@ -1869,14 +1958,54 @@ void Game::keyCallback(GLFWwindow *window, int key, int scancode, int action, in
         }
 
     }
-    if(key == GLFW_KEY_KP_SUBTRACT) {
-        ambientBrightnessMult = std::max(ambientBrightnessMult - 0.01f, 0.0f);
 
-    } 
-    if(key == GLFW_KEY_KP_ADD) {
-        ambientBrightnessMult = std::min(ambientBrightnessMult + 0.01f, 1.0f);
-
+    if(key == GLFW_KEY_LEFT_SHIFT) 
+    {
+        if(action == 1 && grounded) {
+            leanSpot = camera->position;
+            leaning = action;
+        } else {
+            leaning = 0;
+        }
+        
     }
+    // if(key == GLFW_KEY_KP_SUBTRACT) {
+    //     ambientBrightnessMult = std::max(ambientBrightnessMult - 0.01f, 0.0f);
+
+    // } 
+    // if(key == GLFW_KEY_KP_ADD) {
+    //     ambientBrightnessMult = std::min(ambientBrightnessMult + 0.01f, 1.0f);
+
+    // }
+
+
+    // if(key == GLFW_KEY_U && action == 1) {
+    //     skyColor.r += 0.1;
+    //     std::cout << skyColor.r << "f, " << skyColor.g << "f, " << skyColor.b << "f\n";
+    // }
+    // if(key == GLFW_KEY_J && action == 1) {
+    //     skyColor.r -= 0.1;
+    //     std::cout << skyColor.r << "f, " << skyColor.g << "f, " << skyColor.b << "f\n";
+    // }
+
+    // if(key == GLFW_KEY_I && action == 1) {
+    //     skyColor.g += 0.1;
+    //     std::cout << skyColor.r << "f, " << skyColor.g << "f, " << skyColor.b << "f\n";
+    // }
+    // if(key == GLFW_KEY_K && action == 1) {
+    //     skyColor.g -= 0.1;
+    //     std::cout << skyColor.r << "f, " << skyColor.g << "f, " << skyColor.b << "f\n";
+    // }
+
+    // if(key == GLFW_KEY_O && action == 1) {
+    //     skyColor.b += 0.1;
+    //     std::cout << skyColor.r << "f, " << skyColor.g << "f, " << skyColor.b << "f\n";
+    // }
+    // if(key == GLFW_KEY_L && action == 1) {
+    //     skyColor.b -= 0.1;
+    //     std::cout << skyColor.r << "f, " << skyColor.g << "f, " << skyColor.b << "f\n";
+    // }
+
 
     if(key == GLFW_KEY_1) {
         noHud = action;
@@ -2008,6 +2137,7 @@ void Game::initializeShaders() {
             layout (location = 2) in float elementid;
 
 
+
             out vec2 TexCoord;
             out float elementID;
 
@@ -2027,6 +2157,13 @@ void Game::initializeShaders() {
                     float peak = 1.0 + (abs(elementid) - 67)/2.0;
                     float radius = 0.45;
                     gl_Position.y += gaussian(time*3.0, peak, radius)/3.5;
+                }
+
+                if(elementid == -997.0) {
+                    gl_Position.x -= time/8.0f;
+                }
+                if(elementid == -998.0) {
+                    gl_Position.x += time/8.0f;
                 }
 
                 TexCoord = texcoord;
@@ -2107,12 +2244,27 @@ void Game::initializeShaders() {
             uniform float viewDistance;
             uniform float ambientBrightMult;
             uniform float underWater;
+            uniform vec3 camDir;
+
+            uniform float sunset;
+            uniform float sunrise;
+
+            float similarity(vec3 dir1, vec3 dir2) {
+                return (dot(normalize(dir1), normalize(dir2)) + 1.0) * 0.5;
+            }
             void main()
             {
                 vec4 texColor = texture(ourTexture, TexCoord);
                 FragColor = texColor * vec4(vertexColor, 1.0);
 
+                vec3 west = vec3(0.0,0.0,-1.0);
+                vec3 east = vec3(0.0,0.0,1.0);
+
                 vec4 fogColor = vec4(0.7, 0.8, 1.0, 1.0) * vec4(ambientBrightMult, ambientBrightMult, ambientBrightMult, 1.0);
+
+                fogColor = mix(fogColor, vec4(1.0, 0.651, 0.0, 1.0), (similarity(camDir, east) * 0.7) * sunrise);
+                fogColor = mix(fogColor, vec4(1.0, 0.651, 0.0, 1.0), (similarity(camDir, west) * 0.7) * sunset); 
+
                 float distance = (distance(pos, camPos)/(viewDistance*5.0f))/5.0f;
 
                 if(underWater == 1.0) {
@@ -3105,6 +3257,25 @@ void Game::initializeTextures() {
         std::cout << "Failed to load texture logotexture" << std::endl;
     }
     stbi_image_free(data);
+
+    glGenTextures(1, &splashTexture2);
+    glBindTexture(GL_TEXTURE_2D, splashTexture2);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+    data = stbi_load("assets/splash2.png", &width, &height, &nrChannels, 0);
+    if (data)
+    {
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+        glGenerateMipmap(GL_TEXTURE_2D);
+    }
+    else
+    {
+        std::cout << "Failed to load texture splashtexture2" << std::endl;
+    }
+    stbi_image_free(data);
 }
 
 void Game::drawSky(float top_r, float top_g, float top_b, float top_a,
@@ -3119,32 +3290,47 @@ void Game::drawSky(float top_r, float top_g, float top_b, float top_a,
     {
         glGenVertexArrays(1, &background_vao);
 
-        const GLchar* vs_src =
-            "#version 450 core\n"
-            "out vec2 v_uv;\n"
-            "uniform float cpitch;\n"
-            "void main()\n"
-            " {\n"
-            " uint idx = gl_VertexID;\n"
-            
-            " gl_Position = vec4((idx >> 1), idx & 1, 0.0, 0.5) * 4.0 - 1.0;\n"
-            "v_uv = vec2(gl_Position.xy  + 1.0 +(cpitch/62));\n"
-            "}";
+        const GLchar* vs_src = R"glsl(
 
+            #version 450 core
+            out vec2 v_uv;
+            uniform float cpitch;
+            void main()
+            {
+                uint idx = gl_VertexID;
+                gl_Position = vec4((idx >> 1), idx & 1, 0.0, 0.5) * 4.0 - 1.0;
+                v_uv = vec2(gl_Position.xy + 1.0 + (cpitch / 62));
+            }
 
-        const GLchar* fs_src =
-            " #version 450 core\n"
-            "uniform vec4 top_color;\n"
-            "uniform vec4 bot_color;\n"
-            "uniform float brightMult;\n"
-            "in vec2 v_uv;\n"
-            "out vec4 frag_color;\n"
+        )glsl";
 
-            "void main()\n"
-            "{\n"
-            "frag_color = bot_color * (1 - v_uv.y) + top_color * v_uv.y;\n"
-            "frag_color = frag_color * vec4(brightMult, brightMult, brightMult, 1.0f);\n"
-            "}";
+        const GLchar* fs_src = R"glsl(
+
+            #version 450 core
+            uniform vec4 top_color;
+            uniform vec4 bot_color;
+            uniform float brightMult;
+            uniform float sunrise;
+            uniform float sunset;
+            uniform vec3 camDir;
+            in vec2 v_uv;
+            out vec4 frag_color;
+
+            float similarity(vec3 dir1, vec3 dir2) {
+                return (dot(normalize(dir1), normalize(dir2)) + 1.0) * 0.5;
+            }
+
+            void main()
+            {
+                vec3 east = vec3(0, 0, 1);
+                vec3 west = vec3(0, 0, -1);
+                vec4 botColor = mix(bot_color * vec4(brightMult, brightMult, brightMult, 1.0f), bot_color, (similarity(camDir, east)) * sunrise);
+                botColor = mix(botColor, bot_color, (similarity(camDir, west)) * sunset);
+                frag_color = mix(botColor, top_color * vec4(brightMult, brightMult, brightMult, 1.0f), max(min(pow(v_uv.y-0.4, 1.0), 1.0), 0.0));
+
+            }
+
+        )glsl";
 
         GLuint vs_id, fs_id;
         vs_id = glCreateShader(GL_VERTEX_SHADER);
@@ -3194,6 +3380,15 @@ void Game::drawSky(float top_r, float top_g, float top_b, float top_a,
 
     GLuint ambBrightLoc = glGetUniformLocation(background_shader, "brightMult");
     glUniform1f(ambBrightLoc, ambientBrightnessMult);
+
+    GLuint ssloc = glGetUniformLocation(background_shader, "sunset");
+    glUniform1f(ssloc, sunsetFactor);
+
+    GLuint srloc = glGetUniformLocation(background_shader, "sunrise");
+    glUniform1f(srloc, sunriseFactor);
+
+    GLuint cam_dir_loc = glGetUniformLocation(background_shader, "camDir");
+    glUniform3f(cam_dir_loc, camera->direction.x, camera->direction.y, camera->direction.z);
 
     glDrawArrays(GL_TRIANGLES, 0, 3);
     glBindVertexArray(0);

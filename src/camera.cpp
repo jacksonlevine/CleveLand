@@ -129,6 +129,39 @@ glm::vec3 Camera3D::proposePosition() {
     return proposedPosition;
 }
 
+
+glm::vec3 Camera3D::proposeSlowPosition() {
+    glm::vec3 proposedPosition;
+
+    if(forwardPressed) {
+        velocity += (glm::normalize(glm::vec3(1.0, 0.0, 1.0) * direction)  ) * static_cast<float>(gs->averageDeltaTime);
+    }
+    if(leftPressed) {
+        velocity += (glm::normalize(glm::vec3(1.0, 0.0, 1.0) * right)  ) * static_cast<float>(gs->averageDeltaTime);
+    }
+    if(rightPressed) {
+        velocity -= (glm::normalize(glm::vec3(1.0, 0.0, 1.0) * right)  ) * static_cast<float>(gs->averageDeltaTime);
+    }
+    if(backPressed) {
+        velocity -= (glm::normalize(glm::vec3(1.0, 0.0, 1.0) * direction)  )* static_cast<float>(gs->averageDeltaTime);
+    }
+
+    // if(upPressed) {
+    //     velocity += (glm::vec3(0.0, 1.0, 0.0) * static_cast<float>(gs->deltaTime)) * speedMulitplier;
+    // }
+    // if(downPressed) {
+    //     velocity -= (glm::vec3(0.0, 1.0, 0.0) * static_cast<float>(gs->deltaTime)) * speedMulitplier;
+    // }
+    
+    proposedPosition = position + velocity * (static_cast<float>(gs->averageDeltaTime)* 10.0f);
+    velocity /= 1.0f + static_cast<float>(gs->averageDeltaTime) * 10.0f;
+    return proposedPosition;
+}
+
+
+
+
+
 void Camera3D::goToPosition(glm::vec3 pos) {
     position = pos;
     view = glm::lookAt(position, position + direction, up);
