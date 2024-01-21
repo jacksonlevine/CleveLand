@@ -974,6 +974,8 @@ void VoxelWorld::lightPassOnChunk(ChunkCoord chunkCoord, std::unordered_map<Bloc
 
     std::set<BlockChunk*> implicatedChunks;
 
+    std::unordered_set<BlockCoord, IntTupHash> lightSources;
+
 
     auto chunkIt = userDataMap.find(chunkCoord);
 
@@ -1000,35 +1002,25 @@ void VoxelWorld::lightPassOnChunk(ChunkCoord chunkCoord, std::unordered_map<Bloc
                                 BlockCoord originWeRemoving = ray.origin;
 
                                 depropogateLightOriginIteratively(originWeRemoving, &implicatedChunks, lightMap);
-
+                                if(blockAtMemo(originWeRemoving, memo) == 12) {
+                                    lightSources.insert(originWeRemoving);
+                                }
                             }
 
                             
                         }
                         
                     }
-                }
-            }
-        }
-
-
-
-        //repropogate light sources
-        for(int x = 0; x < chunkWidth; ++x) {
-            for(int z = 0; z < chunkWidth; ++z) {
-                for(int y = 0; y < chunkHeight; ++y) {
-                    BlockCoord coord(chunkCoord.x * chunkWidth + x, y, chunkCoord.z * chunkWidth + z);
-                    uint32_t blockBitsHere = blockAtMemo(coord, memo);
-                    uint32_t blockIDHere = blockBitsHere & BlockInfo::BLOCK_ID_BITS;
-                    if(blockIDHere == 12) {
-                        propogateLightOriginIteratively(coord, coord, 8, &implicatedChunks, memo, lightMap);
+                    if(blockAtMemo(coord, memo) == 12) {
+                        lightSources.insert(coord);
                     }
                 }
             }
         }
 
-
-
+        for(BlockCoord source : lightSources) {
+            propogateLightOriginIteratively(source, source, 8, &implicatedChunks, memo, lightMap);
+        }
 
 
     }
