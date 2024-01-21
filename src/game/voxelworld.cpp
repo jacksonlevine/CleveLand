@@ -725,6 +725,105 @@ void VoxelWorld::depropogateLightOrigin(BlockCoord spot, BlockCoord origin, std:
 
 }
 
+struct spotForQueue {
+    int value;
+    BlockCoord spot;
+};
+
+void VoxelWorld::propogateLightOriginIteratively(BlockCoord spot, BlockCoord origin, int value, std::set<BlockChunk*> *imp, std::unordered_map<BlockCoord, uint32_t, IntTupHash>& memo, std::unordered_map<BlockCoord, LightSegment, IntTupHash> &lightMap) {
+    std::stack<spotForQueue> stack;
+    std::unordered_map<BlockCoord, bool, IntTupHash> visited;
+
+    stack.push(spotForQueue{value, spot});
+    visited[spot] = true;
+
+    while (!stack.empty()) {
+        spotForQueue n = stack.top();
+        stack.pop();
+
+        uint32_t blockBitsHere = blockAtMemo(n.spot, memo);
+        uint32_t blockIDHere = blockBitsHere & BlockInfo::BLOCK_ID_BITS;
+        bool goingHere = (blockIDHere == 0 || 
+        std::find(BlockInfo::transparents.begin(), BlockInfo::transparents.end(), blockIDHere) != BlockInfo::transparents.end() ||
+        std::find(BlockInfo::semiTransparents.begin(), BlockInfo::semiTransparents.end(), blockIDHere) != BlockInfo::semiTransparents.end() ||
+        n.spot == origin);
+
+        if (goingHere) {
+
+            ChunkCoord chunkCoordOfOrigin(
+                std::floor(static_cast<float>(origin.x)/chunkWidth),
+                std::floor(static_cast<float>(origin.z)/chunkWidth)
+            );
+
+            ChunkCoord chunkCoordHere(
+                std::floor(static_cast<float>(n.spot.x)/chunkWidth),
+                std::floor(static_cast<float>(n.spot.z)/chunkWidth)
+            );
+
+            if(chunkCoordOfOrigin != chunkCoordHere) {
+                auto chunkIt = takenCareOfChunkSpots.find(chunkCoordHere);
+                if(chunkIt != takenCareOfChunkSpots.end()) {
+                    imp->insert(chunkIt->second);
+                }
+            }
+
+
+
+            auto segIt = lightMap.find(n.spot);
+            if (segIt == lightMap.end()) {
+                segIt = lightMap.insert({n.spot, LightSegment()}).first;
+            }
+
+            auto rayIt = std::find_if(segIt->second.rays.begin(), segIt->second.rays.end(), [origin](LightRay& ray) {
+                return ray.origin == origin;
+            });
+
+            if (rayIt == segIt->second.rays.end()) {
+                segIt->second.rays.emplace_back();
+                rayIt = std::prev(segIt->second.rays.end());
+
+                rayIt->value = n.value;
+                rayIt->origin = origin;
+            } else if (rayIt->value < n.value) {
+                rayIt->value = n.value;
+            }
+
+            if (n.value > 1) {
+                for (int i = 0; i < BlockInfo::neighbors.size(); ++i) {
+                    BlockCoord next = n.spot + BlockInfo::neighbors[i];
+
+                    // Find or create a ray for the neighbor
+                    auto nextSegIt = lightMap.find(next);
+                    if (nextSegIt == lightMap.end()) {
+                        nextSegIt = lightMap.insert({next, LightSegment()}).first;
+                    }
+                    auto nextRayIt = std::find_if(nextSegIt->second.rays.begin(), nextSegIt->second.rays.end(), [origin](const LightRay& ray) {
+                        return ray.origin == origin;
+                    });
+                    int nextValue = (nextRayIt != nextSegIt->second.rays.end()) ? nextRayIt->value : 0;
+
+                    // Check if the neighbor's value is less than our value - 1
+                    if (visited.find(next) == visited.end() || nextValue < n.value - 1) {
+                        stack.push(spotForQueue{n.value - 1, next});
+                        visited[next] = true;
+
+                        if (nextRayIt == nextSegIt->second.rays.end()) {
+                            nextSegIt->second.rays.emplace_back(); // Add new ray
+                            nextRayIt = std::prev(nextSegIt->second.rays.end());
+                            nextRayIt->value = n.value - 1;
+                            nextRayIt->origin = origin;
+                        }
+
+                        if (std::find(rayIt->directions.begin(), rayIt->directions.end(), i) == rayIt->directions.end()) {
+                            rayIt->directions.push_back(i);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 void VoxelWorld::propogateLightOrigin(BlockCoord spot, BlockCoord origin, int value, std::set<BlockChunk*> *imp, std::unordered_map<BlockCoord, uint32_t, IntTupHash>& memo, std::unordered_map<
             BlockCoord,
             LightSegment,
@@ -877,7 +976,7 @@ void VoxelWorld::lightPassOnChunk(ChunkCoord chunkCoord, std::unordered_map<Bloc
                     uint32_t blockBitsHere = blockAtMemo(coord, memo);
                     uint32_t blockIDHere = blockBitsHere & BlockInfo::BLOCK_ID_BITS;
                     if(blockIDHere == 12) {
-                        propogateLightOrigin(coord, coord, 8, &implicatedChunks, memo, lightMap);
+                        propogateLightOriginIteratively(coord, coord, 8, &implicatedChunks, memo, lightMap);
                     }
                 }
             }

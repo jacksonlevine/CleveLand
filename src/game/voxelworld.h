@@ -21,6 +21,7 @@
 #include <atomic>
 #include "../util/lightinfo.h"
 #include <GLFW/glfw3.h>
+#include <stack>
 
 class VoxelWorld {
 public:
@@ -83,6 +84,11 @@ public:
             IntTupHash
     >& lightMap);
     void propogateLightOrigin(BlockCoord spot, BlockCoord origin, int value, std::set<BlockChunk*> *imp, std::unordered_map<BlockCoord, uint32_t, IntTupHash>& memo, std::unordered_map<
+            BlockCoord,
+            LightSegment,
+            IntTupHash
+    > &lightMap);
+    void propogateLightOriginIteratively(BlockCoord spot, BlockCoord origin, int value, std::set<BlockChunk*> *imp, std::unordered_map<BlockCoord, uint32_t, IntTupHash>& memo, std::unordered_map<
             BlockCoord,
             LightSegment,
             IntTupHash
