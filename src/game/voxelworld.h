@@ -88,7 +88,7 @@ public:
     void propogateLightOrigin(BlockCoord spot, BlockCoord origin, int value, std::set<BlockChunk*> *imp, std::unordered_map<BlockCoord, uint32_t, IntTupHash>& memo, std::unordered_map<BlockCoord, LightSegment, IntTupHash> &lightMap, bool amb);
     void propogateLightOriginIteratively(BlockCoord spot, BlockCoord origin, int value, std::set<BlockChunk*> *imp, std::unordered_map<BlockCoord, uint32_t, IntTupHash>& memo, std::unordered_map<BlockCoord, LightSegment, IntTupHash> &lightMap);
     void lightPassOnChunk(ChunkCoord chunkcoord, std::unordered_map<BlockCoord, uint32_t, IntTupHash>& memo);
-
+    void depropogateLightOriginIteratively(BlockCoord origin, std::set<BlockChunk*> *imp, std::unordered_map<BlockCoord,LightSegment,IntTupHash>& lightMap);
 
 
     std::vector<BlockChunk> chunks;

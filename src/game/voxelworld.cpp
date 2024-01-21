@@ -738,6 +738,51 @@ void VoxelWorld::depropogateLightOrigin(BlockCoord spot, BlockCoord origin, std:
 
 }
 
+void VoxelWorld::depropogateLightOriginIteratively(BlockCoord origin, std::set<BlockChunk*> *imp, std::unordered_map<BlockCoord,LightSegment,IntTupHash>& lightMap) {
+    std::stack<BlockCoord> stack;
+
+    // Start by pushing the origin
+    stack.push(origin);
+
+    while (!stack.empty()) {
+        BlockCoord spot = stack.top();
+        stack.pop();
+
+        ChunkCoord chunkCoordOfOrigin(
+            std::floor(static_cast<float>(origin.x)/chunkWidth),
+            std::floor(static_cast<float>(origin.z)/chunkWidth)
+        );
+
+        ChunkCoord chunkCoordHere(
+            std::floor(static_cast<float>(spot.x)/chunkWidth),
+            std::floor(static_cast<float>(spot.z)/chunkWidth)
+        );
+
+        if(chunkCoordOfOrigin != chunkCoordHere) {
+            auto chunkIt = takenCareOfChunkSpots.find(chunkCoordHere);
+            if(chunkIt != takenCareOfChunkSpots.end()) {
+                imp->insert(chunkIt->second);
+            }
+        }
+
+        auto segIt = lightMap.find(spot);
+        if(segIt != lightMap.end()) {
+            auto rayIt = std::find_if(segIt->second.rays.begin(), segIt->second.rays.end(), [origin](LightRay& ray){
+                return ray.origin == origin;
+            });
+
+            if(rayIt != segIt->second.rays.end()) {
+                std::vector<int> directions = rayIt->directions;
+                segIt->second.rays.erase(rayIt);
+                for(int direction : directions) {
+                    // Add neighboring spots to the stack for further processing
+                    stack.push(spot + BlockInfo::neighbors[direction]);
+                }
+            }
+        }
+    }
+}
+
 int distance(BlockCoord b1, BlockCoord b2) {
 
     return std::abs(b2.x - b1.x) + std::abs(b2.y - b1.y) + std::abs(b2.z - b1.z);
@@ -969,7 +1014,7 @@ void VoxelWorld::lightPassOnChunk(ChunkCoord chunkCoord, std::unordered_map<Bloc
                                 //std::cout << "We should be removing origin " << ray.origin.x << " " << ray.origin.y << " " << ray.origin.z << "\n";
                                 BlockCoord originWeRemoving = ray.origin;
 
-                                depropogateLightOrigin(originWeRemoving, originWeRemoving, &implicatedChunks, lightMap);
+                                depropogateLightOriginIteratively(originWeRemoving, &implicatedChunks, lightMap);
 
                             }
 
@@ -979,7 +1024,7 @@ void VoxelWorld::lightPassOnChunk(ChunkCoord chunkCoord, std::unordered_map<Bloc
                     }
                     auto ambIt = ambientSources.find(coord);
                     if(ambIt != ambientSources.end()) {
-                        depropogateLightOrigin(coord, coord, &implicatedChunks, lightMapAmbient);
+                        depropogateLightOriginIteratively(coord, &implicatedChunks, lightMapAmbient);
                     }
                     ambientSources.erase(coord);
                     
