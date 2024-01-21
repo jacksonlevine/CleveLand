@@ -2160,10 +2160,10 @@ void Game::initializeShaders() {
                 }
 
                 if(elementid == -997.0) {
-                    gl_Position.x -= time/8.0f;
+                    gl_Position.x -= time/16.0f;
                 }
                 if(elementid == -998.0) {
-                    gl_Position.x += time/8.0f;
+                    gl_Position.x += time/16.0f;
                 }
 
                 TexCoord = texcoord;
