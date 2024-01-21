@@ -991,14 +991,15 @@ void VoxelWorld::lightPassOnChunk(ChunkCoord chunkCoord, std::unordered_map<Bloc
 
     std::set<BlockChunk*> implicatedChunks;
     std::unordered_set<BlockCoord, IntTupHash> newAmbSources;
-
+    std::unordered_set<BlockCoord, IntTupHash> lightSources;
 
 
 
         //remove and depropogate light sources
         for(int x = 0; x < chunkWidth; ++x) {
             for(int z = 0; z < chunkWidth; ++z) {
-                for(int y = 0; y < chunkHeight; ++y) {
+                bool hitBlockYet = false;
+                for(int y = chunkHeight-1; y > 0 ; --y) {
                     BlockCoord coord(chunkCoord.x * chunkWidth + x, y, chunkCoord.z * chunkWidth + z);
                     auto lightIt = lightMap.find(coord);
                     if(lightIt != lightMap.end()) {
@@ -1015,42 +1016,36 @@ void VoxelWorld::lightPassOnChunk(ChunkCoord chunkCoord, std::unordered_map<Bloc
                                 BlockCoord originWeRemoving = ray.origin;
 
                                 depropogateLightOriginIteratively(originWeRemoving, &implicatedChunks, lightMap);
+                                lightSources.insert(originWeRemoving);
 
                             }
 
 
                         }
                         
+                    } else {
+                        if(blockAtMemo(coord, memo) == 12) {
+                            lightSources.insert(coord);
+                        }
                     }
+
                     auto ambIt = ambientSources.find(coord);
                     if(ambIt != ambientSources.end()) {
                         depropogateLightOriginIteratively(coord, &implicatedChunks, lightMapAmbient);
                     }
                     ambientSources.erase(coord);
                     
-                    if(blockAtMemo(coord, memo) != 0 && coord.x % 3 == 0 && coord.z % 3 == 0) 
-                    {
-                            
-                            BlockCoord lightCubeHere = coord;
+                    if(!hitBlockYet) {
+                        if(blockAtMemo(coord, memo) != 0) 
+                        {
 
-                            bool skyBlocked = false;
-                            int yTest = lightCubeHere.y;
-                                while(yTest < chunkHeight) {
-                                    yTest++;
-                                    BlockCoord test(lightCubeHere.x, yTest, lightCubeHere.z);
-                                    uint32_t blockHere = blockAtMemo(test, memo);
-                                    uint32_t blockIDHere = blockHere & BlockInfo::BLOCK_ID_BITS;
-                                    if(blockIDHere != 0 && std::find(BlockInfo::transparents.begin(), BlockInfo::transparents.end(), blockIDHere) == BlockInfo::transparents.end()) {
-                                        skyBlocked = true;
-                                        break;
-                                    }
-                                }
-                                if(!skyBlocked) {
-                                    newAmbSources.insert(lightCubeHere);
-                                }
-
-                            
-                        
+                            if(coord.x % 5 == 0 && coord.z % 5 == 0) {
+                                newAmbSources.insert(coord + BlockCoord(0,1,0));
+                            }
+                                        hitBlockYet = true;
+                                        
+        
+                        }
                     }
                     
                 }
@@ -1061,32 +1056,13 @@ void VoxelWorld::lightPassOnChunk(ChunkCoord chunkCoord, std::unordered_map<Bloc
         //add re-figged amb sources
         for(BlockCoord newCoord : newAmbSources) {
                 ambientSources.insert_or_assign(newCoord, true);
-
+                propogateLightOriginIteratively(newCoord, newCoord, 16, &implicatedChunks, memo, lightMapAmbient);
         }
 
-
-
-        //repropogate light sources
-        for(int x = 0; x < chunkWidth; ++x) {
-            for(int z = 0; z < chunkWidth; ++z) {
-                for(int y = 0; y < chunkHeight; ++y) {
-                    BlockCoord coord(chunkCoord.x * chunkWidth + x, y, chunkCoord.z * chunkWidth + z);
-                    uint32_t blockBitsHere = blockAtMemo(coord, memo);
-                    uint32_t blockIDHere = blockBitsHere & BlockInfo::BLOCK_ID_BITS;
-                    if(blockIDHere == 12) {
-                        propogateLightOriginIteratively(coord, coord, 12, &implicatedChunks, memo, lightMap);
-                    }
-                    auto ambIt = ambientSources.find(coord);
-                    if(ambIt != ambientSources.end()) {
-                            propogateLightOriginIteratively(coord, coord, 16, &implicatedChunks, memo, lightMapAmbient);
-                    }
-                }
-            }
+        //add re-figged light sources
+        for(BlockCoord newCoord : lightSources) {
+                propogateLightOriginIteratively(newCoord, newCoord, 12, &implicatedChunks, memo, lightMap);
         }
-
-
-
-
 
 
     for(BlockChunk *pointer : implicatedChunks) {
