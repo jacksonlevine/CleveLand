@@ -127,6 +127,7 @@ void Game::stepMovementAndPhysics() {
 
             if(initialTimer > 0.0f) {
                 initialTimer -= deltaTime;
+                camera->goToPosition(camera->position);
             } else {
 
             static float currentJumpY = 0.0f;
@@ -414,7 +415,7 @@ void Game::draw() {
             glDrawArrays(GL_TRIANGLES, 0, logoDisplayData.size()/5);
 
 
-            const char* message = "Version 0.0.3a";
+            const char* message = "Version 0.0.3b";
 
             std::vector<float> displayData;
 
@@ -1288,7 +1289,7 @@ void Game::drawSelectedBlock() {
 
 void Game::goToSingleplayerWorld(const char *worldname) {
 
-    initialTimer = 2.0f;
+    initialTimer = 1.0f;
     voxelWorld.initialLoadProgress = 0;
     loadRendering = true;
 
