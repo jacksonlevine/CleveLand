@@ -64,7 +64,7 @@ public:
     }
 
     inline static std::vector<float> baseDoorModel = {
-        { //player is minus z
+         //player is minus z
                 -0.5f, -0.5f, -0.5f,0.0f, 16.0f,//front
                 +0.5f, -0.5f, -0.5f,0.0f, 16.0f,
                 +0.5f, +0.5f, -0.5f,0.0f, 16.0f,
@@ -104,7 +104,7 @@ public:
                 -0.5f, +0.5f, -0.25f,0.0f, 16.0f,
                 +0.5f, +0.5f, -0.25f,0.0f, 16.0f,
                 +0.5f, -0.5f, -0.25f,0.0f, 16.0f,//back
-            }
+            
     };
 
     inline static std::vector<std::vector<float>> doorModels = {

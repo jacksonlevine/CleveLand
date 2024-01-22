@@ -22,6 +22,8 @@
 #include "../util/lightinfo.h"
 #include <GLFW/glfw3.h>
 #include <stack>
+#include "specialblocks/chest.h"
+#include "specialblocks/ladder.h"
 
 class VoxelWorld {
 public:

@@ -372,6 +372,82 @@ void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool im
                             tuvs.insert(tuvs.end(),doorBottomUVs.begin(), doorBottomUVs.end());
                         }
                     } else
+                    if(block == 14) {
+
+                        static std::vector<float> ladderUVs = LadderInfo::getLadderUVs();
+                        int direction = BlockInfo::getDirectionBits(flags);
+
+                        int modelIndex = direction;
+
+                        float blockLightVal = 0.0f;
+                        auto segIt = lightMap.find(coord);
+                        if(segIt != lightMap.end()) {
+                            for(LightRay& ray : segIt->second.rays) {
+                                blockLightVal = std::min(blockLightVal + ray.value, 16.0f);
+                            }
+                        }
+                        
+                        int index = 0;
+                        for(float vert : LadderInfo::ladderModels[modelIndex]) {
+                            float thisvert = 0.0f;
+                            if(index == 0){
+                                thisvert = vert + coord.x;
+                            } else
+                            if(index == 1){
+                                thisvert = vert + coord.y;
+                            } else
+                            if(index == 2){
+                                thisvert = vert + coord.z;
+                            } else 
+                            if(index == 3) {
+                                thisvert = vert + blockLightVal;
+                            } else {
+                                thisvert = vert;
+                            }
+                            tverts.push_back(thisvert);
+                            index = (index + 1) % 5;
+                        }
+
+                        tuvs.insert(tuvs.end(), ladderUVs.begin(), ladderUVs.end());
+                    } else
+                    if(block == 13) {
+
+                        static std::vector<float> chestUVs = ChestInfo::getChestUVs();
+                        int direction = BlockInfo::getDirectionBits(flags);
+
+                        int modelIndex = direction;
+
+                        float blockLightVal = 0.0f;
+                        auto segIt = lightMap.find(coord);
+                        if(segIt != lightMap.end()) {
+                            for(LightRay& ray : segIt->second.rays) {
+                                blockLightVal = std::min(blockLightVal + ray.value, 16.0f);
+                            }
+                        }
+                        
+                        int index = 0;
+                        for(float vert : ChestInfo::chestModels[modelIndex]) {
+                            float thisvert = 0.0f;
+                            if(index == 0){
+                                thisvert = vert + coord.x;
+                            } else
+                            if(index == 1){
+                                thisvert = vert + coord.y;
+                            } else
+                            if(index == 2){
+                                thisvert = vert + coord.z;
+                            } else 
+                            if(index == 3) {
+                                thisvert = vert + blockLightVal;
+                            } else {
+                                thisvert = vert;
+                            }
+                            verts.push_back(thisvert);
+                            index = (index + 1) % 5;
+                        }
+
+                        uvs.insert(uvs.end(), chestUVs.begin(), chestUVs.end());
+                    } else
                     if(std::find(BlockInfo::transparents.begin(), BlockInfo::transparents.end(), block) != BlockInfo::transparents.end() ||
                     semiTrans) {
 

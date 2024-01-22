@@ -16,6 +16,9 @@ collCage([this](BlockCoord b){
             return true;
         }
     }
+    if(blockIDHere == 14) {
+        return false;
+    }
     return (blockIDHere != 0 && blockIDHere != 2);
 }),
 user(glm::vec3(0,0,0), glm::vec3(0,0,0)),
@@ -168,7 +171,7 @@ void Game::stepMovementAndPhysics() {
                 glm::vec3 collCageCenter = camera->position + glm::vec3(0, -1.0, 0);
                 collCage.update_readings(collCageCenter);
 
-            if(inWater) {
+            if(inWater || inClimbable) {
 
                 timeFallingScalar = 1.0f;
                 if(!grounded) {
@@ -620,7 +623,7 @@ void Game::stepChunkDraw() {
     //     std::cout << std::endl;
     // }
 
-    static float numMustLoad = (viewDistance*2)*(viewDistance*2);
+    static float numMustLoad = (viewDistance*2)*(viewDistance);
 
     GLuint mvp_loc = glGetUniformLocation(worldShader->shaderID, "mvp");
     glUniformMatrix4fv(mvp_loc, 1, GL_FALSE, glm::value_ptr(camera->mvp));
@@ -659,8 +662,10 @@ void Game::stepChunkDraw() {
 
     static bool previousInWater  = false;
 
+    uint32_t blockUsersIn = voxelWorld.blockAt(feetCoord) & BlockInfo::BLOCK_ID_BITS;
+    uint32_t blockUsersInLowered = voxelWorld.blockAt(feetCoord2) & BlockInfo::BLOCK_ID_BITS;
 
-    if(voxelWorld.blockAt(feetCoord) == 2) {
+    if(blockUsersIn == 2) {
         inWater = true;
         if(previousInWater != inWater) {
             previousInWater = inWater;
@@ -668,7 +673,15 @@ void Game::stepChunkDraw() {
         }
     } 
 
-    if(voxelWorld.blockAt(feetCoord2) != 2)
+    if(blockUsersIn == 14) {
+        inClimbable = true;
+    }
+
+    if(blockUsersInLowered != 14) {
+        inClimbable = false;
+    }
+
+    if(blockUsersInLowered != 2)
     {
         inWater = false;
         previousInWater = false;
@@ -855,8 +868,8 @@ void Game::stepChunkDraw() {
     }
 
     if(loadRendering) {
-        float progress = (numMustLoad + initialChunksRendered) / (numMustLoad  * 2.0f);
-        displayLoadScreen("Rendering world", progress, true);
+        float progress = (initialChunksRendered) / (numMustLoad);
+        displayLoadScreen("Loading world", progress, true);
     } else {
         auto meshesView = registry.view<MeshComponent>();
         for(const entt::entity e : meshesView) {
@@ -1401,11 +1414,9 @@ void Game::goToSingleplayerWorld(const char *worldname) {
 
 
 
-    while(static_cast<float>(voxelWorld.initialLoadProgress) / ((viewDistance*2) * (viewDistance*2)) < 1.0f) {
-        //std::cout << static_cast<float>(voxelWorld.initialLoadProgress) / ((viewDistance*2) * (viewDistance*2)) << "\n";
-        displayLoadScreen("Loading world", static_cast<float>(voxelWorld.initialLoadProgress) / (((viewDistance*2) * (viewDistance*2))*2.0f), false);
 
-    }
+
+
 
     camera->setFocused(true);
 
@@ -1767,6 +1778,92 @@ void Game::castPlaceRay() {
             if(voxelWorld.userDataMap.find(chunkToReb) == voxelWorld.userDataMap.end()) {
                 voxelWorld.userDataMap.insert_or_assign(chunkToReb, std::unordered_map<BlockCoord, unsigned int, IntTupHash>());
             }
+            if(selectedBlockID == 14) {
+                static std::vector<BlockCoord> neighborAxes = {
+                    BlockCoord(1,0,0),
+                    BlockCoord(0,0,1),
+                    BlockCoord(1,0,0),
+                    BlockCoord(0,0,1),
+                };
+
+                
+                    uint32_t ladderID = 14;
+
+                    float diffX = camera->position.x - placePoint.x;
+                    float diffZ = camera->position.z - placePoint.z;
+
+                    int direction = 0;
+
+                    if (std::abs(diffX) > std::abs(diffZ)) {
+                        // The player is primarily aligned with the X-axis
+                        direction = diffX > 0 ? /*Plus X*/1 : /*Minus X*/3;
+                    } else {
+                        // The player is primarily aligned with the Z-axis
+                        direction = diffZ > 0 ? /*Plus Z*/2 : /*Minus Z*/0;
+                    }
+
+                    BlockInfo::setDirectionBits(ladderID, direction);
+
+
+
+                    voxelWorld.userDataMap.at(chunkToReb).insert_or_assign(placePoint, ladderID);
+
+                    auto chunkIt = voxelWorld.takenCareOfChunkSpots.find(chunkToReb);
+                    if(chunkIt != voxelWorld.takenCareOfChunkSpots.end()) {
+                        
+                        BlockChunk *chunk = chunkIt->second;
+
+
+                        while(!voxelWorld.deferredChunkQueue.push(chunk)) {
+
+                        }
+
+                    }
+                
+            } else
+            if(selectedBlockID == 13) {
+                static std::vector<BlockCoord> neighborAxes = {
+                    BlockCoord(1,0,0),
+                    BlockCoord(0,0,1),
+                    BlockCoord(1,0,0),
+                    BlockCoord(0,0,1),
+                };
+
+                
+                    uint32_t chestID = 13;
+
+                    float diffX = camera->position.x - placePoint.x;
+                    float diffZ = camera->position.z - placePoint.z;
+
+                    int direction = 0;
+
+                    if (std::abs(diffX) > std::abs(diffZ)) {
+                        // The player is primarily aligned with the X-axis
+                        direction = diffX > 0 ? /*Plus X*/1 : /*Minus X*/3;
+                    } else {
+                        // The player is primarily aligned with the Z-axis
+                        direction = diffZ > 0 ? /*Plus Z*/2 : /*Minus Z*/0;
+                    }
+
+                    BlockInfo::setDirectionBits(chestID, direction);
+
+
+
+                    voxelWorld.userDataMap.at(chunkToReb).insert_or_assign(placePoint, chestID);
+
+                    auto chunkIt = voxelWorld.takenCareOfChunkSpots.find(chunkToReb);
+                    if(chunkIt != voxelWorld.takenCareOfChunkSpots.end()) {
+                        
+                        BlockChunk *chunk = chunkIt->second;
+
+
+                        while(!voxelWorld.deferredChunkQueue.push(chunk)) {
+
+                        }
+
+                    }
+                
+            } else
             if(selectedBlockID == 11){ //placing  door
 
                 static std::vector<BlockCoord> neighborAxes = {
@@ -3018,8 +3115,10 @@ void Game::drawBlockOverlay() {
 
     static glm::vec3 lastSpot(0,0,0);
     if(currentSelectCube != lastSpot) {
+        uint32_t blockIDHere = voxelWorld.blockAt(BlockCoord(currentSelectCube.x, currentSelectCube.y, currentSelectCube.z)) & BlockInfo::BLOCK_ID_BITS;
         blockBreakingTimer = 0.0f;
         lastSpot = currentSelectCube;
+        necessaryBlockBreakingTime = BlockInfo::breakTimes[blockIDHere];
     }
 
     blockOverlayCoord = currentSelectCube;

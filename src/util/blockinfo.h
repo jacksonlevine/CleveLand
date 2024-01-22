@@ -8,48 +8,67 @@
 
 class BlockInfo {
 public:
+
+    inline static std::vector<float> breakTimes = {
+        0.0f,
+        0.3f,//sand
+        1.0f,//water
+        0.6f,//grass
+        0.6f,//dirt
+        1.2f,//rock
+        1.0f,//wood
+        0.25f,//leaves
+        0.5f,//glass
+        1.0f,//smooth stone
+        0.5f,//planks
+        0.5f,//door bottom
+        0.5f,//light
+        1.0f,//chest
+        0.5f //ladder
+
+    };
     inline static std::vector<std::vector<TextureFace>> texs = {
         {TextureFace(0,0),//top
         TextureFace(0,0),//sides
         TextureFace(0,0),//bottom
         }, 
-        {TextureFace(1,0),
+        {TextureFace(1,0),//sand
         TextureFace(1,0),
         TextureFace(1,0),
         }, 
-        {TextureFace(2,0),
+        {TextureFace(2,0),//water
         TextureFace(2,0),
         TextureFace(2,0),
         }, 
-        {TextureFace(3,1),
+        {TextureFace(3,1),//grass
         TextureFace(3,0),
         TextureFace(4,0),
         }, 
-        {TextureFace(4,0),
+        {TextureFace(4,0),//dirt
         TextureFace(4,0),
         TextureFace(4,0),
         },
-        {TextureFace(5,0),
+        {TextureFace(5,0),//rock
         TextureFace(5,0),
         TextureFace(5,0),
         },
-        {TextureFace(6,1),
+        {TextureFace(6,1),//wood
         TextureFace(6,0),
         TextureFace(6,1),
         },
-        {TextureFace(7,0),
+        {TextureFace(7,0),//leaves
         TextureFace(7,0),
         TextureFace(7,0),
         },
-        {TextureFace(8,0),
+        {TextureFace(8,0),//glass
         TextureFace(8,0),
         TextureFace(8,0),
         },
-        {TextureFace(9,0),
+        {TextureFace(9,0),//smooth stone
         TextureFace(9,0),
         TextureFace(9,0),
         },
-        {TextureFace(10,0),
+        {TextureFace(10,0),//planks
         TextureFace(10,0),
         TextureFace(10,0),
         },
@@ -57,9 +76,17 @@ public:
         TextureFace(11,0),
         TextureFace(11,0),
         },
-        {TextureFace(12,1),//door bottom
+        {TextureFace(12,1),//light
         TextureFace(12,1),
         TextureFace(12,1),
+        },
+        {TextureFace(13,0),//chest
+        TextureFace(13,0),
+        TextureFace(13,0),
+        },
+        {TextureFace(0,1),//ladder
+        TextureFace(0,1),
+        TextureFace(0,1),
         }
     };
 
@@ -68,7 +95,7 @@ public:
     };
 
     inline static std::vector<int> semiTransparents = {
-        7, 11
+        7, 11, 14
     };
 
     inline static std::vector<int> lights = {

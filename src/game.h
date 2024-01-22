@@ -18,6 +18,8 @@
 #include "util/blockinfo.h"
 #include "game/specialblocks/door.h"
 #include "util/settings.h"
+#include "game/specialblocks/chest.h"
+#include "game/specialblocks/ladder.h"
 
 
 class Camera3D;
@@ -214,6 +216,8 @@ public:
 
     inline static float sunsetFactor = 0.0f;
     inline static float sunriseFactor = 0.0f;
+
+    inline static bool inClimbable = false;
 
     Game();
 private:
