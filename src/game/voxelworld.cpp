@@ -216,7 +216,7 @@ void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool im
         generateChunk(newPosition, memo);
     }
     if(light) {
-        lightPassOnChunk(newPosition, memo);
+        lightPassOnChunk(newPosition, memo, chunk);
     }
 
 
@@ -317,19 +317,35 @@ void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool im
                 uint32_t flags = combined & BlockInfo::BLOCK_FLAG_BITS;
                 if(block != 0) {
 
-
-                    float ambientLightVal = 3.0f;
-                    auto ambSegIt = lightMapAmbient.find(coord);
-                    if(ambSegIt != lightMapAmbient.end()) {
-                        for(LightRay& ray : ambSegIt->second.rays) {
-                            ambientLightVal = std::min(ambientLightVal + ray.value, 16.0f);
+                    bool highest = false;
+                    auto highestIt = highestPoints.find(BlockCoord(coord.x, 0, coord.z));
+                    if(highestIt != highestPoints.end()) {
+                        if(highestIt->second <= coord.y) {
+                            highest = true;
                         }
                     }
+
 
 
                     bool semiTrans = std::find(BlockInfo::semiTransparents.begin(), BlockInfo::semiTransparents.end(), block) != BlockInfo::semiTransparents.end();
                     
                     if(block == 11) {
+
+                                            float ambientLightVal = 3.0f;
+
+                    if(highest) {
+                        ambientLightVal = 16.0f;
+                    } else {
+                        auto ambSegIt = lightMapAmbient.find(coord);
+                        if(ambSegIt != lightMapAmbient.end()) {
+                        for(LightRay& ray : ambSegIt->second.rays) {
+                            ambientLightVal = std::min(ambientLightVal + ray.value, 16.0f);
+                        }
+                    }
+                    }
+                    
+
+
                         int direction = BlockInfo::getDirectionBits(flags);
                         int open = DoorInfo::getDoorOpenBit(flags);
                         int opposite = DoorInfo::getOppositeDoorBits(flags);
@@ -393,7 +409,20 @@ void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool im
 
                                 BlockCoord lightCubeHere = coord + neigh;
                                 //std::cout << lightCubeHere.x << " " << lightCubeHere.y << " " << lightCubeHere.z << "\n";
+                                
 
+                                                    float ambientLightVal = 3.0f;
+                                    if(highest) {
+                                        ambientLightVal = 16.0f;
+                                    } else {
+                                        auto ambSegIt = lightMapAmbient.find(lightCubeHere);
+                                        if(ambSegIt != lightMapAmbient.end()) {
+                                            for(LightRay& ray : ambSegIt->second.rays) {
+                                                ambientLightVal = std::min(ambientLightVal + ray.value, 16.0f);
+                                            }
+                                        }
+                                    }
+                                    
                                 
 
                                 // bool skyBlocked = false;
@@ -531,6 +560,21 @@ void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool im
                             std::find(BlockInfo::transparents.begin(), BlockInfo::transparents.end(), block) == BlockInfo::transparents.end());
                             if(neighblock == 0 || solidNeighboringTransparent) {
                                 BlockCoord lightCubeHere = coord + neigh;
+
+                                                    float ambientLightVal = 3.0f;
+                                    if(highest) {
+                                        ambientLightVal = 16.0f;
+                                    } else {
+                                        auto ambSegIt = lightMapAmbient.find(lightCubeHere);
+                                        if(ambSegIt != lightMapAmbient.end()) {
+                                            for(LightRay& ray : ambSegIt->second.rays) {
+                                                ambientLightVal = std::min(ambientLightVal + ray.value, 16.0f);
+                                            }
+                                        }
+                                    }
+                                
+
+
                                 //std::cout << lightCubeHere.x << " " << lightCubeHere.y << " " << lightCubeHere.z << "\n";
 
                                 // bool skyBlocked = false;
@@ -788,7 +832,26 @@ int distance(BlockCoord b1, BlockCoord b2) {
 
 
 void VoxelWorld::propogateLightOrigin(BlockCoord spot, BlockCoord origin, int value, std::set<BlockChunk*> *imp, std::unordered_map<BlockCoord, uint32_t, IntTupHash>& memo, std::unordered_map<BlockCoord,LightSegment,IntTupHash>  &lightMap, bool amb) {
-    if(value > 0) {
+    
+
+    bool ambientContinuingCondition = false;
+
+    auto highestIt = highestPoints.find(spot);
+    if(highestIt != highestPoints.end()) {
+        if(highestIt->second > spot.y) {
+            ambientContinuingCondition = true;
+        }
+    }
+
+    if(spot == origin) {
+        ambientContinuingCondition = true;
+    }
+
+    if(!amb) {
+        ambientContinuingCondition = true;
+    }
+    
+    if(value > 0 && ambientContinuingCondition) {
 
         ChunkCoord chunkCoordOfOrigin(
             std::floor(static_cast<float>(origin.x)/chunkWidth),
@@ -890,11 +953,33 @@ void VoxelWorld::propogateLightOriginIteratively(BlockCoord spot, BlockCoord ori
     stack.push(spotForQueue{value, spot});
     visited[spot] = true;
 
-    int decayValue = amb ? 4 : 1;
+    int decayValue = amb? 3 : 1;
 
     while (!stack.empty()) {
         spotForQueue n = stack.top();
         stack.pop();
+
+
+
+        bool ambientContinuingCondition = false;
+
+        auto highestIt = highestPoints.find(BlockCoord(n.spot.x, 0, n.spot.z));
+        if(highestIt != highestPoints.end()) {
+            if(highestIt->second > n.spot.y) {
+                ambientContinuingCondition = true;
+            }
+        }
+
+        if(n.spot == origin) {
+            ambientContinuingCondition = true;
+        }
+
+        if(!amb) {
+            ambientContinuingCondition = true;
+        }
+
+
+
 
         uint32_t blockBitsHere = blockAtMemo(n.spot, memo);
         uint32_t blockIDHere = blockBitsHere & BlockInfo::BLOCK_ID_BITS;
@@ -903,7 +988,7 @@ void VoxelWorld::propogateLightOriginIteratively(BlockCoord spot, BlockCoord ori
         std::find(BlockInfo::semiTransparents.begin(), BlockInfo::semiTransparents.end(), blockIDHere) != BlockInfo::semiTransparents.end() ||
         n.spot == origin);
 
-        if (goingHere) {
+        if (goingHere && ambientContinuingCondition) {
 
             ChunkCoord chunkCoordOfOrigin(
                 std::floor(static_cast<float>(origin.x)/chunkWidth),
@@ -945,7 +1030,27 @@ void VoxelWorld::propogateLightOriginIteratively(BlockCoord spot, BlockCoord ori
 
             if (n.value > decayValue) {
                 for (int i = 0; i < BlockInfo::neighbors.size(); ++i) {
+
+
+
+                    
+
+
+
                     BlockCoord next = n.spot + BlockInfo::neighbors[i];
+
+                    bool ambientContinue = false;
+
+                    auto highestIt = highestPoints.find(BlockCoord(next.x, 0, next.z));
+                    if(highestIt != highestPoints.end()) {
+                        if(highestIt->second > next.y) {
+                            ambientContinue = true;
+                        }
+                    }
+
+                    if(!amb) {
+                        ambientContinue = true;
+                    }
 
                     // Find or create a ray for the neighbor
                     auto nextSegIt = lightMap.find(next);
@@ -957,8 +1062,10 @@ void VoxelWorld::propogateLightOriginIteratively(BlockCoord spot, BlockCoord ori
                     });
                     int nextValue = (nextRayIt != nextSegIt->second.rays.end()) ? nextRayIt->value : 0;
 
+                    bool condition1 = visited.find(next) == visited.end() || nextValue < n.value - decayValue;
+
                     // Check if the neighbor's value is less than our value - 1
-                    if (visited.find(next) == visited.end() || nextValue < n.value - decayValue) {
+                    if (condition1 && ambientContinue) {
                         stack.push(spotForQueue{n.value - decayValue, next});
                         visited[next] = true;
 
@@ -973,13 +1080,15 @@ void VoxelWorld::propogateLightOriginIteratively(BlockCoord spot, BlockCoord ori
                             rayIt->directions.push_back(i);
                         }
                     }
+
+
                 }
             }
         }
     }
 }
 
-void VoxelWorld::lightPassOnChunk(ChunkCoord chunkCoord, std::unordered_map<BlockCoord, uint32_t, IntTupHash>& memo) {
+void VoxelWorld::lightPassOnChunk(ChunkCoord chunkCoord, std::unordered_map<BlockCoord, uint32_t, IntTupHash>& memo, BlockChunk *chunk) {
 
     if(hasHadInitialLightPass.find(chunkCoord) == hasHadInitialLightPass.end()) {
         hasHadInitialLightPass.insert_or_assign(chunkCoord, true);
@@ -1038,11 +1147,15 @@ void VoxelWorld::lightPassOnChunk(ChunkCoord chunkCoord, std::unordered_map<Bloc
                     ambientSources.erase(coord);
                     
                     if(!hitBlockYet) {
+
+                            newAmbSources.insert(coord + BlockCoord(0,0,0));
+
+                             
                         if(blockAtMemo(coord, memo) != 0) 
                         {
+                            highestPoints.insert_or_assign(BlockCoord(coord.x, 0, coord.z), coord.y);
 
-                            
-                                newAmbSources.insert(coord + BlockCoord(0,1,0));
+                               
                             
                                         hitBlockYet = true;
                                         
@@ -1057,8 +1170,36 @@ void VoxelWorld::lightPassOnChunk(ChunkCoord chunkCoord, std::unordered_map<Bloc
 
         //add re-figged amb sources
         for(BlockCoord newCoord : newAmbSources) {
-                ambientSources.insert_or_assign(newCoord, true);
-                propogateLightOriginIteratively(newCoord, newCoord, 16, &implicatedChunks, memo, lightMapAmbient, true);
+
+                bool needAmbHere = false;
+
+                for(BlockCoord& neigh : BlockInfo::neighbors) {
+                    BlockCoord neighHere = neigh+newCoord;
+                    auto highIt = highestPoints.find(BlockCoord(neighHere.x, 0, neighHere.z));
+                    if(highIt != highestPoints.end()) {
+                        if(highIt->second > (neighHere).y) {
+                            needAmbHere = true;
+                        }
+                    } else {
+                        int highest = 0;
+                        for(int y = chunkHeight-1; y > 0; y--) {
+                            if(blockAtMemo(BlockCoord(neighHere.x, y, neighHere.z), memo) != 0) {
+                                highest = y;
+                                break;
+                            }
+                        }
+
+                        if(highest > (neighHere).y) {
+                            needAmbHere = true;
+                        }
+                        
+                    }
+                }
+                if(needAmbHere) {
+                    ambientSources.insert_or_assign(newCoord, true);
+                    propogateLightOriginIteratively(newCoord, newCoord, 16, &implicatedChunks, memo, lightMapAmbient, true);
+                }
+                
         }
 
         //add re-figged light sources
@@ -1228,7 +1369,7 @@ void VoxelWorld::generateChunk(ChunkCoord chunkcoord, std::unordered_map<BlockCo
     }
 
     for(BlockChunk *pointer : implicatedChunks) {
-        while(!deferredChunkQueue.push(pointer)) {
+        while(!lightUpdateQueue.push(pointer)) {
 
         }
     }
