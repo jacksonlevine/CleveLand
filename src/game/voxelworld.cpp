@@ -1129,67 +1129,177 @@ void VoxelWorld::generateChunk(ChunkCoord chunkcoord, std::unordered_map<BlockCo
     srand(seed + chunkcoord.x + chunkcoord.y);
 
     static BlockCoord leafSpots[] = {
-        BlockCoord(-1,0,0),
-        BlockCoord(1,0,0),
-        BlockCoord(0,0,1),
-        BlockCoord(0,0,-1),
+    BlockCoord(-1,0,0),
+    BlockCoord(1,0,0),
+    BlockCoord(0,0,1),
+    BlockCoord(0,0,-1),
 
-        BlockCoord(-1,0,1),
-        BlockCoord(1,0,1),
-        BlockCoord(1,0,-1),
-        BlockCoord(-1,0,-1),
+    BlockCoord(-1,0,1),
+    BlockCoord(1,0,1),
+    BlockCoord(1,0,-1),
+    BlockCoord(-1,0,-1),
+
+    BlockCoord(-1,-1,0),
+    BlockCoord(1,-1,0),
+    BlockCoord(0,-1,1),
+    BlockCoord(0,-1,-1),
+
+    BlockCoord(-1,-1,1),
+    BlockCoord(1,-1,1),
+    BlockCoord(1,-1,-1),
+    BlockCoord(-1,-1,-1),
+
+    BlockCoord(-1,-2,0),
+    BlockCoord(1,-2,0),
+    BlockCoord(0,-2,1),
+    BlockCoord(0,-2,-1),
+
+    BlockCoord(-1,-2,1),
+    BlockCoord(1,-2,1),
+    BlockCoord(1,-2,-1),
+    BlockCoord(-1,-2,-1),
+
+    BlockCoord(-1,-2,-2),
+    BlockCoord(-1,-2,2),
+
+    BlockCoord(0,-2,-2),
+    BlockCoord(0,-2,2),
+
+    BlockCoord(1,-2,-2),
+    BlockCoord(1,-2,2),
+
+    BlockCoord(0,1,0),
+    BlockCoord(-1,1,0),
+    BlockCoord(1,1,0),
+    BlockCoord(0,1,1),
+    BlockCoord(0,1,-1),
+
+    // Additional spots for a taller shape
+    BlockCoord(-1,-3,0),
+    BlockCoord(1,-3,0),
+    BlockCoord(0,-3,1),
+    BlockCoord(0,-3,-1),
+
+    BlockCoord(-1,-3,1),
+    BlockCoord(1,-3,1),
+    BlockCoord(1,-3,-1),
+    BlockCoord(-1,-3,-1),
+
+    BlockCoord(-1,-4,0),
+    BlockCoord(1,-4,0),
+    BlockCoord(0,-4,1),
+    BlockCoord(0,-4,-1),
+
+    BlockCoord(-1,-4,1),
+    BlockCoord(1,-4,1),
+    BlockCoord(1,-4,-1),
+    BlockCoord(-1,-4,-1),
+
+    BlockCoord(-1,-5,0),
+    BlockCoord(1,-5,0),
+    BlockCoord(0,-5,1),
+    BlockCoord(0,-5,-1),
+
+    BlockCoord(-1,-6,0),
+    BlockCoord(1,-6,0),
+    BlockCoord(0,-6,1),
+    BlockCoord(0,-6,-1),
+
+    BlockCoord(-1,-7,0),
+    BlockCoord(1,-7,0),
+    BlockCoord(0,-7,1),
+    BlockCoord(0,-7,-1),
+
+    BlockCoord(0,-8,0),
+    BlockCoord(-1,-8,0),
+    BlockCoord(1,-8,0),
+    BlockCoord(0,-8,1),
+    BlockCoord(0,-8,-1),
+
+    BlockCoord(0,2,0),
+    BlockCoord(-1,2,0),
+    BlockCoord(1,2,0),
+    BlockCoord(0,2,1),
+    BlockCoord(0,2,-1),
+
+    BlockCoord(0,3,0),
+    BlockCoord(-1,3,0),
+    BlockCoord(1,3,0),
+    BlockCoord(0,3,1),
+    BlockCoord(0,3,-1),
+
+    // Top layer
+    BlockCoord(0, 4, 0),
+    BlockCoord(-1, 4, 0),
+    BlockCoord(1, 4, 0),
+    BlockCoord(0, 4, 1),
+    BlockCoord(0, 4, -1),
+
+    // Second layer
+    BlockCoord(-2, 3, 0),
+    BlockCoord(2, 3, 0),
+    BlockCoord(0, 3, 2),
+    BlockCoord(0, 3, -2),
+
+    // Third layer
+    BlockCoord(-2, 2, 0),
+    BlockCoord(2, 2, 0),
+    BlockCoord(0, 2, 2),
+    BlockCoord(0, 2, -2),
+    BlockCoord(-2, 2, 1),
+    BlockCoord(2, 2, 1),
+    BlockCoord(-2, 2, -1),
+    BlockCoord(2, 2, -1),
+    BlockCoord(-1, 2, 2),
+    BlockCoord(1, 2, 2),
+    BlockCoord(-1, 2, -2),
+    BlockCoord(1, 2, -2),
+
+    // Middle layer
+    BlockCoord(-3, 1, 0),
+    BlockCoord(3, 1, 0),
+    BlockCoord(0, 1, 3),
+    BlockCoord(0, 1, -3),
+    BlockCoord(-2, 1, 2),
+    BlockCoord(2, 1, 2),
+    BlockCoord(-2, 1, -2),
+    BlockCoord(2, 1, -2),
+    BlockCoord(-1, 1, 3),
+    BlockCoord(1, 1, 3),
+    BlockCoord(-1, 1, -3),
+    BlockCoord(1, 1, -3),
+
+    // Lower layers
+    BlockCoord(-3, 0, 0),
+    BlockCoord(3, 0, 0),
+    BlockCoord(0, 0, 3),
+    BlockCoord(0, 0, -3),
+
+    BlockCoord(-3, -1, 0),
+    BlockCoord(3, -1, 0),
+    BlockCoord(0, -1, 3),
+    BlockCoord(0, -1, -3),
+    
+    BlockCoord(-2, -1, 0),
+BlockCoord(2, -1, 0),
+BlockCoord(0, -1, 2),
+BlockCoord(0, -1, -2),
+
+BlockCoord(-2, 0, 0),
+BlockCoord(2, 0, 0),
+BlockCoord(0, 0, 2),
+BlockCoord(0, 0, -2),
+
+BlockCoord(-2, 1, 0),
+BlockCoord(2, 1, 0),
+BlockCoord(0, 1, 2),
+BlockCoord(0, 1, -2),
+};
 
 
 
 
-        BlockCoord(-1,-1,0),
-        BlockCoord(1,-1,0),
-        BlockCoord(0,-1,1),
-        BlockCoord(0,-1,-1),
 
-        BlockCoord(-1,-1,1),
-        BlockCoord(1,-1,1),
-        BlockCoord(1,-1,-1),
-        BlockCoord(-1,-1,-1),
-
-        BlockCoord(-1,-2,0),
-        BlockCoord(1,-2,0),
-        BlockCoord(0,-2,1),
-        BlockCoord(0,-2,-1),
-
-        BlockCoord(-1,-2,1),
-        BlockCoord(1,-2,1),
-        BlockCoord(1,-2,-1),
-        BlockCoord(-1,-2,-1),
-
-
-        BlockCoord(-2,-2,-2),
-        BlockCoord(-2,-2,-1),
-        BlockCoord(-2,-2,-0),
-        BlockCoord(-2,-2,1),
-        BlockCoord(-2,-2,2),
-
-        BlockCoord(-1,-2,-2),
-        BlockCoord(-1,-2,2),
-
-        BlockCoord(0,-2,-2),
-        BlockCoord(0,-2,2),
-
-        BlockCoord(1,-2,-2),
-        BlockCoord(1,-2,2),
-
-        BlockCoord(2,-2,-2),
-        BlockCoord(2,-2,-1),
-        BlockCoord(2,-2,-0),
-        BlockCoord(2,-2,1),
-        BlockCoord(2,-2,2),
-
-        BlockCoord(0,1,0),
-        BlockCoord(-1,1,0),
-        BlockCoord(1,1,0),
-        BlockCoord(0,1,1),
-        BlockCoord(0,1,-1),
-    };
 
     std::set<BlockChunk*> implicatedChunks;
 
