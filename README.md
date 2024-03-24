@@ -2,9 +2,22 @@
 
 ### By Jackson Levine
 
-## Using C++, OpenGL, and EnTT
+
+# Known bugs:
+
+Category: World generation/loading. All would be solved by faster block/chunk query/remeshing algorithm.
+
+  - Blocks placed by user are not always instantly displayed.
+
+  - Time to transition from main menu/world select menu to loading in the world is too long / World loads in a little too slowly
+
+Category: Usability / Playability
+
+- Collisions with blocks being slightly iffy when jumping up/around corners
+
 
 ## Dependencies:
+## Using C++, OpenGL, and EnTT
 
 ### GLFW
 ### GLEW
