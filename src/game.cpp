@@ -4,6 +4,8 @@
 #include <stb_image.h>
 #include <cmath>
 
+//#define TIME_RENDER
+
 
 Game::Game() : lastFrame(0), focused(false), camera(nullptr),
 collCage([this](BlockCoord b){
@@ -369,10 +371,13 @@ float similarity(glm::vec3 dir1, glm::vec3 dir2) {
 
 void Game::draw() {
 
+    #ifdef TIME_RENDER
     static GLuint query = 0;
     if(query == 0) {
         glGenQueries(1, &query);
     }
+    #endif
+
     #ifdef DEV
         if(voxelWorld.numberOfSamples >= 100) {
             float average = voxelWorld.timeChunkMeshing / voxelWorld.numberOfSamples;
@@ -388,8 +393,9 @@ void Game::draw() {
 
         glGenVertexArrays(1, &VAO2);
     }
-
+    #ifdef TIME_RENDER
     glBeginQuery(GL_TIME_ELAPSED, query);
+    #endif
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     glClearColor(0.639, 0.71, 1.0, 0.5);
@@ -576,6 +582,7 @@ void Game::draw() {
             
     }
 
+    #ifdef TIME_RENDER
     glEndQuery(GL_TIME_ELAPSED);
 
     GLuint64 timeElapsed = 0;
@@ -585,6 +592,7 @@ void Game::draw() {
     if (timeElapsed > 0.0) {
         std::cout << "Rendering took " << timeElapsed / 1000000.0 << " milliseconds" << std::endl;
     }
+    #endif
 
 
     glfwSwapBuffers(window);
