@@ -14,53 +14,53 @@ public:
         static TextureFace front(15,0);
 
         std::vector<float> chestUVs = {
-            blank.bl.x, blank.bl.y,
-            blank.br.x, blank.br.y,
-            blank.tr.x, blank.tr.y,
+            blank.bl.x, blank.bl.y,blank.br.x, blank.br.y,
+            blank.br.x, blank.br.y,blank.br.x, blank.br.y,
+            blank.tr.x, blank.tr.y,blank.br.x, blank.br.y,
 
-            blank.tr.x, blank.tr.y,
-            blank.tl.x, blank.tl.y,
-            blank.bl.x, blank.bl.y,
+            blank.tr.x, blank.tr.y,blank.tl.x, blank.tl.y,
+            blank.tl.x, blank.tl.y,blank.tl.x, blank.tl.y,
+            blank.bl.x, blank.bl.y,blank.tl.x, blank.tl.y,
 
-            blank.bl.x, blank.bl.y,
-            blank.br.x, blank.br.y,
-            blank.tr.x, blank.tr.y,
+            blank.bl.x, blank.bl.y,blank.br.x, blank.br.y,
+            blank.br.x, blank.br.y,blank.br.x, blank.br.y,
+            blank.tr.x, blank.tr.y,blank.br.x, blank.br.y,
 
-            blank.tr.x, blank.tr.y,
-            blank.tl.x, blank.tl.y,
-            blank.bl.x, blank.bl.y,
+            blank.tr.x, blank.tr.y,blank.tl.x, blank.tl.y,
+            blank.tl.x, blank.tl.y,blank.tl.x, blank.tl.y,
+            blank.bl.x, blank.bl.y,blank.tl.x, blank.tl.y,
 
-            straps.bl.x, straps.bl.y,
-            straps.br.x, straps.br.y,
-            straps.tr.x, straps.tr.y,
+            straps.bl.x, straps.bl.y,straps.br.x, straps.br.y,
+            straps.br.x, straps.br.y,straps.br.x, straps.br.y,
+            straps.tr.x, straps.tr.y,straps.br.x, straps.br.y,
 
-            straps.tr.x, straps.tr.y,
-            straps.tl.x, straps.tl.y,
-            straps.bl.x, straps.bl.y,
+            straps.tr.x, straps.tr.y,straps.tl.x, straps.tl.y,
+            straps.tl.x, straps.tl.y,straps.tl.x, straps.tl.y,
+            straps.bl.x, straps.bl.y, straps.tl.x, straps.tl.y,
 
-            front.bl.x, front.bl.y,
-            front.br.x, front.br.y,
-            front.tr.x, front.tr.y,
+            front.bl.x, front.bl.y, front.br.x, front.br.y,
+            front.br.x, front.br.y, front.br.x, front.br.y,
+            front.tr.x, front.tr.y,  front.br.x, front.br.y,
 
-            front.tr.x, front.tr.y,
-            front.tl.x, front.tl.y,
-            front.bl.x, front.bl.y,
+            front.tr.x, front.tr.y,  front.tl.x, front.tl.y,
+            front.tl.x, front.tl.y,  front.tl.x, front.tl.y,
+            front.bl.x, front.bl.y,  front.tl.x, front.tl.y,
 
-            straps.bl.x, straps.bl.y,
-            straps.br.x, straps.br.y,
-            straps.tr.x, straps.tr.y,
+            straps.bl.x, straps.bl.y,  straps.br.x, straps.br.y,
+            straps.br.x, straps.br.y,  straps.br.x, straps.br.y,
+            straps.tr.x, straps.tr.y,  straps.br.x, straps.br.y,
 
-            straps.tr.x, straps.tr.y,
-            straps.tl.x, straps.tl.y,
-            straps.bl.x, straps.bl.y,
+            straps.tr.x, straps.tr.y,  straps.tr.x, straps.tr.y,
+            straps.tl.x, straps.tl.y,  straps.tr.x, straps.tr.y,
+            straps.bl.x, straps.bl.y,  straps.tr.x, straps.tr.y,
 
-            blank.bl.x, blank.bl.y,
-            blank.br.x, blank.br.y,
-            blank.tr.x, blank.tr.y,
+            blank.bl.x, blank.bl.y,  blank.br.x, blank.br.y,
+            blank.br.x, blank.br.y,  blank.br.x, blank.br.y,
+            blank.tr.x, blank.tr.y,  blank.br.x, blank.br.y,
 
-            blank.tr.x, blank.tr.y,
-            blank.tl.x, blank.tl.y,
-            blank.bl.x, blank.bl.y
+            blank.tr.x, blank.tr.y,  blank.br.x, blank.br.y,
+            blank.tl.x, blank.tl.y,  blank.br.x, blank.br.y,
+            blank.bl.x, blank.bl.y,   blank.br.x, blank.br.y,
         };
         return chestUVs;
     }

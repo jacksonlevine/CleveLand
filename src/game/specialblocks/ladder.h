@@ -13,21 +13,21 @@ public:
 
         std::vector<float> ladderUVs = {
             
-            face.bl.x, face.bl.y,
-            face.br.x, face.br.y,
-            face.tr.x, face.tr.y,
+            face.bl.x, face.bl.y, face.bl.x, face.bl.y,
+            face.br.x, face.br.y,face.bl.x, face.bl.y,
+            face.tr.x, face.tr.y,face.bl.x, face.bl.y,
 
-            face.tr.x, face.tr.y,
-            face.tl.x, face.tl.y,
-            face.bl.x, face.bl.y,
+            face.tr.x, face.tr.y,face.bl.x, face.bl.y,
+            face.tl.x, face.tl.y,face.bl.x, face.bl.y,
+            face.bl.x, face.bl.y,face.bl.x, face.bl.y,
 
-            face.bl.x, face.bl.y,
-            face.br.x, face.br.y,
-            face.tr.x, face.tr.y,
+            face.bl.x, face.bl.y,face.bl.x, face.bl.y,
+            face.br.x, face.br.y,face.bl.x, face.bl.y,
+            face.tr.x, face.tr.y,face.bl.x, face.bl.y,
 
-            face.tr.x, face.tr.y,
-            face.tl.x, face.tl.y,
-            face.bl.x, face.bl.y,
+            face.tr.x, face.tr.y,face.bl.x, face.bl.y,
+            face.tl.x, face.tl.y,face.bl.x, face.bl.y,
+            face.bl.x, face.bl.y,face.bl.x, face.bl.y,
 
         };
         return ladderUVs;

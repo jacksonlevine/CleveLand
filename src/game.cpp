@@ -2305,8 +2305,10 @@ void Game::initializeShaders() {
             layout (location = 1) in float blockBright;
             layout (location = 2) in float ambientBright;
             layout (location = 3) in vec2 uv;
+            layout (location = 4) in vec2 uvbase;
             out vec3 vertexColor;
             out vec2 TexCoord;
+            out vec2 TexBase;
             out vec3 pos;
             uniform mat4 mvp;
             uniform vec3 camPos;
@@ -2327,6 +2329,7 @@ void Game::initializeShaders() {
 
                 vertexColor = vec3(bright/16.0f, bright/16.0f, bright/16.0f);
                 TexCoord = uv;
+                TexBase = uvbase;
                 pos = position;
             }
         )glsl",
@@ -2335,6 +2338,7 @@ void Game::initializeShaders() {
             in vec3 vertexColor;
             in vec2 TexCoord;
             in vec3 pos;
+            in vec2 TexBase;
             out vec4 FragColor;
             uniform sampler2D ourTexture;
             uniform vec3 camPos;
@@ -2351,6 +2355,16 @@ void Game::initializeShaders() {
             }
             void main()
             {
+
+                // Calculate the horizontal and vertical distances from the corner
+                float dx = abs(TexCoord.x - TexBase.x);
+                float dy = abs(TexCoord.y - TexBase.y);
+
+                // Check if the fragment is within the bounds of the quad
+                if (dx > 0.05555555555555555555555555555 || dy > 0.05555555555555555555555555555) {
+                    discard; // Discard the fragment if its outside the quad
+                }
+
                 vec4 texColor = texture(ourTexture, TexCoord);
                 FragColor = texColor * vec4(vertexColor, 1.0);
 
@@ -2368,6 +2382,8 @@ void Game::initializeShaders() {
                     fogColor = vec4(0.0, 0.0, 0.6, 1.0) * vec4(ambientBrightMult, ambientBrightMult, ambientBrightMult, 1.0);
                     distance = distance * 10.0;
                 }
+
+                
 
                 
 
@@ -2994,15 +3010,46 @@ void Game::bindWorldGeometry(GLuint vbov, GLuint vbouv, const float *vdata, cons
 
     glBindBuffer(GL_ARRAY_BUFFER, vbouv);
     glBufferData(GL_ARRAY_BUFFER, uvsize * sizeof(float), uvdata, GL_STATIC_DRAW);
-    error = glGetError();
-    if (error != GL_NO_ERROR)
-    {
-        std::cerr << "Bind world geom err (vbouv): " << error << std::endl;
-    }
+
     GLint uvAttrib = glGetAttribLocation(worldShader->shaderID, "uv");
     glEnableVertexAttribArray(uvAttrib);
-    glVertexAttribPointer(uvAttrib, 2, GL_FLOAT, GL_FALSE, 0, 0);
+    glVertexAttribPointer(uvAttrib, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(0 * sizeof(float)));
+
+    GLint uvAttrib2 = glGetAttribLocation(worldShader->shaderID, "uvbase");
+    glEnableVertexAttribArray(uvAttrib2);
+    glVertexAttribPointer(uvAttrib2, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
 }
+
+void Game::bindWorldGeometryNoUpload(GLuint vbov, GLuint vbouv) {
+    glBindBuffer(GL_ARRAY_BUFFER, vbov);
+
+    GLint posAttrib = glGetAttribLocation(worldShader->shaderID, "position");
+    glEnableVertexAttribArray(posAttrib);
+    glVertexAttribPointer(posAttrib, 3, GL_FLOAT, GL_FALSE,  5 * sizeof(float), 0);
+
+    // Block brightness attribute
+    GLint brightnessAttrib = glGetAttribLocation(worldShader->shaderID, "blockBright");
+    glEnableVertexAttribArray(brightnessAttrib);
+    glVertexAttribPointer(brightnessAttrib, 1, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+
+    // Ambient brightness attribute
+    GLint ambBrightness = glGetAttribLocation(worldShader->shaderID, "ambientBright");
+    glEnableVertexAttribArray(ambBrightness);
+    glVertexAttribPointer(ambBrightness, 1, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(4 * sizeof(float)));
+
+
+    glBindBuffer(GL_ARRAY_BUFFER, vbouv);
+
+    GLint uvAttrib = glGetAttribLocation(worldShader->shaderID, "uv");
+    glEnableVertexAttribArray(uvAttrib);
+    glVertexAttribPointer(uvAttrib, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(0 * sizeof(float)));
+
+    
+    GLint uvAttrib2 = glGetAttribLocation(worldShader->shaderID, "uvbase");
+    glEnableVertexAttribArray(uvAttrib2);
+    glVertexAttribPointer(uvAttrib2, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
+}
+
 
 void Game::bindBlockOverlayGeometry() {
     GLenum error;
@@ -3173,30 +3220,6 @@ void Game::drawBlockOverlay() {
     glBindVertexArray(0);
 }
 
-void Game::bindWorldGeometryNoUpload(GLuint vbov, GLuint vbouv) {
-    glBindBuffer(GL_ARRAY_BUFFER, vbov);
-
-    GLint posAttrib = glGetAttribLocation(worldShader->shaderID, "position");
-    glEnableVertexAttribArray(posAttrib);
-    glVertexAttribPointer(posAttrib, 3, GL_FLOAT, GL_FALSE,  5 * sizeof(float), 0);
-
-    // Block brightness attribute
-    GLint brightnessAttrib = glGetAttribLocation(worldShader->shaderID, "blockBright");
-    glEnableVertexAttribArray(brightnessAttrib);
-    glVertexAttribPointer(brightnessAttrib, 1, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
-
-    // Ambient brightness attribute
-    GLint ambBrightness = glGetAttribLocation(worldShader->shaderID, "ambientBright");
-    glEnableVertexAttribArray(ambBrightness);
-    glVertexAttribPointer(ambBrightness, 1, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(4 * sizeof(float)));
-
-
-    glBindBuffer(GL_ARRAY_BUFFER, vbouv);
-
-    GLint uvAttrib = glGetAttribLocation(worldShader->shaderID, "uv");
-    glEnableVertexAttribArray(uvAttrib);
-    glVertexAttribPointer(uvAttrib, 2, GL_FLOAT, GL_FALSE, 0, 0);
-}
 
 
 

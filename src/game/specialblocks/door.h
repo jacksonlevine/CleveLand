@@ -11,53 +11,53 @@ public:
         static TextureFace side(12, 0);
         std::vector<float> doorUVs = {
 
-            face.bl.x, face.bl.y,
-            face.br.x, face.br.y,
-            face.tr.x, face.tr.y,
+            face.bl.x, face.bl.y,face.br.x, face.br.y,
+            face.br.x, face.br.y,face.br.x, face.br.y,
+            face.tr.x, face.tr.y,face.br.x, face.br.y,
 
-            face.tr.x, face.tr.y,
-            face.tl.x, face.tl.y,
-            face.bl.x, face.bl.y,//front
+            face.tr.x, face.tr.y,face.tr.x, face.tr.y,
+            face.tl.x, face.tl.y,face.tr.x, face.tr.y,
+            face.bl.x, face.bl.y,face.tr.x, face.tr.y,//front
             
             
-            side.br.x, side.br.y,
-            side.tr.x, side.tr.y,
-            side.br.x-(textureWidth/4), side.tr.y,
+            side.br.x, side.br.y, side.tr.x, side.tr.y,
+            side.tr.x, side.tr.y, side.tr.x, side.tr.y,
+            side.br.x-(textureWidth/4), side.tr.y, side.tr.x, side.tr.y,
             
-            side.br.x-(textureWidth/4), side.tr.y,
-            side.br.x-(textureWidth/4), side.br.y,
-            side.br.x, side.br.y,//left
-            
-            
-
-            
-            side.br.x, side.br.y,
-            side.tr.x, side.tr.y,
-            side.br.x-(textureWidth/4), side.tr.y,
-
-            side.br.x-(textureWidth/4), side.tr.y,
-            side.br.x-(textureWidth/4), side.br.y,
-            side.br.x, side.br.y,//top
+            side.br.x-(textureWidth/4), side.tr.y, side.tr.x, side.tr.y,
+            side.br.x-(textureWidth/4), side.br.y, side.tr.x, side.tr.y,
+            side.br.x, side.br.y, side.tr.x, side.tr.y,//left  
             
             
 
-            side.br.x, side.br.y,
-            side.tr.x, side.tr.y,
-            side.br.x-(textureWidth/4), side.tr.y,
+            
+            side.br.x, side.br.y, side.tr.x, side.tr.y,
+            side.tr.x, side.tr.y, side.tr.x, side.tr.y,
+            side.br.x-(textureWidth/4), side.tr.y, side.tr.x, side.tr.y,
 
-            side.br.x-(textureWidth/4), side.tr.y,
-            side.br.x-(textureWidth/4), side.br.y,
-            side.br.x, side.br.y,//right
+            side.br.x-(textureWidth/4), side.tr.y, side.tr.x, side.tr.y,
+            side.br.x-(textureWidth/4), side.br.y, side.tr.x, side.tr.y,
+            side.br.x, side.br.y, side.tr.x, side.tr.y,//top
             
             
 
-            face.bl.x, face.bl.y,
-            face.br.x, face.br.y,
-            face.tr.x, face.tr.y,
+            side.br.x, side.br.y, side.tr.x, side.tr.y,
+            side.tr.x, side.tr.y, side.tr.x, side.tr.y,
+            side.br.x-(textureWidth/4), side.tr.y, side.tr.x, side.tr.y,
 
-            face.tr.x, face.tr.y,
-            face.tl.x, face.tl.y,
-            face.bl.x, face.bl.y,//back
+            side.br.x-(textureWidth/4), side.tr.y, side.tr.x, side.tr.y,
+            side.br.x-(textureWidth/4), side.br.y, side.tr.x, side.tr.y,
+            side.br.x, side.br.y, side.tr.x, side.tr.y,//right
+            
+            
+
+            face.bl.x, face.bl.y, face.bl.x, face.bl.y,
+            face.br.x, face.br.y, face.bl.x, face.bl.y,
+            face.tr.x, face.tr.y,face.bl.x, face.bl.y,
+
+            face.tr.x, face.tr.y,face.bl.x, face.bl.y,
+            face.tl.x, face.tl.y,face.bl.x, face.bl.y,
+            face.bl.x, face.bl.y,face.bl.x, face.bl.y,//back
             
         };
         return doorUVs;
