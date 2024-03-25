@@ -368,6 +368,11 @@ float similarity(glm::vec3 dir1, glm::vec3 dir2) {
 }
 
 void Game::draw() {
+
+    static GLuint query = 0;
+    if(query == 0) {
+        glGenQueries(1, &query);
+    }
     #ifdef DEV
         if(voxelWorld.numberOfSamples >= 100) {
             float average = voxelWorld.timeChunkMeshing / voxelWorld.numberOfSamples;
@@ -384,7 +389,7 @@ void Game::draw() {
         glGenVertexArrays(1, &VAO2);
     }
 
-
+    glBeginQuery(GL_TIME_ELAPSED, query);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     glClearColor(0.639, 0.71, 1.0, 0.5);
@@ -569,6 +574,16 @@ void Game::draw() {
             drawBlockOverlay();
         }
             
+    }
+
+    glEndQuery(GL_TIME_ELAPSED);
+
+    GLuint64 timeElapsed = 0;
+    glGetQueryObjectui64v(query, GL_QUERY_RESULT, &timeElapsed);
+
+    // Print the duration in milliseconds (if a result was available)
+    if (timeElapsed > 0.0) {
+        std::cout << "Rendering took " << timeElapsed / 1000000.0 << " milliseconds" << std::endl;
     }
 
 
