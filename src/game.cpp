@@ -2089,6 +2089,16 @@ void Game::keyCallback(GLFWwindow *window, int key, int scancode, int action, in
         }
         
     }
+
+    if(key == GLFW_KEY_F11) {
+        if(action == 1) {
+            if(glfwGetWindowMonitor(window) == NULL) {
+                glfwSetWindowMonitor(window, glfwGetPrimaryMonitor(), 0, 0, 1280, 720, GLFW_DONT_CARE);
+            } else {
+                glfwSetWindowMonitor(window, NULL, 0, 0, 1280, 720, GLFW_DONT_CARE);
+            }
+        }
+    }
     // if(key == GLFW_KEY_KP_SUBTRACT) {
     //     ambientBrightnessMult = std::max(ambientBrightnessMult - 0.01f, 0.0f);
 
