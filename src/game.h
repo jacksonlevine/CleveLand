@@ -87,6 +87,7 @@ public:
 
     void goToMainMenu();
     void goToSingleplayerWorldsMenu();
+    void goToMultiplayerWorldsMenu();
 
     void displayEscapeMenu();
 

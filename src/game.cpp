@@ -34,7 +34,7 @@ grounded(true)
     averageDeltaTime = 0.0f;
 
     glfwInit();
-    window = glfwCreateWindow(windowWidth, windowHeight, "Untitled game", NULL, NULL);
+    window = glfwCreateWindow(windowWidth, windowHeight, "CleveLand", NULL, NULL);
     glfwMakeContextCurrent(window);
     this->setFocused(true);
     glewInit();
@@ -1025,15 +1025,36 @@ void Game::goToSettingsMenu() {
 void Game::goToMainMenu() {
     mainMenu = true;
     static std::vector<GUIButton> buttons = {
-        GUIButton(0.0f, 0.0f, "Singleplayer", 0.0f, 1.0f, [this](){
+        GUIButton(0.0f, 0.0f, "Multiplayer / Online", 0.0f, 1.0f, [this](){
+            this->goToMultiplayerWorldsMenu();
+            mainMenu = false;
+        }),
+        GUIButton(0.0f, -0.1f, "Singleplayer", 0.0f, 2.0f, [this](){
             this->goToSingleplayerWorldsMenu();
             mainMenu = false;
         }),
-        GUIButton(0.0f, -0.1f, "Quit Game", 0.0f, 2.0f, [this](){
+        GUIButton(0.0f, -0.2f, "Quit Game", 0.0f, 3.0f, [this](){
             glfwSetWindowShouldClose(this->window, GLFW_TRUE);
             mainMenu = false;
         }),
     };
+    for(GUIButton &button : buttons) {
+        button.rebuildDisplayData();
+        button.uploaded = false;
+    }
+    currentGuiButtons = &buttons;
+}
+
+void Game::goToMultiplayerWorldsMenu() {
+    static std::vector<GUIButton> buttons = {
+        GUIButton(0.0f, 0.0f, "Connect to the one server there is", 0.0f, 1.0f, [this](){
+            //goToSingleplayerWorld("world3");
+        }),
+        GUIButton(0.0f, -0.1f, "Back to main menu", 0.0f, 2.0f, [this](){
+            this->goToMainMenu();
+        }),
+    };
+
     for(GUIButton &button : buttons) {
         button.rebuildDisplayData();
         button.uploaded = false;
