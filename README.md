@@ -1,4 +1,4 @@
-# Minecraft Recreation
+# CleveLand: Minecraft-inspired procedural voxel game written with no engine.
 
 ### By Jackson Levine
 
