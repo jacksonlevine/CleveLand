@@ -25,6 +25,8 @@ Category: Usability / Playability
 ### EnTT
 ### Boost
 
+![Image of the game](image.png)
+
 ### Only supporting Windows at this time. Also is only tested with MSVC compiler, cannot guarantee other compilers or toolchains will work.
 
 # Recommended setup (Windows)
