@@ -36,10 +36,15 @@ Category: Usability / Playability
 2. Run the following commands within your /vcpkg folder to get the dependencies needed for this project:
 
 `./vcpkg.exe install glfw3:x64-windows-static`
+
 `./vcpkg.exe install glew:x64-windows-static`
+
 `./vcpkg.exe install glm:x64-windows-static`
+
 `./vcpkg.exe install entt:x64-windows-static`
+
 `./vcpkg.exe install boost:x64-windows-static`
+
 
 3. In makefile.bat, this points to the directory of vcpkg assuming it's in (home)/Documents/vcpkg:
 
