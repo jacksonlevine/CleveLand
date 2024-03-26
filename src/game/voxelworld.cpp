@@ -1332,7 +1332,9 @@ BlockCoord(0, 1, -2),
                                 }
                             }
                             if(doingIt) {
+                                nudmMutex.lock();
                                 nonUserDataMap.insert_or_assign(here, 6);
+                                nudmMutex.unlock();
                                 auto memoIt = memo.find(here);
                                 if(memoIt != memo.end()){
                                     memo.erase(here);
@@ -1353,6 +1355,7 @@ BlockCoord(0, 1, -2),
                                     std::floor(static_cast<float>(coorHere.x)/chunkWidth),
                                     std::floor(static_cast<float>(coorHere.z)/chunkWidth)
                                 );
+                                nudmMutex.lock();
                                 if(nonUserDataMap.find(coorHere) == nonUserDataMap.end()) {
                                     nonUserDataMap.insert_or_assign(coorHere, 7);
                                     auto memoIt = memo.find(coorHere);
@@ -1364,6 +1367,7 @@ BlockCoord(0, 1, -2),
                                         implicatedChunks.insert(chunkIt->second);
                                     }
                                 }
+                                nudmMutex.unlock();
                             }
                         }
                     }
@@ -1421,10 +1425,14 @@ uint32_t VoxelWorld::blockAt(BlockCoord coord) {
             return 1;
         }
     }
+    nudmMutex.lock();
     auto blockit = nonUserDataMap.find(coord);
     if(blockit != nonUserDataMap.end()) {
-        return blockit->second;
+        uint32_t block = blockit->second;
+        nudmMutex.unlock();
+        return block;
     }
+    nudmMutex.unlock();
     if(coord.y < waterLevel) {
         return 2;
     }

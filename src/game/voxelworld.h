@@ -67,6 +67,8 @@ public:
             IntTupHash>
                            nonUserDataMap;
 
+    std::mutex nudmMutex;
+
 
     std::unordered_map<
             BlockCoord,
