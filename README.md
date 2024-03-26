@@ -1,4 +1,4 @@
-# CleveLand: Minecraft-inspired procedural voxel game written with no engine.
+# CleveLand: Minecraft-inspired procedural voxel game in C++
 
 ### By Jackson Levine
 
