@@ -1,0 +1,1 @@
+-Screen briefly freezes when breaking blocks
