@@ -1,9 +1,11 @@
 #ifndef CAMERA_H
 #define CAMERA_H
+
+#include "game.h"
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
-#include "game.h"
+
 
 class Camera3D {
 public:
@@ -42,8 +44,8 @@ public:
 
     inline static float speedMulitplier = 3.75f;
 
-    inline static float far = 1300.0f;
-    inline static float near = 0.01f;
+    inline static float _far = 1300.0f;
+    inline static float _near = 0.01f;
 
     inline static glm::vec3 initialPosition = glm::vec3(0, 120, 0);
     inline static glm::vec3 initialDirection = glm::vec3(0, 0, 1);

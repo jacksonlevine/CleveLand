@@ -1,6 +1,8 @@
 #ifndef VOXELWORLD_H
 #define VOXELWORLD_H
 
+class VoxelWorld;
+
 #include <unordered_map>
 #include "../util/chunkcoord.h"
 #include <iostream>
@@ -25,8 +27,15 @@
 #include "specialblocks/chest.h"
 #include "specialblocks/ladder.h"
 
+
 class VoxelWorld {
 public:
+
+    std::mutex MASTERLOCK;
+
+    std::mutex udmMutex;
+
+
     inline static unsigned int seed = 0;
 
     inline static std::function<float(int, int, int)>* currentNoiseFunction = 0;
@@ -37,10 +46,12 @@ public:
     inline static int chunkWidth = 16;
     inline static int chunkHeight = 128;
 
-    inline static bool runChunkThread = false;
+    inline static std::atomic<bool> runChunkThread = false;
 
      inline static glm::ivec3 worldOffset = glm::ivec3(0,0,0);
     void getOffsetFromSeed();
+
+    std::function<void(int,int,int,uint32_t)> *multiplayerBlockSetFunc;
 
     std::unordered_map<
         ChunkCoord,
@@ -166,6 +177,9 @@ public:
     void loadWorldFromFile(const char *path) noexcept(false);
     int checkVersionOfSave(const char *path);
     void deleteFolder(std::string path);
+
+    void setBlock(BlockCoord coord, uint32_t block);
+    void setBlockAndQueueRerender(BlockCoord coord, uint32_t block);
     
     inline static int initialLoadProgress = 0;
 

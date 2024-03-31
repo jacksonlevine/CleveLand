@@ -1,8 +1,20 @@
 #ifndef GAME_H
 #define GAME_H
 
+
+
+#ifndef MY_GL_INCLUDE
+#define MY_GL_INCLUDE
 #include <gl/glew.h>
+#endif
+
+
+#ifndef MY_GLFW_INCLUDE
+#define MY_GLFW_INCLUDE
 #include "GLFW/glfw3.h"
+#endif
+
+
 #include <glm/gtc/type_ptr.hpp>
 #include <memory>
 #include "shader.h"
@@ -20,12 +32,24 @@
 #include "util/settings.h"
 #include "game/specialblocks/chest.h"
 #include "game/specialblocks/ladder.h"
+#include "network.h"
 
 
 class Camera3D;
 
 class Game {
 public:
+
+
+    boost::asio::io_context io_context;
+    UDPClient *client;
+
+
+
+
+
+
+
     inline static int viewDistance = 5;
 
     inline static float underWaterView = 0.0f;
@@ -92,6 +116,8 @@ public:
     void displayEscapeMenu();
 
     void goToSingleplayerWorld(const char *worldname);
+    void goToMultiplayerWorld();
+    void exitMultiplayer();
 
     void loadOrCreateSaveGame(const char* path);
     void saveGame(const char* path);
@@ -219,6 +245,10 @@ public:
     inline static float sunriseFactor = 0.0f;
 
     inline static bool inClimbable = false;
+
+
+
+    inline static bool inMultiplayer = false;
 
     Game();
 private:
