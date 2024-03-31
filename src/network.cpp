@@ -13,6 +13,7 @@ bool rcvtpromisesat = false;
 void UDPClient::start() {
     std::cout << "Client loop starting\n";
     shouldRunReceiveLoop.store(true);
+    shouldRunSendLoop.store(true);
 
     if (receive_thread.joinable()) {
         receive_thread.join();
@@ -35,16 +36,45 @@ void UDPClient::start() {
         }
         std::cout << "Ended receive thread.\n";
     });
+
+    send_thread = std::thread([this]() {
+            while (shouldRunSendLoop.load()) {
+
+                Message heartbeat{MessageType::Heartbeat, 0, 0, 0, 0};
+
+                try {
+                    socket_.send_to(boost::asio::buffer(&heartbeat, sizeof(Message)), server_endpoint_);
+                } catch (std::exception& e) {
+                    std::cerr << "Error sending heartbeat: " << e.what() << std::endl;
+                }
+                for (int i = 0; i < 10; i++) {
+                    if (shouldRunSendLoop.load()) {
+                        std::this_thread::sleep_for(std::chrono::seconds(1));
+                    }
+                }
+                    
+                
+            }
+
+            std::cout << "Ended send thread \n";
+        });
     
 }
 
 void UDPClient::stop() {
     shouldRunReceiveLoop.store(false);
+    shouldRunSendLoop.store(false);
+    
     socket_.cancel();
     socket_.close();
-    // if(receive_thread.joinable()) {
-    //     receive_thread.join(); 
-    // }
+
+    if (send_thread.joinable()) {
+        send_thread.join();
+    }
+
+    if(receive_thread.joinable()) {
+        receive_thread.join(); 
+    }
 }
 
 
@@ -96,6 +126,10 @@ std::string getMessageTypeString(Message& m) {
             return std::string("Req player list");
         case MessageType::PlayerList:
             return std::string("Player list");
+        case MessageType::Heartbeat:
+            return std::string("Heartbeat");
+        case MessageType::Disconnect:
+            return std::string("Disconnect");
     }
 }
 
@@ -193,6 +227,18 @@ void UDPClient::receive() {
                     static_cast<int>(message->y),
                     static_cast<int>(message->z),
                     }, static_cast<uint32_t>(message->info));
+            }
+
+            
+
+            if (message->type == MessageType::Disconnect) {
+                int idToRemove = message->info;
+                auto it = std::find_if(PLAYERS.begin(), PLAYERS.end(), [idToRemove](const OtherPlayer& player) {
+                    return player.id == idToRemove;
+                });
+                if (it != PLAYERS.end()) {
+                    PLAYERS.erase(it);
+                }
             }
             if (message->type == MessageType::PlayerMove) {
                 auto playerIt = std::find_if(PLAYERS.begin(), PLAYERS.end(), [message](OtherPlayer& play) {

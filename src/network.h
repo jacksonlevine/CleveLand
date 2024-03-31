@@ -23,6 +23,8 @@ enum MessageType {
     WorldString,
     RequestPlayerList,
     PlayerList,
+    Heartbeat,
+    Disconnect
 };
 
 struct Message {
@@ -62,6 +64,7 @@ public:
     void disconnect();
 
     inline static std::atomic<bool> shouldRunReceiveLoop = false;
+    inline static std::atomic<bool> shouldRunSendLoop = false;
 
     inline static std::atomic<bool> receivedWorld = false;
 
@@ -72,6 +75,7 @@ private:
     
     udp::endpoint server_endpoint_;
     std::thread receive_thread;
+    std::thread send_thread;
     VoxelWorld* voxelWorld;
 };
 

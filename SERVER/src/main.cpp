@@ -5,6 +5,7 @@
 #include <vector>
 #include <mutex>
 #include "voxelworld.h"
+#include <chrono>
 
 using boost::asio::ip::udp;
 
@@ -17,6 +18,8 @@ enum MessageType {
     WorldString,
     RequestPlayerList,
     PlayerList,
+    Heartbeat,
+    Disconnect,
 };
 
 struct Message {
@@ -48,6 +51,7 @@ struct Client {
     float x;
     float y;
     float z;
+    std::chrono::steady_clock::time_point last_active;
 };
 
 
@@ -90,10 +94,16 @@ std::string getMessageTypeString(Message& m) {
             return std::string("Req player list");
         case MessageType::PlayerList:
             return std::string("Player list");
+        case MessageType::Heartbeat:
+            return std::string("Heartbeat");
+        case MessageType::Disconnect:
+            return std::string("Disconnect");
     }
 }
 
 VoxelWorld world;
+
+std::chrono::steady_clock::time_point lastTimeCheckedForOldUsers = std::chrono::steady_clock::now();
 
 class UDPServer {
 public:
@@ -108,6 +118,7 @@ private:
             boost::asio::buffer(&recv_message_, sizeof(Message)), remote_endpoint_,
             [this](boost::system::error_code ec, std::size_t bytes_recvd) {
                 if (!ec && bytes_recvd > 0) {
+                    auto now = std::chrono::steady_clock::now();
                     std::cout << "Received: " << getMessageTypeString(recv_message_) << " from " << remote_endpoint_ << std::endl;
                     
                     bool playerMove = false;
@@ -126,6 +137,7 @@ private:
                             it->second.x = newPlayerPosition.x;
                             it->second.y = newPlayerPosition.y;
                             it->second.z = newPlayerPosition.z;
+                            it->second.last_active = now;
                         }
                         thisPlayersID = it->second.id;
                     } else {
@@ -137,7 +149,8 @@ private:
                                 currentID,
                                 newPlayerPosition.x,
                                 newPlayerPosition.y,
-                                newPlayerPosition.z
+                                newPlayerPosition.z,
+                                now
                             });
                         } else {
                             CLIENTS.insert_or_assign(currentID, Client{
@@ -145,7 +158,8 @@ private:
                                 currentID,
                                 0,
                                 0,
-                                0
+                                0,
+                                now
                             });
                         }
                         thisPlayersID = currentID;
@@ -205,15 +219,47 @@ private:
 
                     
                     
-                    if(recv_message_.type != MessageType::RequestWorldString && recv_message_.type != MessageType::RequestPlayerList) {
+                    if(recv_message_.type != MessageType::RequestWorldString && recv_message_.type != MessageType::RequestPlayerList && 
+                    recv_message_.type != MessageType::Heartbeat ) {
                         if(recv_message_.type == MessageType::PlayerMove) {
                             //If its a player move, set the info field to the id
                             recv_message_.info = currentID;
                         }
+                        std::vector<int> keysToRemove;
                         // Forward the message to all other clients
                         for (const auto&[key, value] : CLIENTS) {
                             if (value.endpoint != remote_endpoint_) {
-                                socket_.send_to(boost::asio::buffer(&recv_message_, sizeof(Message)), value.endpoint);
+                                auto inactive_duration = std::chrono::duration_cast<std::chrono::seconds>(now - value.last_active);
+                                if (inactive_duration.count() > 30) {
+                                    keysToRemove.push_back(key);
+                                } else {
+                                    socket_.send_to(boost::asio::buffer(&recv_message_, sizeof(Message)), value.endpoint);
+                                }
+                            }
+                        }
+
+                        for(int& key : keysToRemove) {
+                            CLIENTS.erase(key);
+                            for (const auto&[k, value] : CLIENTS) {
+                                //Tell the clients this guy's gone
+                                Message m{MessageType::Disconnect, 0, 0, 0, key};
+                                socket_.send_to(boost::asio::buffer(&m, sizeof(Message)), value.endpoint);
+                            }
+                        }
+                    } else if (recv_message_.type == MessageType::Heartbeat) {
+                        std::vector<int> keysToRemove;
+                        for (const auto&[key, value] : CLIENTS) {
+                            auto inactive_duration = std::chrono::duration_cast<std::chrono::seconds>(now - value.last_active);
+                            if (inactive_duration.count() > 30) {
+                                keysToRemove.push_back(key);
+                            }
+                        }
+                        for(int& key : keysToRemove) {
+                            CLIENTS.erase(key);
+                            for (const auto&[k, value] : CLIENTS) {
+                                //Tell the clients this guy's gone
+                                Message m{MessageType::Disconnect, 0, 0, 0, key};
+                                socket_.send_to(boost::asio::buffer(&m, sizeof(Message)), value.endpoint);
                             }
                         }
                     }
