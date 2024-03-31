@@ -139,8 +139,13 @@ void VoxelWorld::chunkUpdateThreadFunction(int loadRadius) {
         
 
         BlockCoord cameraBlockPos(std::round(cameraPosition.x), std::round(cameraPosition.y), std::round(cameraPosition.z));
+        if (!runChunkThread.load()) {
+            break;
+        }
         ChunkCoord cameraChunkPos(std::floor(static_cast<float>(cameraBlockPos.x) / chunkWidth), std::floor(static_cast<float>(cameraBlockPos.z) / chunkWidth));
-
+        if (!runChunkThread.load()) {
+            break;
+        }
 
         
 
@@ -795,9 +800,12 @@ void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool im
             std::cout << "index: " << chunk->geometryStorePoolIndex << "\n";
             std::cout << "size: " << geometryStorePool.size() << "\n";
         }
-
-        geometryStorePool.at(chunk->geometryStorePoolIndex).myLock.unlock();
-
+        try {
+            geometryStorePool.at(chunk->geometryStorePoolIndex).myLock.unlock();
+        }
+        catch (std::exception e) {
+            std::cout << e.what() << "\n";
+        }
     if(!immediateInPlace) {
 
         // bool found = false;

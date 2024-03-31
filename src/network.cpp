@@ -21,6 +21,7 @@ void UDPClient::start() {
 
 void UDPClient::stop() {
     shouldRunReceiveLoop.store(false);
+    socket_.cancel();
     if(receive_thread.joinable()) {
         receive_thread.join(); 
     }
@@ -107,76 +108,87 @@ void UDPClient::send(const Message& message) {
 void UDPClient::receive() {
     udp::endpoint sender_endpoint;
     std::vector<char> recv_buffer(65536); // A large buffer, e.g., 64KB
-    size_t length = socket_.receive_from(boost::asio::buffer(recv_buffer), sender_endpoint);
 
-    // Now you can process the received data, which is stored in recv_buffer and has a length of 'length' bytes
-    // For example, if you're expecting a Message struct, you can check if 'length' is at least sizeof(Message)
-    if (length == sizeof(Message)) {
-        Message* message = reinterpret_cast<Message*>(recv_buffer.data());
-        std::cout << "Received: " << getMessageTypeString(*message) << " from " << sender_endpoint << std::endl;
+    try {
+        size_t length = socket_.receive_from(boost::asio::buffer(recv_buffer), sender_endpoint);
 
-        std::filesystem::create_directories(std::filesystem::path("multiplayer"));
+        // Now you can process the received data, which is stored in recv_buffer and has a length of 'length' bytes
+        // For example, if you're expecting a Message struct, you can check if 'length' is at least sizeof(Message)
+        if (length == sizeof(Message)) {
+            Message* message = reinterpret_cast<Message*>(recv_buffer.data());
+            std::cout << "Received: " << getMessageTypeString(*message) << " from " << sender_endpoint << std::endl;
 
-        if(message->type == MessageType::WorldString) {
-            std::cout << "Expecting " << std::to_string(message->info) << " bytes\n";
-            std::vector<char> ws_buffer(static_cast<size_t>(message->info) + 1, '\0');
-            size_t len = socket_.receive_from(boost::asio::buffer(ws_buffer), sender_endpoint);
-            std::string receivedString(ws_buffer.data(), len);
-            std::cout << "World string: \n" <<
+            std::filesystem::create_directories(std::filesystem::path("multiplayer"));
+
+            if (message->type == MessageType::WorldString) {
+                std::cout << "Expecting " << std::to_string(message->info) << " bytes\n";
+                std::vector<char> ws_buffer(static_cast<size_t>(message->info) + 1, '\0');
+                size_t len = socket_.receive_from(boost::asio::buffer(ws_buffer), sender_endpoint);
+                std::string receivedString(ws_buffer.data(), len);
+                std::cout << "World string: \n" <<
                     receivedString << "\n";
-            std::ofstream outputFile("multiplayer/world.save", std::ios::trunc); // Change the file name as needed
-            if (outputFile.is_open()) {
-                outputFile << receivedString;
-                outputFile.close();
-                std::cout << "Received world string of length " << std::to_string(len) << std::endl;
-                receivedWorld.store(true);
-            } else {
-                std::cerr << "Failed to open file for writing." << std::endl;
+                std::ofstream outputFile("multiplayer/world.save", std::ios::trunc); // Change the file name as needed
+                if (outputFile.is_open()) {
+                    outputFile << receivedString;
+                    outputFile.close();
+                    std::cout << "Received world string of length " << std::to_string(len) << std::endl;
+                    receivedWorld.store(true);
+                }
+                else {
+                    std::cerr << "Failed to open file for writing." << std::endl;
+                }
             }
-        }
 
-        if(message->type == MessageType::PlayerList) {
-            std::cout << "Expecting " << std::to_string(message->info) << " bytes\n";
-            std::vector<char> ps_buffer(static_cast<size_t>(message->info) + 1, '\0');
-            size_t len = socket_.receive_from(boost::asio::buffer(ps_buffer), sender_endpoint);
+            if (message->type == MessageType::PlayerList) {
+                std::cout << "Expecting " << std::to_string(message->info) << " bytes\n";
+                std::vector<char> ps_buffer(static_cast<size_t>(message->info) + 1, '\0');
+                size_t len = socket_.receive_from(boost::asio::buffer(ps_buffer), sender_endpoint);
 
-            std::string receivedString(ps_buffer.data(), len);
-            std::cout << "Players string: \n" <<
+                std::string receivedString(ps_buffer.data(), len);
+                std::cout << "Players string: \n" <<
                     receivedString << "\n";
-            
-            clientStringToPlayerList(PLAYERS, receivedString);
-        }
 
-        if(message->type == MessageType::BlockSet) {
-            //LOCK AND AFFECT THE VOXELWORLD
-            voxelWorld->setBlockAndQueueRerender(BlockCoord{
-                static_cast<int>(message->x),
-                static_cast<int>(message->y),
-                static_cast<int>(message->z),
-            }, static_cast<uint32_t>(message->info));
-        }
-        if(message->type == MessageType::PlayerMove) {
-            auto playerIt = std::find_if(PLAYERS.begin(), PLAYERS.end(), [message](OtherPlayer &play){
-                return play.id == static_cast<int>(message->info);
-            });
-
-            if(playerIt == PLAYERS.end()) {
-                PLAYERS.push_back(OtherPlayer{
-                    static_cast<int>(message->info),
-                    message->x,
-                    message->y,
-                    message->z
-                });
-            } else {
-                playerIt->x = message->x;
-                playerIt->y = message->y;
-                playerIt->z = message->z;
+                clientStringToPlayerList(PLAYERS, receivedString);
             }
+
+            if (message->type == MessageType::BlockSet) {
+                //LOCK AND AFFECT THE VOXELWORLD
+                voxelWorld->setBlockAndQueueRerender(BlockCoord{
+                    static_cast<int>(message->x),
+                    static_cast<int>(message->y),
+                    static_cast<int>(message->z),
+                    }, static_cast<uint32_t>(message->info));
+            }
+            if (message->type == MessageType::PlayerMove) {
+                auto playerIt = std::find_if(PLAYERS.begin(), PLAYERS.end(), [message](OtherPlayer& play) {
+                    return play.id == static_cast<int>(message->info);
+                    });
+
+                if (playerIt == PLAYERS.end()) {
+                    PLAYERS.push_back(OtherPlayer{
+                        static_cast<int>(message->info),
+                        message->x,
+                        message->y,
+                        message->z
+                        });
+                }
+                else {
+                    playerIt->x = message->x;
+                    playerIt->y = message->y;
+                    playerIt->z = message->z;
+                }
+            }
+
+            // Additional processing...
         }
-        
-        // Additional processing...
-    } else {
-        // Handle the case where the received data is not large enough to be a valid Message
-        std::cout << "Not long enough to be Message\n";
+        else {
+            // Handle the case where the received data is not large enough to be a valid Message
+            std::cout << "Not long enough to be Message\n";
+        }
     }
+    catch (std::exception e) {
+        std::cout << e.what() << "\n";
+    }
+
+
 }

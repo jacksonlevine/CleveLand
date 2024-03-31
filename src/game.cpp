@@ -939,16 +939,25 @@ void Game::displayEscapeMenu() {
     camera->setFocused(false);
     static std::vector<GUIButton> buttons = {
         GUIButton(0.0f, 0.0f, "Save and exit to main menu", 0.0f, 1.0f, [this](){
-            if(inMultiplayer) {
-                exitMultiplayer();
-            }
+            
             inGame = false;
             voxelWorld.runChunkThread.store(false);
+
+
             if(voxelWorld.chunkUpdateThread.joinable()) {
                 voxelWorld.chunkUpdateThread.join();
+                std::cout << "Joined Voxelworld Thread\n";
+            }
+
+            if (inMultiplayer) {
+                exitMultiplayer();
+                std::cout << "Closed Client connection\n";
+            }
+            else {
+                saveGame(currentSingleplayerWorldPath.c_str());
             }
             
-            saveGame(currentSingleplayerWorldPath.c_str());
+            
             camera->setFocused(false);
 
             voxelWorld.nudmMutex.lock();
@@ -1532,9 +1541,10 @@ void Game::goToMultiplayerWorld() {
 
 void Game::exitMultiplayer() {
     inMultiplayer = false;
-    client->receivedWorld.store(false);
+    
     client->stop();
     client->disconnect();
+    client->receivedWorld.store(false);
 }
 
 void Game::displayLoadScreen(const char* message, float progress, bool inMainLoop) {
