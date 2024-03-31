@@ -10,8 +10,11 @@
 #include <filesystem>
 #include <atomic>
 #include "game/voxelworld.h"
+#include <future>
 
 using boost::asio::ip::udp;
+
+extern bool rcvtpromisesat;
 
 enum MessageType {
     PlayerMove,
@@ -40,6 +43,7 @@ struct OtherPlayer {
 void clientStringToPlayerList(std::vector<OtherPlayer> &out, std::string in);
 
 extern std::vector<OtherPlayer> PLAYERS;
+extern std::promise<void> receive_thread_promise;
 
 std::string getMessageTypeString(Message& m);
 
@@ -61,9 +65,11 @@ public:
 
     inline static std::atomic<bool> receivedWorld = false;
 
+    udp::socket socket_;
+
 private:
     boost::asio::io_context& io_context_;
-    udp::socket socket_;
+    
     udp::endpoint server_endpoint_;
     std::thread receive_thread;
     VoxelWorld* voxelWorld;

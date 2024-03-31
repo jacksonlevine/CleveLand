@@ -969,7 +969,10 @@ void Game::displayEscapeMenu() {
             voxelWorld.nudmMutex.unlock();
             voxelWorld.udmMutex.unlock();   
 
+voxelWorld.hashadlightMutex.lock();
+            
             voxelWorld.hasHadInitialLightPass.clear();
+voxelWorld.hashadlightMutex.unlock();
             int throwaway = 0;
             while(voxelWorld.geometryStoreQueue.pop(throwaway)) {
 
@@ -1362,8 +1365,11 @@ void Game::changeViewDistance(int newValue) {
     voxelWorld.takenCareOfChunkSpots.clear();
     voxelWorld.geometryStorePool.clear();
     voxelWorld.chunks.clear();
-    voxelWorld.hasHadInitialLightPass.clear();
+    voxelWorld.hashadlightMutex.lock();
 
+    
+    voxelWorld.hasHadInitialLightPass.clear();
+           voxelWorld.hashadlightMutex.unlock();             
     auto meshesView = registry.view<MeshComponent>();
     for(const entt::entity e : meshesView) {
         MeshComponent &m = registry.get<MeshComponent>(e);
@@ -1475,6 +1481,7 @@ void Game::goToSingleplayerWorld(const char *worldname) {
 
     initialTimer = 1.0f;
     voxelWorld.initialLoadProgress = 0;
+    initialChunksRendered = 0;
     loadRendering = true;
 
     voxelWorld.populateChunksAndGeometryStores(registry, viewDistance);
@@ -1497,46 +1504,79 @@ void Game::goToSingleplayerWorld(const char *worldname) {
 }
 
 void Game::goToMultiplayerWorld() {
-    initialTimer = 1.0f;
-    voxelWorld.initialLoadProgress = 0;
-    loadRendering = true;
 
-    client->connect();
+    
 
-    client->receivedWorld.store(false);
-
-    client->start();
-
+    bool connected = true;
 
     Message m;
     m.info = 0;
     m.x = 0;
     m.y = 0;
     m.z = 0;
-    m.type = MessageType::RequestWorldString;
-    client->send(m);
 
-    while(!client->receivedWorld.load()) {
+    try {
+        client->connect();
+        
+        client->receivedWorld.store(false);
+
+        client->start();
+
+        m.type = MessageType::RequestWorldString;
+        client->send(m);
         std::this_thread::sleep_for(std::chrono::seconds(1));
+        receive_thread_promise.get_future().get();
+    } catch (std::exception& e) {
+        std::cout << "Error: " << e.what() << "\n";
+        connected = false;
+        std::cout << "Is this priting\n";
     }
 
-    m.type = MessageType::RequestPlayerList;
-    client->send(m);
 
-    //Now the world is received
-    inMultiplayer = true;
-    voxelWorld.populateChunksAndGeometryStores(registry, viewDistance);
-    currentGuiButtons = nullptr;
-    loadOrCreateSaveGame("multiplayer");
-    voxelWorld.runChunkThread.store(true);
-    voxelWorld.chunkUpdateThread = std::thread([this](){
-        voxelWorld.chunkUpdateThreadFunction(viewDistance);
-        });
-    voxelWorld.chunkUpdateThread.detach();
+    if(connected) {
 
-    camera->setFocused(true);
 
-    inGame = true;
+        std::cout << "Got  to here\n";
+        initialTimer = 1.0f;
+        voxelWorld.initialLoadProgress = 0;
+        initialChunksRendered = 0;
+        loadRendering = true;
+
+        
+
+        while(!client->receivedWorld.load()) {
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+        }
+
+        m.type = MessageType::RequestPlayerList;
+        client->send(m);
+
+        //Now the world is received
+        inMultiplayer = true;
+        voxelWorld.populateChunksAndGeometryStores(registry, viewDistance);
+        currentGuiButtons = nullptr;
+        loadOrCreateSaveGame("multiplayer");
+
+        voxelWorld.runChunkThread.store(true);
+        voxelWorld.chunkUpdateThread = std::thread([this](){
+            voxelWorld.chunkUpdateThreadFunction(viewDistance);
+            });
+        voxelWorld.chunkUpdateThread.detach();
+
+        camera->setFocused(true);
+
+        inGame = true;
+    } else {
+        static std::string offlinemsg("Server is offline. Click to retry.");
+        (*currentGuiButtons)[0].label = offlinemsg.c_str();
+        for(GUIButton& button : *currentGuiButtons) {
+            button.rebuildDisplayData();
+            button.uploaded = false;
+        }
+    }
+    
+
+    
 }
 
 void Game::exitMultiplayer() {

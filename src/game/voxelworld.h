@@ -141,7 +141,8 @@ public:
         bool,
         IntTupHash
     >                   hasHadInitialLightPass;
-
+    
+    std::mutex hashadlightMutex;
     
     inline static bool shouldTryReload = false;
 

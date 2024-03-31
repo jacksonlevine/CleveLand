@@ -162,8 +162,8 @@ private:
 
                         std::cout << "Sending world string of size " << std::to_string(worldString.size())
                         << "\n";
-                        std::cout << "World string: \n" <<
-                        worldString << "\n";
+                        // std::cout << "World string: \n" <<
+                        // worldString << "\n";
                         socket_.send_to(boost::asio::buffer(worldString), remote_endpoint_);
                     }
 

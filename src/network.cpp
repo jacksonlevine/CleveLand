@@ -6,15 +6,34 @@
 
 std::vector<OtherPlayer> PLAYERS;
 
+std::promise<void> receive_thread_promise;
+
+bool rcvtpromisesat = false;
 
 void UDPClient::start() {
     std::cout << "Client loop starting\n";
     shouldRunReceiveLoop.store(true);
 
+    if (receive_thread.joinable()) {
+        receive_thread.join();
+    }
+
+    receive_thread_promise = std::promise<void>();
+    rcvtpromisesat = false;
     receive_thread = std::thread([this]() {
-        while (this->shouldRunReceiveLoop.load()) {
-            this->receive();
+        try {
+            while (this->shouldRunReceiveLoop.load()) {
+                    this->receive();
+            }
+        } catch (...) {
+            if(rcvtpromisesat == false) {
+                receive_thread_promise.set_exception(std::current_exception());
+                rcvtpromisesat = true;
+            }
+            
+            shouldRunReceiveLoop.store(false);
         }
+        std::cout << "Ended receive thread.\n";
     });
     
 }
@@ -22,9 +41,10 @@ void UDPClient::start() {
 void UDPClient::stop() {
     shouldRunReceiveLoop.store(false);
     socket_.cancel();
-    if(receive_thread.joinable()) {
-        receive_thread.join(); 
-    }
+    socket_.close();
+    // if(receive_thread.joinable()) {
+    //     receive_thread.join(); 
+    // }
 }
 
 
@@ -87,6 +107,9 @@ UDPClient::UDPClient(boost::asio::io_context& io_context, VoxelWorld *voxworld)
 }
 
 void UDPClient::connect() {
+    try {
+
+    socket_ = udp::socket(io_context_, udp::endpoint(udp::v4(), 0));
     // Hardcode the server's IP address and port
     std::string server_ip = "127.0.0.1"; // Change this to your server's IP address
     std::string server_port = "12345"; // Change this to your server's port
@@ -95,6 +118,9 @@ void UDPClient::connect() {
     udp::resolver::results_type endpoints = resolver.resolve(udp::v4(), server_ip, server_port);
     server_endpoint_ = *endpoints.begin();
     std::cout << "Client connected\n";
+    } catch (std::exception& e) {
+        std::cout << "In connect: " << e.what() << "\n";
+    }
 }
 
 void UDPClient::disconnect() {
@@ -111,10 +137,17 @@ void UDPClient::receive() {
 
     try {
         size_t length = socket_.receive_from(boost::asio::buffer(recv_buffer), sender_endpoint);
+        if(rcvtpromisesat == false) {
+            receive_thread_promise.set_value();
+            rcvtpromisesat = true;
+        }
+            
+            
 
         // Now you can process the received data, which is stored in recv_buffer and has a length of 'length' bytes
         // For example, if you're expecting a Message struct, you can check if 'length' is at least sizeof(Message)
         if (length == sizeof(Message)) {
+            
             Message* message = reinterpret_cast<Message*>(recv_buffer.data());
             std::cout << "Received: " << getMessageTypeString(*message) << " from " << sender_endpoint << std::endl;
 
@@ -133,10 +166,12 @@ void UDPClient::receive() {
                     outputFile.close();
                     std::cout << "Received world string of length " << std::to_string(len) << std::endl;
                     receivedWorld.store(true);
+                    outputFile.close();
                 }
                 else {
                     std::cerr << "Failed to open file for writing." << std::endl;
                 }
+                
             }
 
             if (message->type == MessageType::PlayerList) {
@@ -186,8 +221,9 @@ void UDPClient::receive() {
             std::cout << "Not long enough to be Message\n";
         }
     }
-    catch (std::exception e) {
-        std::cout << e.what() << "\n";
+    catch (std::exception& e) {
+        std::cout << "From this? " << e.what() << "\n";
+        stop();
     }
 
 

@@ -187,11 +187,22 @@ void VoxelWorld::chunkUpdateThreadFunction(int loadRadius) {
 
                         ChunkCoord thisChunkCoord(x,z);
                         if(takenCareOfChunkSpots.find(thisChunkCoord) == takenCareOfChunkSpots.end()) {
-                            
-                            if(hasHadInitialLightPass.find(thisChunkCoord) == hasHadInitialLightPass.end()) {
-                                rebuildChunk(sortedChunkPtrs[takenChunkIndex], thisChunkCoord, false, true);
+                            bool hasHadPass = false;
+                            hashadlightMutex.lock();
+                            if (hasHadInitialLightPass.find(thisChunkCoord) != hasHadInitialLightPass.end()) {
+                                hasHadPass = true;
+                            }
+                            hashadlightMutex.unlock();
+            
+                            if(!hasHadPass) {
+                                if (runChunkThread.load()) {
+                                    rebuildChunk(sortedChunkPtrs[takenChunkIndex], thisChunkCoord, false, true);
+                                }
+                                
                             } else {
-                                rebuildChunk(sortedChunkPtrs[takenChunkIndex], thisChunkCoord, false, false);
+                                if (runChunkThread.load()) {
+                                    rebuildChunk(sortedChunkPtrs[takenChunkIndex], thisChunkCoord, false, false);
+                                }
                             }
                             
 
@@ -765,9 +776,12 @@ void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool im
             }
         }
     }
-
-    geometryStorePool.at(chunk->geometryStorePoolIndex).myLock.lock();
-
+    try {
+        geometryStorePool.at(chunk->geometryStorePoolIndex).myLock.lock();
+    }
+    catch (std::exception e) {
+        std::cout << e.what() << "\n";
+    }
         try {
             geometryStorePool.at(chunk->geometryStorePoolIndex).verts = verts;
         }
@@ -1128,11 +1142,12 @@ void VoxelWorld::propogateLightOrigin(BlockCoord spot, BlockCoord origin, int va
 
 
 void VoxelWorld::lightPassOnChunk(ChunkCoord chunkCoord, std::unordered_map<BlockCoord, uint32_t, IntTupHash>& memo) {
-
+    hashadlightMutex.lock();
+           
     if(hasHadInitialLightPass.find(chunkCoord) == hasHadInitialLightPass.end()) {
         hasHadInitialLightPass.insert_or_assign(chunkCoord, true);
     }
-
+    hashadlightMutex.unlock();
 
 
     std::set<BlockChunk*> implicatedChunks;
