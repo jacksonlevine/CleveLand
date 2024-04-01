@@ -12,6 +12,7 @@
 #include "game/voxelworld.h"
 #include <future>
 #include "util/username.h"
+#include "util/ackies.h"
 
 using boost::asio::ip::udp;
 
@@ -35,6 +36,7 @@ struct Message {
     float y;
     float z;
     uint32_t info;
+    Goose goose;
 };
 
 struct OtherPlayer {
@@ -49,6 +51,7 @@ struct NameMessage {
     int id;
     char data[59];
     int length;
+    Goose goose;
 };
 
 void clientStringToPlayerList(std::vector<OtherPlayer> &out, std::string in);

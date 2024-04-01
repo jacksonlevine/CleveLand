@@ -41,6 +41,7 @@ grounded(true)
             m.z = z;
             m.type = MessageType::BlockSet;
             m.info = b;
+            m.goose = 0;
             client->send(m);
         } 
     };
@@ -1518,6 +1519,7 @@ void Game::goToMultiplayerWorld() {
     m.x = 0;
     m.y = 0;
     m.z = 0;
+    m.goose = 0;
 
     try {
         client->connect();
