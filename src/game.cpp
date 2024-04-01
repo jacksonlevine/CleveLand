@@ -26,8 +26,12 @@ collCage([this](BlockCoord b){
 user(glm::vec3(0,0,0), glm::vec3(0,0,0)),
 grounded(true)
 {
+    static std::function<void(float)> setTimeFunc = [this](float t) {
+        timeOfDay = t;
+    };
 
-    client = new UDPClient(io_context, &voxelWorld);
+    client = new UDPClient(io_context, &voxelWorld, &setTimeFunc);
+
 
     static std::function<void(int,int,int,uint32_t)> mpBlockSetFunc = [this](int x,int y,int z,uint32_t b) {
         if(inMultiplayer) {

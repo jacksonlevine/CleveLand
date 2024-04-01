@@ -1,7 +1,7 @@
 #include "voxelworld.h"
 
 
-void VoxelWorld::setBlock(BlockCoord coord, uint32_t block) {
+void VoxelWorld::setBlock(BlockCoord coord, uint32_t block, bool updateMultiplayer) {
     ChunkCoord cc(
         std::floor(static_cast<float>(coord.x) / chunkWidth),
         std::floor(static_cast<float>(coord.z) / chunkWidth)
@@ -16,16 +16,18 @@ void VoxelWorld::setBlock(BlockCoord coord, uint32_t block) {
     userDataMap.at(cc).insert_or_assign(coord, block);
     
     udmMutex.unlock();  
-
-    (*multiplayerBlockSetFunc)(coord.x, coord.y, coord.z, block);
+    if(updateMultiplayer) {
+        (*multiplayerBlockSetFunc)(coord.x, coord.y, coord.z, block);
+    }
+        
 }
 
 
 void VoxelWorld::setBlockAndQueueRerender(BlockCoord coord, uint32_t block) {
-    setBlock(coord, block);
+    setBlock(coord, block, false);
     ChunkCoord cc(
-        coord.x / chunkWidth,
-        coord.z / chunkWidth
+        std::floor(static_cast<float>(coord.x) / chunkWidth),
+        std::floor(static_cast<float>(coord.z) / chunkWidth)
     );
     std::set<BlockChunk *> implicated;
 

@@ -38,6 +38,22 @@ void UDPClient::start() {
     });
 
     send_thread = std::thread([this]() {
+
+            NameMessage m = {0};
+                        m.id = 0;
+                        m.length = USERNAME.size();
+                        int index = 0;
+                        for(char& c : USERNAME) {
+                            m.data[index] = c;
+                            index++;
+                        }
+                try {
+                    socket_.send_to(boost::asio::buffer(&m, sizeof(NameMessage)), server_endpoint_);
+                } catch (std::exception& e) {
+                    std::cerr << "Error sending name: " << e.what() << std::endl;
+                }
+
+
             while (shouldRunSendLoop.load()) {
 
                 Message heartbeat{MessageType::Heartbeat, 0, 0, 0, 0};
@@ -103,6 +119,9 @@ void clientStringToPlayerList(std::vector<OtherPlayer> &out, std::string in) {
             if(wordIndex == 3) {
                 thisPlayer.z = std::stof(word);
             }
+            if(wordIndex == 5) {
+                thisPlayer.name = word;
+            }
             wordIndex++;
         }
         out.push_back(thisPlayer);
@@ -130,11 +149,13 @@ std::string getMessageTypeString(Message& m) {
             return std::string("Heartbeat");
         case MessageType::Disconnect:
             return std::string("Disconnect");
+        case MessageType::TimeUpdate:
+            return std::string("TimeUpdate");
     }
 }
 
-UDPClient::UDPClient(boost::asio::io_context& io_context, VoxelWorld *voxworld)
-    : io_context_(io_context), socket_(io_context, udp::endpoint(udp::v4(), 0)), voxelWorld(voxworld) {
+UDPClient::UDPClient(boost::asio::io_context& io_context, VoxelWorld *voxworld, std::function<void(float)> *timeSetFunc)
+    : io_context_(io_context), socket_(io_context, udp::endpoint(udp::v4(), 0)), voxelWorld(voxworld), setGameTime(timeSetFunc) {
 
     
 
@@ -180,7 +201,17 @@ void UDPClient::receive() {
 
         // Now you can process the received data, which is stored in recv_buffer and has a length of 'length' bytes
         // For example, if you're expecting a Message struct, you can check if 'length' is at least sizeof(Message)
-        if (length == sizeof(Message)) {
+        if (length == sizeof(NameMessage)) {
+            NameMessage* message = reinterpret_cast<NameMessage*>(recv_buffer.data());
+            std::string name(message->data, message->length);
+            std::cout << "Received name: " << name << "\n";
+            auto playerIt = std::find_if(PLAYERS.begin(), PLAYERS.end(), [message](OtherPlayer& play){
+                return play.id == message->id;
+            });
+            if(playerIt != PLAYERS.end()) {
+                playerIt->name = std::string(name);
+            }
+        } else if (length == sizeof(Message)) {
             
             Message* message = reinterpret_cast<Message*>(recv_buffer.data());
             std::cout << "Received: " << getMessageTypeString(*message) << " from " << sender_endpoint << std::endl;
@@ -229,8 +260,11 @@ void UDPClient::receive() {
                     }, static_cast<uint32_t>(message->info));
             }
 
+            if (message->type == MessageType::TimeUpdate) {
+                (*setGameTime)(message->x);
+                std::cout << "Updated time to " << std::to_string(message->x) << "\n";
+            }
             
-
             if (message->type == MessageType::Disconnect) {
                 int idToRemove = message->info;
                 auto it = std::find_if(PLAYERS.begin(), PLAYERS.end(), [idToRemove](const OtherPlayer& player) {
@@ -240,6 +274,7 @@ void UDPClient::receive() {
                     PLAYERS.erase(it);
                 }
             }
+
             if (message->type == MessageType::PlayerMove) {
                 auto playerIt = std::find_if(PLAYERS.begin(), PLAYERS.end(), [message](OtherPlayer& play) {
                     return play.id == static_cast<int>(message->info);

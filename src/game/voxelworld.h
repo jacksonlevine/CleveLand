@@ -179,7 +179,7 @@ public:
     int checkVersionOfSave(const char *path);
     void deleteFolder(std::string path);
 
-    void setBlock(BlockCoord coord, uint32_t block);
+    void setBlock(BlockCoord coord, uint32_t block, bool updateMultiplayer = true);
     void setBlockAndQueueRerender(BlockCoord coord, uint32_t block);
     
     inline static int initialLoadProgress = 0;

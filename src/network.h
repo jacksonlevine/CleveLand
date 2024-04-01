@@ -11,6 +11,7 @@
 #include <atomic>
 #include "game/voxelworld.h"
 #include <future>
+#include "util/username.h"
 
 using boost::asio::ip::udp;
 
@@ -24,7 +25,8 @@ enum MessageType {
     RequestPlayerList,
     PlayerList,
     Heartbeat,
-    Disconnect
+    Disconnect,
+    TimeUpdate
 };
 
 struct Message {
@@ -40,6 +42,13 @@ struct OtherPlayer {
     float x;
     float y;
     float z;
+    std::string name;
+};
+
+struct NameMessage {
+    int id;
+    char data[59];
+    int length;
 };
 
 void clientStringToPlayerList(std::vector<OtherPlayer> &out, std::string in);
@@ -51,7 +60,7 @@ std::string getMessageTypeString(Message& m);
 
 class UDPClient {
 public:
-    UDPClient(boost::asio::io_context& io_context, VoxelWorld *voxworld);
+    UDPClient(boost::asio::io_context& io_context, VoxelWorld *voxworld, std::function<void(float)> *gameTimeSet);
 
     void send(const Message& message);
 
@@ -77,6 +86,7 @@ private:
     std::thread receive_thread;
     std::thread send_thread;
     VoxelWorld* voxelWorld;
+    std::function<void(float)>* setGameTime;
 };
 
 #endif
