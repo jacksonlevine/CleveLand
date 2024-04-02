@@ -12,6 +12,7 @@
 #include "game/voxelworld.h"
 #include <future>
 #include "util/username.h"
+#include <mutex>
 
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_generators.hpp>
@@ -19,9 +20,11 @@
 
 using UUID = boost::uuids::uuid;
 
-using boost::asio::ip::udp;
+using boost::asio::ip::tcp;
 
 extern bool rcvtpromisesat;
+
+extern std::mutex WRITE_MUTEX;
 
 enum MessageType {
     PlayerMove,
@@ -44,7 +47,6 @@ struct Message {
     float y;
     float z;
     uint32_t info;
-    int sequence;
 };
 
 extern int INCOMING_SEQUENCE_NUMBER;
@@ -96,21 +98,20 @@ public:
 
     void connect();
     void disconnect();
-    void processMessage(Message* message, udp::endpoint& sender_endpoint);
+    void processMessage(Message* message);
 
-    void acknowledgeMessage(UUID goose);
 
     inline static std::atomic<bool> shouldRunReceiveLoop = false;
     inline static std::atomic<bool> shouldRunSendLoop = false;
 
     inline static std::atomic<bool> receivedWorld = false;
 
-    udp::socket socket_;
+    tcp::socket socket_;
 
 private:
     boost::asio::io_context& io_context_;
     
-    udp::endpoint server_endpoint_;
+    tcp::endpoint server_endpoint_;
     std::thread receive_thread;
     std::thread send_thread;
     VoxelWorld* voxelWorld;
