@@ -13,10 +13,11 @@
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/uuid/uuid_io.hpp>
 #include <algorithm>
-#include "acks.h"
+// #include "acks.h"
 
+using namespace boost::asio;
+using namespace boost::asio::ip;
 using UUID = boost::uuids::uuid;
-using boost::asio::ip::udp;
 
 const char* worldPath = "world";
 
@@ -41,7 +42,6 @@ struct Message {
     float y;
     float z;
     uint32_t info;
-    int sequence;
 };
 
 struct BlockChange {
@@ -60,7 +60,7 @@ void printHex(const std::string& str) {
 
 
 struct Client {
-    udp::endpoint endpoint;
+    tcp::socket socket;
     int id;
     float x;
     float y;
@@ -81,7 +81,7 @@ struct NameMessage {
 };
 
 
-Message createMessage(MessageType type, float x, float y, float z, uint32_t info, int seq) {
+Message createMessage(MessageType type, float x, float y, float z, uint32_t info) {
     Message msg;
     boost::uuids::random_generator generator;
     msg.goose = generator();
@@ -90,7 +90,6 @@ Message createMessage(MessageType type, float x, float y, float z, uint32_t info
     msg.y = y;
     msg.z = z;
     msg.info = info;
-    msg.sequence = seq;
     return msg;
 }
 
@@ -129,6 +128,7 @@ std::vector<BlockChange> BLOCK_CHANGE_QUEUE;
 std::mutex COMMUNICATION_LOCK; 
 std::mutex CLIENTS_LOCK;
 
+
 std::string getMessageTypeString(Message& m) {
     switch(m.type) {
         case MessageType::PlayerMove:
@@ -162,236 +162,169 @@ VoxelWorld world;
 
 std::chrono::steady_clock::time_point lastTimeCheckedForOldUsers = std::chrono::steady_clock::now();
 
-class UDPServer {
+class TCPServer {
 public:
-    UDPServer(boost::asio::io_context& io_context, unsigned short port)
-        : socket_(io_context, udp::endpoint(udp::v4(), port)) {
-        start_receive();
+    TCPServer(io_context& io_context, unsigned short port)
+        : acceptor_(io_context, tcp::endpoint(tcp::v4(), port)) {
+        start_accept();
     }
 
-    void start_receive() {
-        static std::vector<char> recv_buffer(65000);
-        socket_.async_receive_from(
-            boost::asio::buffer(recv_buffer), remote_endpoint_,
-            [this](boost::system::error_code ec, std::size_t bytes_recvd) {
-                if (!ec && bytes_recvd > 0) {
-                        auto now = std::chrono::steady_clock::now();
-                      //Find the client in client map if we have it
-                      int thisPlayersID = 0;
-                      try {
-                        CLIENTS_LOCK.lock();
-                        auto it = std::find_if(CLIENTS.begin(), CLIENTS.end(), [this](const auto& pair) {
-                            return pair.second.endpoint == this->remote_endpoint_;
-                        });
+private:
+    void start_accept() {
+        // Create a new socket for the incoming connection
+        tcp::socket socket(acceptor_.get_executor().context());
 
+        // Asynchronously accept a new connection
+        acceptor_.async_accept(socket, [this, &socket](const boost::system::error_code& error) {
+            if (!error) {
+                // Successfully accepted a new connection, handle it
+                handle_connection(std::move(socket));
+            }
 
+            // Continue accepting new connections
+            start_accept();
+        });
+    }
+
+    void handle_connection(tcp::socket socket) {
+
+        Client client{
+            std::move(socket),
+            currentID,
+            0,
+            0,
+            0,
+            std::chrono::steady_clock::now(),
+            std::string("Brewhaha")
+        };
+
+        currentID++;
+
+        {
+            std::lock_guard<std::mutex> lock(CLIENTS_LOCK);
+            CLIENTS[client.id] = std::move(client);
+        }
+
+        // Create a new thread to handle the connection
+        std::thread([this, id = client.id]() mutable {
+            try {
+                bool run = true;
+                while(run) {
+
+                    Message message;
+
+                    tcp::socket* client_socket;
+                    {
+                        std::lock_guard<std::mutex> lock(CLIENTS_LOCK);
+                        client_socket = &(CLIENTS[id].socket);
+                    }
+
+                    boost::asio::read(*client_socket, boost::asio::buffer(&message, sizeof(Message)));
+                    
+                    auto now = std::chrono::steady_clock::now();
                         
+                        std::cout << "Received: " << getMessageTypeString(message) << " from " << std::to_string(id) << std::endl;
 
-                        if (it != CLIENTS.end()) {
 
-                            thisPlayersID = it->second.id;
-                        } else {
-                            // Add the sender to the map of clients with a dummy position or a real position
-                            // If we have it
-                            
-                                CLIENTS.insert_or_assign(currentID, Client{
-                                    remote_endpoint_,
-                                    currentID,
-                                    0,
-                                    0,
-                                    0,
-                                    now,
-                                    std::string("")
-                                });
-
-                            thisPlayersID = currentID;
-                            //IMPORTANT: INCREMENT THE ID
-                            currentID++;
+                        {
+                            std::lock_guard<std::mutex> lock(CLIENTS_LOCK);
+                            if(CLIENTS.find(id) != CLIENTS.end()) {
+                                CLIENTS.at(id).last_active = now;
+                            }
                         }
-                        CLIENTS_LOCK.unlock();
-                      } catch (std::exception& e) {
-                        std::cout << e.what() << "\n";
-                      }
-                        
-
-
-                    if(bytes_recvd == sizeof(Message)) {
-
-                        
-
-                        std::memcpy(&recv_message_, recv_buffer.data(), sizeof(Message));
-                        
-                        
-                        std::cout << "Received: " << getMessageTypeString(recv_message_) << " from " << remote_endpoint_ << std::endl;
                         
                         bool playerMove = false;
                         glm::vec3 newPlayerPosition(0,0,0);
 
                        
-                        if(recv_message_.type == MessageType::PlayerMove) {
+                        if(message.type == MessageType::PlayerMove) {
                             playerMove = true;
                             newPlayerPosition = glm::vec3(
-                                recv_message_.x,
-                                recv_message_.y,
-                                recv_message_.z
+                                message.x,
+                                message.y,
+                                message.z
                             );
                         }
+    
 
-                         //Find the client in client map if we have it
-                        CLIENTS_LOCK.lock();
-                        auto it = std::find_if(CLIENTS.begin(), CLIENTS.end(), [this](const auto& pair) {
-                            return pair.second.endpoint == this->remote_endpoint_;
-                        });
+
+                        if(message.type == MessageType::RequestWorldString) {
 
 
 
-                        if (it != CLIENTS.end()) {
-                            //Client is already in list. Update their position if we have new pos
-                            if(playerMove == true) {
-                                it->second.x = newPlayerPosition.x;
-                                it->second.y = newPlayerPosition.y;
-                                it->second.z = newPlayerPosition.z;
-                                it->second.last_active = now;
-                            }
-                            thisPlayersID = it->second.id;
-                        } else {
-                            // Add the sender to the map of clients with a dummy position or a real position
-                            // If we have it
-                            if(playerMove == true) {
-                                CLIENTS.insert_or_assign(currentID, Client{
-                                    remote_endpoint_,
-                                    currentID,
-                                    newPlayerPosition.x,
-                                    newPlayerPosition.y,
-                                    newPlayerPosition.z,
-                                    now,
-                                    std::string("")
-                                });
-                            } else {
-                                CLIENTS.insert_or_assign(currentID, Client{
-                                    remote_endpoint_,
-                                    currentID,
-                                    0,
-                                    0,
-                                    0,
-                                    now,
-                                    std::string("")
-                                });
-                            }
-                            thisPlayersID = currentID;
-                            //IMPORTANT: INCREMENT THE ID
-                            currentID++;
-                        }
-                        CLIENTS_LOCK.unlock();
+                            Message m = createMessage(MessageType::WorldString, 0, 0, 0, worldString.size());
 
-                        
+                            boost::asio::write(client_socket, boost::asio::buffer(&m, sizeof(Message)));
 
-
-                        if(recv_message_.type == MessageType::RequestWorldString) {
-
-                            COMMUNICATION_LOCK.lock();
-
-                            Message m = createMessage(MessageType::WorldString, 0, 0, 0, worldString.size(), 0);
-
-
-                            socket_.send_to(boost::asio::buffer(&m, sizeof(Message)), remote_endpoint_);
 
                             std::cout << "Sending world string of size " << std::to_string(worldString.size())
                             << "\n";
                             // std::cout << "World string: \n" <<
                             // worldString << "\n";
-                            socket_.send_to(boost::asio::buffer(worldString), remote_endpoint_);
-                            COMMUNICATION_LOCK.unlock();
+                            boost::asio::write(client_socket, boost::asio::buffer(worldString));
                         }
 
 
-                        if(recv_message_.type == MessageType::RequestPlayerList) {
+                        if(message.type == MessageType::RequestPlayerList) {
 
 
-                            COMMUNICATION_LOCK.lock();
                             
-                            std::string playerListString = clientListToString(thisPlayersID);
+                            std::string playerListString = clientListToString(id);
 
-                            Message m = createMessage(MessageType::PlayerList, 0, 0, 0, playerListString.size(),  SEQUENCE_NUM.load());
-                            SEQUENCE_NUM.store(expectedNextSeq( SEQUENCE_NUM.load()));
+                            Message m = createMessage(MessageType::PlayerList, 0, 0, 0, playerListString.size());
 
-                            socket_.send_to(boost::asio::buffer(&m, sizeof(Message)), remote_endpoint_);
+                            boost::asio::write(client_socket, boost::asio::buffer(&m, sizeof(Message)));
 
                             std::cout << "Sending client string of size " << std::to_string(playerListString.size())
                             << "\n";
                             std::cout << "Client string: \n" <<
                             playerListString << "\n";
-
-                            socket_.send_to(boost::asio::buffer(playerListString), remote_endpoint_);
-                            COMMUNICATION_LOCK.unlock();
+                            
+                            boost::asio::write(client_socket, boost::asio::buffer(playerListString));
+                            
                         }
 
-                        if(recv_message_.type == MessageType::Acknowledge) {
-                            reportSeenMessage(recv_message_.goose, thisPlayersID);
-                            CLIENTS_LOCK.lock();
-                            bool allIn = true;
-                            for(auto &[key, val] : CLIENTS)
-                            {
-                                if(!hasSeen(recv_message_.goose, key)) {
-                                    allIn = false;
-                                }
-                            }
-                            if(allIn) {
-                                resolveMessage(recv_message_.goose);
-                            }                            
-                            CLIENTS_LOCK.unlock();
+                        if(message.type == MessageType::Acknowledge) {
+                        
                         }
                         
                         
-                        if(recv_message_.type == MessageType::BlockSet) {
+                        if(message.type == MessageType::BlockSet) {
                             world.setBlock(BlockCoord{
-                                static_cast<int>(recv_message_.x),
-                                static_cast<int>(recv_message_.y),
-                                static_cast<int>(recv_message_.z)}, 
-                                static_cast<uint32_t>(recv_message_.info));
+                                static_cast<int>(message.x),
+                                static_cast<int>(message.y),
+                                static_cast<int>(message.z)}, 
+                                static_cast<uint32_t>(message.info));
                             world._saveWorldToFile(worldPath);
                         }
                         
 
-                        if(recv_message_.type == MessageType::RequestSeq) {
-                            int seq = recv_message_.info;
-
-                            std::vector<char> data;
-                            data.resize(sizeof(Message));
-                            if(getBySeq(seq, data.begin())) {
-                                socket_.send_to(boost::asio::buffer(data, sizeof(Message)), remote_endpoint_);
-                            }
-
+                        if(message.type == MessageType::RequestSeq) {
+                        
 
                         }
 
                         
                         
-                        if(recv_message_.type != MessageType::RequestWorldString && recv_message_.type != MessageType::RequestPlayerList && 
-                        recv_message_.type != MessageType::Heartbeat && recv_message_.type != MessageType::Acknowledge  && recv_message_.type != MessageType::Disconnect && recv_message_.type != MessageType::RequestSeq) {
-                            if(recv_message_.type == MessageType::PlayerMove) {
+                        if(message.type != MessageType::RequestWorldString && message.type != MessageType::RequestPlayerList && 
+                        message.type != MessageType::Heartbeat && message.type != MessageType::Acknowledge  && message.type != MessageType::Disconnect && message.type != MessageType::RequestSeq) {
+                            if(message.type == MessageType::PlayerMove) {
                                 //If its a player move, set the info field to the id
-                                recv_message_.info = currentID;
+                                message.info = currentID;
                             }
-
-                                reportMessage(recv_message_.goose, recv_buffer, sizeof(Message), thisPlayersID);
-
-                                
-
 
                             std::vector<int> keysToRemove;
                             // Forward the message to all other clients
                             CLIENTS_LOCK.lock();
                             
                             for (auto&[key, value] : CLIENTS) {
-                                if (value.endpoint != remote_endpoint_) {
+                                if (id != key) {
                                     auto inactive_duration = std::chrono::duration_cast<std::chrono::seconds>(now - value.last_active);
-                                    if (inactive_duration.count() > 30) {
+                                    if (inactive_duration.count() > 50) {
                                         keysToRemove.push_back(key);
                                     } else {
-                                        recv_message_.sequence = SEQUENCE_NUM.load();
-                                        SEQUENCE_NUM.store(expectedNextSeq(SEQUENCE_NUM.load()));
-                                        socket_.send_to(boost::asio::buffer(&recv_message_, sizeof(Message)), value.endpoint);
+                                        //DISTRIB!
+                                        boost::asio::write(value.socket, boost::asio::buffer(&message, sizeof(Message)));
                                     }
                                 }
                             }
@@ -400,13 +333,12 @@ public:
                                 CLIENTS.erase(key);
                                 for (auto&[k, value] : CLIENTS) {
                                     //Tell the clients this guy's gone
-                                    Message m = createMessage(MessageType::Disconnect, 0, 0, 0, key, SEQUENCE_NUM.load());
-                                    SEQUENCE_NUM.store(expectedNextSeq(SEQUENCE_NUM.load()));
-                                    socket_.send_to(boost::asio::buffer(&m, sizeof(Message)), value.endpoint);
+                                    Message m = createMessage(MessageType::Disconnect, 0, 0, 0, key);
+                                    boost::asio::write(value.socket, boost::asio::buffer(&m, sizeof(Message)));
                                 }
                             }
                             CLIENTS_LOCK.unlock();
-                        } else if (recv_message_.type == MessageType::Heartbeat) {
+                        } else if (message.type == MessageType::Heartbeat) {
                             std::vector<int> keysToRemove;
                             CLIENTS_LOCK.lock();
                             for (const auto&[key, value] : CLIENTS) {
@@ -415,211 +347,41 @@ public:
                                     keysToRemove.push_back(key);
                                 }
                             }
+
                             for(int& key : keysToRemove) {
                                 CLIENTS.erase(key);
                                 for (auto&[k, value] : CLIENTS) {
                                     //Tell the clients this guy's gone
-                                    Message m = createMessage(MessageType::Disconnect, 0, 0, 0, key,  SEQUENCE_NUM.load());
-                                     SEQUENCE_NUM.store(expectedNextSeq( SEQUENCE_NUM.load()));
-                                    socket_.send_to(boost::asio::buffer(&m, sizeof(Message)), value.endpoint);
+                                    Message m = createMessage(MessageType::Disconnect, 0, 0, 0, key);
+                                    boost::asio::write(value.socket, boost::asio::buffer(&m, sizeof(Message)));
                                 }
                             }
                             CLIENTS_LOCK.unlock();
                         }
 
-
-                        CLIENTS_LOCK.lock();
-                        for( auto&[key, val] : CLIENTS) {
-                            
-                            for( auto&[k, v] : BUREAU) {
-                                if(!hasSeen(k, key)) {
-                                    std::cout << "This guy " << val.name << " didn't get " << k << ", sending now.\n";
-                                    std::vector<char> buf(sizeof(Message));
-                                    buf.resize(sizeof(Message));
-                                    BUREAU_LOCK.lock();
-                                    std::copy(ARCHIVE.at(k).archive.begin(), ARCHIVE.at(k).archive.end(), buf.begin());
-                                    socket_.send_to(boost::asio::buffer(buf, sizeof(Message)), val.endpoint);
-                                    BUREAU_LOCK.unlock();
-                                }
-                            }
-                            
-                        }
-                        CLIENTS_LOCK.unlock();
-                    } 
-                    else 
-                    if (bytes_recvd == sizeof(NameMessage)) {
-                        std::cout << "Size of name message \n";
-                        NameMessage *recv_name = reinterpret_cast<NameMessage*>(recv_buffer.data());
-                        std::string name(recv_name->data, recv_name->length);
-                        std::cout << "Received name " << name << "\n";
-                        CLIENTS_LOCK.lock();
-                        CLIENTS.at(thisPlayersID).name = name;
-
-                        NameMessage m = createNameMessage(thisPlayersID, name, name.size());
-                        m.goose = recv_name->goose;
-
-                        for (const auto&[k, value] : CLIENTS) {
-                            //Tell the clients this guy's name
-                            if(value.endpoint != remote_endpoint_) {
-                                socket_.send_to(boost::asio::buffer(&m, sizeof(NameMessage)), value.endpoint);
-                            }
-                            
-                        }
-                        CLIENTS_LOCK.unlock();
-                    }
-
-                    
                 }
-                start_receive();
-            });
+            } catch (const std::exception &e) {
+                std::cerr << "Error in connection thread: " << e.what() << "\n";
+            }
+
+            {
+                std::lock_guard<std::mutex> lock(CLIENTS_LOCK);
+                CLIENTS.erase(id);
+            }
+
+        }).detach();
     }
 
-    udp::socket socket_;
-    udp::endpoint remote_endpoint_;
-    Message recv_message_;
     inline static int currentID = 0;
+    tcp::acceptor acceptor_;
 };
-
-std::mutex TIME_LOCK;
-
-class TimeOfDay {
-public:
-    float time;
-    TimeOfDay(float t, std::string p, UDPServer* serv) : time(t), path(p), servoMax(serv) {}
-    void saveToFile() {
-        std::ofstream file(path, std::ios::trunc);
-        if(file.is_open()) {
-            file << std::to_string(time) << "\n";
-            file.close();
-        }
-    }
-    void loadFromFile() {
-        std::ifstream file(path);
-        std::string line;
-        if(file.is_open()) {
-            while(std::getline(file, line)) {
-                std::istringstream linestream(line);
-                std::string word;
-                int index = 0;
-                while (linestream >> word) {
-                    if(index == 0) {
-                        time = std::stof(word);
-                    }
-                }
-            }
-            file.close();
-        }
-    }
-    float getTime() {
-        TIME_LOCK.lock();
-        float t = time;
-        TIME_LOCK.unlock();
-        return t;
-        
-    }
-    void setTime(float val) {
-        TIME_LOCK.lock();
-        time = std::fmod(val, dayLength);
-        TIME_LOCK.unlock();
-    }
-    void sendTimeOut() {
-        TIME_LOCK.lock();
-        float t = time;
-        TIME_LOCK.unlock();
-
-        CLIENTS_LOCK.lock();
-        for(auto &[key, val] : CLIENTS) {
-
-            Message m = createMessage(MessageType::TimeUpdate, t, 0, 0, 0,  SEQUENCE_NUM.load());
-             SEQUENCE_NUM.store(expectedNextSeq( SEQUENCE_NUM.load()));
-            servoMax->socket_.send_to(boost::asio::buffer(&m, sizeof(Message)), val.endpoint);
-        }
-        CLIENTS_LOCK.unlock();
-    }
-private:
-    std::string path;
-    inline static float dayLength = 900.0f;
-    UDPServer* servoMax;
-};
-
-TimeOfDay *timeOfDay;
-
-
-
-UDPServer* servo;
-
-
-
-std::atomic<bool> runTimeFunc = true;
-
-float lastFrame = 0.0f;
-float deltaTime = 0.0f;
-
-void updateTime() {
-    double currentFrame = glfwGetTime();
-    deltaTime = currentFrame - lastFrame;
-    lastFrame = currentFrame;
-}
-
-
-float timeTickTimer = 0.0f;
-void timeOfDayThreadFunction() {
-
-    while(runTimeFunc.load()) {
-        
-        std::this_thread::sleep_for(std::chrono::seconds(5));
-        
-        float time = timeOfDay->getTime();
-        updateTime();
-        time += deltaTime;
-        std::cout << "Updated time to " << std::to_string(time) << '\n';
-        timeOfDay->setTime(time);
-        timeOfDay->sendTimeOut();
-
-        
-
-        std::vector<int> keysToRemove;
-        CLIENTS_LOCK.lock();
-        for (const auto&[key, value] : CLIENTS) {
-            auto inactive_duration = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now() - value.last_active);
-            if (inactive_duration.count() > 50) {
-                keysToRemove.push_back(key);
-            }
-        }
-
-        for(int& key : keysToRemove) {
-            CLIENTS.erase(key);
-            for (auto&[k, value] : CLIENTS) {
-                //Tell the clients this guy's gone
-                Message m = createMessage(MessageType::Disconnect, 0, 0, 0, key,  SEQUENCE_NUM.load());
-                     SEQUENCE_NUM.store( expectedNextSeq( SEQUENCE_NUM.load()));
-                servo->socket_.send_to(boost::asio::buffer(&m, sizeof(Message)), value.endpoint);
-            }
-        }
-        CLIENTS_LOCK.unlock();
-
-    }
-}
 
 
 
 int main() {
-
-    
-
-    glfwInit();
-
-    world.loadOrCreateSaveGame(worldPath);
-
     try {
-        boost::asio::io_context io_context;
-        UDPServer server(io_context, 12345);
-        servo = &server;
-        TimeOfDay tod(0.0f, std::string("time"), &server);
-        timeOfDay = &tod;
-        std::thread timeThread(
-            timeOfDayThreadFunction
-        );
+        io_context io_context;
+        TCPServer server(io_context, 12345);
         io_context.run();
     } catch (std::exception& e) {
         std::cerr << e.what() << std::endl;
