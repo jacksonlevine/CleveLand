@@ -9,17 +9,10 @@
 #include <chrono>
 #include <atomic>
 #include <GLFW/glfw3.h>
-#include "uniqueid.h"
-#include "ackies.h"
-#include <algorithm> 
 
 using boost::asio::ip::udp;
 
 const char* worldPath = "world";
-
-UniqueID idfactory{};
-
-AckCentral ackCentral{};
 
 enum MessageType {
     PlayerMove,
@@ -39,7 +32,6 @@ struct Message {
     float y;
     float z;
     uint32_t info;
-    Goose goose;
 };
 
 struct BlockChange {
@@ -47,7 +39,6 @@ struct BlockChange {
     int y;
     int z;
     uint32_t block;
-    Goose goose;
 };
 
 void printHex(const std::string& str) {
@@ -72,7 +63,6 @@ struct NameMessage {
     int id;
     char data[59];
     int length;
-    Goose goose;
 };
 
 
@@ -91,12 +81,6 @@ std::string clientListToString(int excludedID) {
 
     return outputStream.str();
 }
-
-
-
-
-
-
 
 
 
@@ -184,30 +168,14 @@ public:
                       } catch (std::exception& e) {
                         std::cout << e.what() << "\n";
                       }
-
-                    for(auto &[key, val] : ackCentral.library) {
-                        if(std::find(val.begin(), val.end(), thisPlayersID) == val.end()) {
-                            if (ackCentral.archives.find(key) != ackCentral.archives.end()) {
-                                socket_.send_to(boost::asio::buffer(&ackCentral.archives.at(key), sizeof(char) * ackCentral.archives.at(key).size()), remote_endpoint_);
-                            }
-                            
-                        }
-                    }
+                        
 
 
                     if(bytes_recvd == sizeof(Message)) {
 
-
                         std::memcpy(&recv_message_, recv_buffer.data(), sizeof(Message));
                         
-                        Goose goose = idfactory.getID();
-
-                        ackCentral.library.insert_or_assign(goose, std::vector<int>());
-                        ackCentral.library.at(goose).push_back(thisPlayersID);
-                        ackCentral.archives.insert_or_assign(goose, std::vector<char>());
-                        std::vector<char>& archive = ackCentral.archives.at(goose);
-                        std::copy(recv_buffer.data(), recv_buffer.data() + sizeof(Message), std::back_inserter(archive));
-
+                        
                         std::cout << "Received: " << getMessageTypeString(recv_message_) << " from " << remote_endpoint_ << std::endl;
                         
                         bool playerMove = false;
@@ -275,7 +243,7 @@ public:
                             COMMUNICATION_LOCK.lock();
                             Message m;
                             m.type = MessageType::WorldString;
-                            m.x = 0; m.y = 0; m.z = 0; m.info = worldString.size(); m.goose = 0;
+                            m.x = 0; m.y = 0; m.z = 0; m.info = worldString.size();
                             socket_.send_to(boost::asio::buffer(&m, sizeof(Message)), remote_endpoint_);
 
                             std::cout << "Sending world string of size " << std::to_string(worldString.size())
@@ -294,7 +262,7 @@ public:
 
                             std::string playerListString = clientListToString(thisPlayersID);
 
-                            m.x = 0; m.y = 0; m.z = 0; m.info = playerListString.size(); m.goose = 0;
+                            m.x = 0; m.y = 0; m.z = 0; m.info = playerListString.size();
                             socket_.send_to(boost::asio::buffer(&m, sizeof(Message)), remote_endpoint_);
 
                             std::cout << "Sending client string of size " << std::to_string(playerListString.size())
@@ -373,16 +341,6 @@ public:
                     if (bytes_recvd == sizeof(NameMessage)) {
                         std::cout << "Size of name message \n";
                         NameMessage *recv_name = reinterpret_cast<NameMessage*>(recv_buffer.data());
-
-                        Goose goose = idfactory.getID();
-
-                        ackCentral.library.insert_or_assign(goose, std::vector<int>());
-                        ackCentral.library.at(goose).push_back(thisPlayersID);
-                        ackCentral.archives.insert_or_assign(goose, std::vector<char>());
-                        std::vector<char>& archive = ackCentral.archives.at(goose);
-                        std::copy(recv_buffer.data(), recv_buffer.data() + sizeof(NameMessage), std::back_inserter(archive));
-
-
                         std::string name(recv_name->data, recv_name->length);
                         std::cout << "Received name " << name << "\n";
                         CLIENTS_LOCK.lock();
@@ -391,7 +349,6 @@ public:
                         NameMessage m = {0};
                         m.id = thisPlayersID;
                         m.length = name.size();
-                        m.goose = goose;
                         int index = 0;
                         for(char& c : name) {
                             m.data[index] = c;
@@ -406,30 +363,6 @@ public:
                             
                         }
                         CLIENTS_LOCK.unlock();
-                    } else 
-                    if (bytes_recvd == sizeof(Ack)) {
-                        Ack *recv = reinterpret_cast<Ack*>(recv_buffer.data());
-                        if (ackCentral.library.find(recv->word) != ackCentral.library.end()) {
-                            ackCentral.library.at(recv->word).push_back(thisPlayersID);
-                        }
-                        else {
-                            ackCentral.library.insert_or_assign(recv->word, std::vector<int>());
-                        }
-                        
-                        CLIENTS_LOCK.lock();
-                        bool allIn = true;
-                        auto &it = ackCentral.library.at(recv->word);
-                        for(auto &[key, val] : CLIENTS) {
-
-                            if(std::find(it.begin(), it.end(), key) == it.end()) {
-                                allIn = false; //!!
-                            }
-                        }
-                        CLIENTS_LOCK.unlock();
-                        if(allIn) {
-                            ackCentral.library.erase(recv->word);
-                            ackCentral.archives.erase(recv->word);
-                        }
                     }
 
                     
@@ -526,8 +459,6 @@ void updateTime() {
 
 
 float timeTickTimer = 0.0f;
-
-float timeSaveTimer = 0.0f;
 void timeOfDayThreadFunction() {
 
     while(runTimeFunc.load()) {
@@ -540,11 +471,7 @@ void timeOfDayThreadFunction() {
         std::cout << "Updated time to " << std::to_string(time) << '\n';
         timeOfDay->setTime(time);
         timeOfDay->sendTimeOut();
-        timeSaveTimer += deltaTime;
-        if(timeSaveTimer > 50.0f) {
-            timeOfDay->saveToFile();
-            timeSaveTimer = 0.0f;
-        }
+
     }
 }
 
@@ -563,7 +490,6 @@ int main() {
         UDPServer server(io_context, 12345);
         TimeOfDay tod(0.0f, std::string("time"), &server);
         timeOfDay = &tod;
-        tod.loadFromFile();
         std::thread timeThread(
             timeOfDayThreadFunction
         );

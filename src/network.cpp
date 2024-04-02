@@ -56,14 +56,14 @@ void UDPClient::start() {
 
             while (shouldRunSendLoop.load()) {
 
-                Message heartbeat{MessageType::Heartbeat, 0, 0, 0, 0, 0};
+                Message heartbeat{MessageType::Heartbeat, 0, 0, 0, 0};
 
                 try {
                     socket_.send_to(boost::asio::buffer(&heartbeat, sizeof(Message)), server_endpoint_);
                 } catch (std::exception& e) {
                     std::cerr << "Error sending heartbeat: " << e.what() << std::endl;
                 }
-                for (int i = 0; i < 5; i++) {
+                for (int i = 0; i < 10; i++) {
                     if (shouldRunSendLoop.load()) {
                         std::this_thread::sleep_for(std::chrono::seconds(1));
                     }
@@ -203,14 +203,6 @@ void UDPClient::receive() {
         // For example, if you're expecting a Message struct, you can check if 'length' is at least sizeof(Message)
         if (length == sizeof(NameMessage)) {
             NameMessage* message = reinterpret_cast<NameMessage*>(recv_buffer.data());
-
-            if(message->length > std::string().max_size()) {
-                std::cout << "Name over the limit\n";
-            }
-
-            Ack ack{message->goose};
-            socket_.send_to(boost::asio::buffer(&ack, sizeof(Ack)), server_endpoint_);
-
             std::string name(message->data, message->length);
             std::cout << "Received name: " << name << "\n";
             auto playerIt = std::find_if(PLAYERS.begin(), PLAYERS.end(), [message](OtherPlayer& play){
@@ -224,18 +216,12 @@ void UDPClient::receive() {
             Message* message = reinterpret_cast<Message*>(recv_buffer.data());
             std::cout << "Received: " << getMessageTypeString(*message) << " from " << sender_endpoint << std::endl;
 
-            Ack ack{message->goose};
-            socket_.send_to(boost::asio::buffer(&ack, sizeof(Ack)), server_endpoint_);
-
             std::filesystem::create_directories(std::filesystem::path("multiplayer"));
 
             if (message->type == MessageType::WorldString) {
                 std::cout << "Expecting " << std::to_string(message->info) << " bytes\n";
                 std::vector<char> ws_buffer(static_cast<size_t>(message->info) + 1, '\0');
                 size_t len = socket_.receive_from(boost::asio::buffer(ws_buffer), sender_endpoint);
-                if(len > std::string().max_size()) {
-                    std::cout << "World string was over the limit at " << std::to_string(len) << "\n";
-                }
                 std::string receivedString(ws_buffer.data(), len);
                 std::cout << "World string: \n" <<
                     receivedString << "\n";
@@ -257,16 +243,12 @@ void UDPClient::receive() {
                 std::cout << "Expecting " << std::to_string(message->info) << " bytes\n";
                 std::vector<char> ps_buffer(static_cast<size_t>(message->info) + 1, '\0');
                 size_t len = socket_.receive_from(boost::asio::buffer(ps_buffer), sender_endpoint);
-                if(len > std::string().max_size()) {
-                    std::cout << "Player string was over the limit at " << std::to_string(len) << "\n";
-                } else {
-                    std::string receivedString(ps_buffer.data(), len);
-                    std::cout << "Players string: \n" <<
-                        receivedString << "\n";
-                    clientStringToPlayerList(PLAYERS, receivedString);
-                }
-                
-                
+
+                std::string receivedString(ps_buffer.data(), len);
+                std::cout << "Players string: \n" <<
+                    receivedString << "\n";
+
+                clientStringToPlayerList(PLAYERS, receivedString);
             }
 
             if (message->type == MessageType::BlockSet) {
