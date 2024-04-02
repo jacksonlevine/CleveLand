@@ -10,7 +10,59 @@ std::promise<void> receive_thread_promise;
 
 bool rcvtpromisesat = false;
 
+int INCOMING_SEQUENCE_NUMBER = -1;
+
+int OUTGOING_SEQUENCE_NUMBER = -1;
+
+std::unordered_map<int, std::vector<char>> BACKBURNER;
+
+int NEXT_INCOME_SEQ() {
+    return (INCOMING_SEQUENCE_NUMBER + 1) % 500;
+}
+int NEXT_OUTGO_SEQ() {
+    return (OUTGOING_SEQUENCE_NUMBER + 1) % 500;
+}
+
+Message createMessage(MessageType type, float x, float y, float z, uint32_t info) {
+    Message msg;
+    boost::uuids::random_generator generator;
+    msg.goose = generator();
+    msg.type = type;
+    msg.x = x;
+    msg.y = y;
+    msg.z = z;
+    msg.info = info;
+    OUTGOING_SEQUENCE_NUMBER = NEXT_OUTGO_SEQ();
+    msg.sequence = OUTGOING_SEQUENCE_NUMBER;
+    return msg;
+}
+
+Message createMessageWithID(UUID goose, MessageType type, float x, float y, float z, uint32_t info) {
+    Message msg;
+    msg.goose = goose;
+    msg.type = type;
+    msg.x = x;
+    msg.y = y;
+    msg.z = z;
+    msg.info = info;
+    OUTGOING_SEQUENCE_NUMBER = NEXT_OUTGO_SEQ();
+    msg.sequence = OUTGOING_SEQUENCE_NUMBER;
+    return msg;
+}
+
+
+NameMessage createNameMessage(int id, std::string name, size_t length) {
+    NameMessage msg = {0};
+    int index = 0;
+    for(char &c : name) {
+        msg.data[index] = c;
+        index++;
+    }
+    return msg;
+}
+
 void UDPClient::start() {
+    std::filesystem::create_directories(std::filesystem::path("multiplayer"));
     std::cout << "Client loop starting\n";
     shouldRunReceiveLoop.store(true);
     shouldRunSendLoop.store(true);
@@ -39,14 +91,9 @@ void UDPClient::start() {
 
     send_thread = std::thread([this]() {
 
-            NameMessage m = {0};
-                        m.id = 0;
-                        m.length = USERNAME.size();
-                        int index = 0;
-                        for(char& c : USERNAME) {
-                            m.data[index] = c;
-                            index++;
-                        }
+            NameMessage m = createNameMessage(0, USERNAME, USERNAME.size());
+            
+ 
                 try {
                     socket_.send_to(boost::asio::buffer(&m, sizeof(NameMessage)), server_endpoint_);
                 } catch (std::exception& e) {
@@ -56,7 +103,7 @@ void UDPClient::start() {
 
             while (shouldRunSendLoop.load()) {
 
-                Message heartbeat{MessageType::Heartbeat, 0, 0, 0, 0};
+                Message heartbeat = createMessage(MessageType::Heartbeat, 0, 0, 0, 0);
 
                 try {
                     socket_.send_to(boost::asio::buffer(&heartbeat, sizeof(Message)), server_endpoint_);
@@ -151,6 +198,10 @@ std::string getMessageTypeString(Message& m) {
             return std::string("Disconnect");
         case MessageType::TimeUpdate:
             return std::string("TimeUpdate");
+        case MessageType::Acknowledge:
+            return std::string("Acknowledge");
+        case MessageType::RequestSeq:
+            return std::string("RequestSeq");
     }
 }
 
@@ -163,6 +214,11 @@ UDPClient::UDPClient(boost::asio::io_context& io_context, VoxelWorld *voxworld, 
 
 void UDPClient::connect() {
     try {
+
+
+    INCOMING_SEQUENCE_NUMBER = -1;
+
+    OUTGOING_SEQUENCE_NUMBER = -1;
 
     socket_ = udp::socket(io_context_, udp::endpoint(udp::v4(), 0));
     // Hardcode the server's IP address and port
@@ -186,37 +242,9 @@ void UDPClient::send(const Message& message) {
     socket_.send_to(boost::asio::buffer(&message, sizeof(Message)), server_endpoint_);
 }
 
-void UDPClient::receive() {
-    udp::endpoint sender_endpoint;
-    std::vector<char> recv_buffer(65536); // A large buffer, e.g., 64KB
-
-    try {
-        size_t length = socket_.receive_from(boost::asio::buffer(recv_buffer), sender_endpoint);
-        if(rcvtpromisesat == false) {
-            receive_thread_promise.set_value();
-            rcvtpromisesat = true;
-        }
+void UDPClient::processMessage(Message* message, udp::endpoint& sender_endpoint) {
+    
             
-            
-
-        // Now you can process the received data, which is stored in recv_buffer and has a length of 'length' bytes
-        // For example, if you're expecting a Message struct, you can check if 'length' is at least sizeof(Message)
-        if (length == sizeof(NameMessage)) {
-            NameMessage* message = reinterpret_cast<NameMessage*>(recv_buffer.data());
-            std::string name(message->data, message->length);
-            std::cout << "Received name: " << name << "\n";
-            auto playerIt = std::find_if(PLAYERS.begin(), PLAYERS.end(), [message](OtherPlayer& play){
-                return play.id == message->id;
-            });
-            if(playerIt != PLAYERS.end()) {
-                playerIt->name = std::string(name);
-            }
-        } else if (length == sizeof(Message)) {
-            
-            Message* message = reinterpret_cast<Message*>(recv_buffer.data());
-            std::cout << "Received: " << getMessageTypeString(*message) << " from " << sender_endpoint << std::endl;
-
-            std::filesystem::create_directories(std::filesystem::path("multiplayer"));
 
             if (message->type == MessageType::WorldString) {
                 std::cout << "Expecting " << std::to_string(message->info) << " bytes\n";
@@ -253,6 +281,7 @@ void UDPClient::receive() {
 
             if (message->type == MessageType::BlockSet) {
                 //LOCK AND AFFECT THE VOXELWORLD
+                std::cout << "Block set at " << std::to_string(message->x) << " " << std::to_string(message->y) << " " << std::to_string(message->z) << " of type " << std::to_string(message->info) << "\n";
                 voxelWorld->setBlockAndQueueRerender(BlockCoord{
                     static_cast<int>(message->x),
                     static_cast<int>(message->y),
@@ -294,6 +323,74 @@ void UDPClient::receive() {
                     playerIt->z = message->z;
                 }
             }
+}
+
+void UDPClient::acknowledgeMessage(UUID goose) {
+    Message m = createMessageWithID(goose, MessageType::Acknowledge, 0, 0, 0, 0);
+    send(m);
+}
+
+
+void UDPClient::receive() {
+    udp::endpoint sender_endpoint;
+    std::vector<char> recv_buffer(65536); // A large buffer, e.g., 64KB
+
+    try {
+        size_t length = socket_.receive_from(boost::asio::buffer(recv_buffer), sender_endpoint);
+        if(rcvtpromisesat == false) {
+            receive_thread_promise.set_value();
+            rcvtpromisesat = true;
+        }
+            
+            
+
+        // Now you can process the received data, which is stored in recv_buffer and has a length of 'length' bytes
+        // For example, if you're expecting a Message struct, you can check if 'length' is at least sizeof(Message)
+        if (length == sizeof(NameMessage)) {
+            NameMessage* message = reinterpret_cast<NameMessage*>(recv_buffer.data());
+            std::string name(message->data, message->length);
+            std::cout << "Received name: " << name << "\n";
+            auto playerIt = std::find_if(PLAYERS.begin(), PLAYERS.end(), [message](OtherPlayer& play){
+                return play.id == message->id;
+            });
+            if(playerIt != PLAYERS.end()) {
+                playerIt->name = std::string(name);
+            }
+        } else if (length == sizeof(Message)) {
+            
+            Message* message = reinterpret_cast<Message*>(recv_buffer.data());
+            acknowledgeMessage(message->goose);
+            std::cout << "Received: " << getMessageTypeString(*message) << " from " << sender_endpoint << std::endl;
+            
+
+            if(INCOMING_SEQUENCE_NUMBER == -1) {
+                INCOMING_SEQUENCE_NUMBER = message->sequence-1;
+            }
+
+            if(message->sequence != NEXT_INCOME_SEQ()) {
+                std::cout << "Putting to back burner until I get " << std::to_string(NEXT_INCOME_SEQ()) << "\n";
+
+                Message m = createMessage(MessageType::RequestSeq, 0, 0, 0, NEXT_INCOME_SEQ());
+                send(m);
+
+                BACKBURNER.insert_or_assign(message->sequence, std::vector<char>());
+                BACKBURNER.at(message->sequence).resize(sizeof(Message) + 1);
+                std::copy(recv_buffer.data(), recv_buffer.data() + sizeof(Message), BACKBURNER.at(message->sequence).begin());
+            } else {
+                processMessage(message, sender_endpoint);
+                INCOMING_SEQUENCE_NUMBER = NEXT_INCOME_SEQ();
+                while(BACKBURNER.find(INCOMING_SEQUENCE_NUMBER) != BACKBURNER.end()) {
+                    std::vector<char> data = BACKBURNER.at(INCOMING_SEQUENCE_NUMBER);
+                    message = reinterpret_cast<Message*>(data.data());
+                    processMessage(message, sender_endpoint);
+                    acknowledgeMessage(message->goose);
+                    BACKBURNER.erase(INCOMING_SEQUENCE_NUMBER);
+                    INCOMING_SEQUENCE_NUMBER = NEXT_INCOME_SEQ();
+                }
+            }
+
+
+
 
             // Additional processing...
         }

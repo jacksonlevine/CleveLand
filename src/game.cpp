@@ -35,12 +35,9 @@ grounded(true)
 
     static std::function<void(int,int,int,uint32_t)> mpBlockSetFunc = [this](int x,int y,int z,uint32_t b) {
         if(inMultiplayer) {
-            Message m;
-            m.x = x;
-            m.y = y;
-            m.z = z;
-            m.type = MessageType::BlockSet;
-            m.info = b;
+
+            Message m = createMessage(MessageType::BlockSet, x, y, z, b);
+            
             client->send(m);
         } 
     };
@@ -1513,11 +1510,7 @@ void Game::goToMultiplayerWorld() {
 
     bool connected = true;
 
-    Message m;
-    m.info = 0;
-    m.x = 0;
-    m.y = 0;
-    m.z = 0;
+    
 
     try {
         client->connect();
@@ -1526,7 +1519,8 @@ void Game::goToMultiplayerWorld() {
 
         client->start();
 
-        m.type = MessageType::RequestWorldString;
+        Message m = createMessage(MessageType::RequestWorldString, 0, 0, 0, 0);
+
         client->send(m);
         std::this_thread::sleep_for(std::chrono::seconds(1));
         receive_thread_promise.get_future().get();
@@ -1552,7 +1546,7 @@ void Game::goToMultiplayerWorld() {
             std::this_thread::sleep_for(std::chrono::seconds(1));
         }
 
-        m.type = MessageType::RequestPlayerList;
+        Message m = createMessage(MessageType::RequestPlayerList, 0, 0, 0, 0);
         client->send(m);
 
         //Now the world is received

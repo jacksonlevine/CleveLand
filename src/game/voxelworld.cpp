@@ -29,41 +29,153 @@ void VoxelWorld::setBlockAndQueueRerender(BlockCoord coord, uint32_t block) {
         std::floor(static_cast<float>(coord.x) / chunkWidth),
         std::floor(static_cast<float>(coord.z) / chunkWidth)
     );
-    std::set<BlockChunk *> implicated;
 
-    for(BlockCoord& neigh : BlockInfo::neighbors) {
-        auto segIt = lightMap.find(coord + neigh);
-        if(segIt != lightMap.end()) {
-            
-            for(LightRay& ray : segIt->second.rays) {
-                ChunkCoord chunkOfOrigin(
-                    std::floor(static_cast<float>(ray.origin.x)/chunkWidth),
-                    std::floor(static_cast<float>(ray.origin.z)/chunkWidth)
-                );
-                auto chunkIt = takenCareOfChunkSpots.find(chunkOfOrigin);
-                if(chunkIt != takenCareOfChunkSpots.end()){
-                    implicated.insert(chunkIt->second);
-                }
-                    
+
+
+
+        uint32_t blockBitsHere = blockAt(coord);
+        uint32_t blockIDHere = blockBitsHere & BlockInfo::BLOCK_ID_BITS;
+        if(blockIDHere == 11) {
+            int top = DoorInfo::getDoorTopBit(blockBitsHere);
+            BlockCoord otherHalf;
+            if(top == 1) {
+                otherHalf = coord + BlockCoord(0, -1, 0);
+            } else {
+                otherHalf = coord + BlockCoord(0, 1, 0);
             }
+
+            // udmMutex.lock();  
             
-        }
-    }
-    for(BlockChunk * pointer : implicated) {
-        while(!lightUpdateQueue.push(pointer)) {
+            // userDataMap.at(rayResult.chunksToRebuild.front()).insert_or_assign(otherHalf, 0);    
+            // userDataMap.at(rayResult.chunksToRebuild.front()).insert_or_assign(rayResult.blockHit, 0);
+
+            //  udmMutex.unlock();
+
+             setBlock(otherHalf, 0);       
+            setBlock(coord, 0); 
+
+            auto chunkIt = takenCareOfChunkSpots.find(cc);
+                if(chunkIt != takenCareOfChunkSpots.end()) {
+                    
+                    BlockChunk *chunk = chunkIt->second;
+
+                    while(!deferredChunkQueue.push(chunk)) {
+
+                    }
+
+                }
+        }else
+        if(blockIDHere == 12) {
+            //     udmMutex.lock();  
+            
+            // if(userDataMap.find(rayResult.chunksToRebuild.front()) == userDataMap.end()) {
+            //     userDataMap.insert_or_assign(rayResult.chunksToRebuild.front(), 
+            //     std::unordered_map<BlockCoord, unsigned int, IntTupHash>());
+            // }
+            //        blockBreakParticles(rayResult.blockHit, 25);
+            // userDataMap.at(rayResult.chunksToRebuild.front()).insert_or_assign(rayResult.blockHit, 0);
+
+            //      udmMutex.unlock();   
+
+                setBlock(coord, 0);  
+                // blockBreakParticles(coord, 25);
+
+
+                    auto chunkIt = takenCareOfChunkSpots.find(cc);
+                    if(chunkIt != takenCareOfChunkSpots.end()) {
+                        //std::cout << "it's here" << "\n";
+                      //  std::cout << "fucking index:" << chunkIt->second.geometryStorePoolIndex << "\n";
+                       // rebuildChunk(chunkIt->second, chunkIt->second.position, true);
+
+
+                       BlockChunk *chunk = chunkIt->second;
+
+
+                       while(!lightUpdateQueue.push(chunk)) {
+
+                       }
+
+
+                    }
+
+
+        } else
+         {
+    //         udmMutex.lock();  
+        
+    //         if(userDataMap.find(rayResult.chunksToRebuild.front()) == userDataMap.end()) {
+    //             userDataMap.insert_or_assign(rayResult.chunksToRebuild.front(), 
+    //             std::unordered_map<BlockCoord, unsigned int, IntTupHash>());
+    //         }
+    //                blockBreakParticles(rayResult.blockHit, 25);
+    //         userDataMap.at(rayResult.chunksToRebuild.front()).insert_or_assign(rayResult.blockHit, 0);
+            
+    // udmMutex.unlock();    
+                setBlock(coord, 0);  
+                // blockBreakParticles(rayResult.blockHit, 25);
+
+
+                std::set<BlockChunk *> implicated;
+                for(BlockCoord& neigh : BlockInfo::neighbors) {
+                    auto segIt = lightMap.find(coord + neigh);
+                    if(segIt != lightMap.end()) {
+                        
+                        for(LightRay& ray : segIt->second.rays) {
+                            ChunkCoord chunkOfOrigin(
+                                std::floor(static_cast<float>(ray.origin.x)/chunkWidth),
+                                std::floor(static_cast<float>(ray.origin.z)/chunkWidth)
+                            );
+                            auto chunkIt = takenCareOfChunkSpots.find(chunkOfOrigin);
+                            if(chunkIt != takenCareOfChunkSpots.end()){
+                                implicated.insert(chunkIt->second);
+                            }
+                                
+                        }
+                        
+                    }
+                }
+                for(BlockChunk * pointer : implicated) {
+                    while(!lightUpdateQueue.push(pointer)) {
+
+                    }
+                }
+                
+
+
+
+
+       
+                    auto chunkIt = takenCareOfChunkSpots.find(cc);
+                    if(chunkIt != takenCareOfChunkSpots.end()) {
+                        //std::cout << "it's here" << "\n";
+                      //  std::cout << "fucking index:" << chunkIt->second.geometryStorePoolIndex << "\n";
+                       // rebuildChunk(chunkIt->second, chunkIt->second.position, true);
+
+
+                       BlockChunk *chunk = chunkIt->second;
+
+
+                       while(!deferredChunkQueue.push(chunk)) {
+
+                       }
+
+
+                    }
 
         }
-        //std::cout << "Doing this\n";
-    }
 
 
-    auto chunkIt = takenCareOfChunkSpots.find(cc);
-    if(chunkIt != takenCareOfChunkSpots.end()) {
-        BlockChunk *chunk = chunkIt->second;
-        while(!deferredChunkQueue.push(chunk)) {
 
-        }
-    }
+
+
+
+
+
+
+
+
+
+
 }
 
 
