@@ -54,6 +54,24 @@ SoundEffectSeries plantPlaceSeries{
     sfs.add("assets/sfx/plantplace3.mp3")}
 };
 
+
+SoundEffectSeries grassStepSeries{
+    {sfs.add("assets/sfx/grassstep1.mp3"),
+    sfs.add("assets/sfx/grassstep2.mp3"),
+    sfs.add("assets/sfx/grassstep3.mp3"),
+    sfs.add("assets/sfx/grassstep4.mp3"),
+    sfs.add("assets/sfx/grassstep5.mp3"),
+    sfs.add("assets/sfx/grassstep6.mp3")}
+};
+
+
+SoundEffectSeries sandStepSeries{
+    {sfs.add("assets/sfx/sandstep1.mp3"),
+    sfs.add("assets/sfx/sandstep2.mp3"),
+    sfs.add("assets/sfx/sandstep3.mp3"),
+    sfs.add("assets/sfx/sandstep4.mp3"),
+    sfs.add("assets/sfx/sandstep5.mp3")}
+};
 std::function<void(int)> playSound = [](int block){
     int blockID = (block & BlockInfo::BLOCK_ID_BITS);
     if(blockID == 3) {
@@ -67,6 +85,9 @@ std::function<void(int)> playSound = [](int block){
     if(blockID == 11) {
         sfs.play(doorSound);
         return;
+    }
+    if(blockID == 8 || blockID == 12) {
+        sfs.playNextInSeries(glassPlaceSeries);
     }
     sfs.playNextInSeries(stonePlaceSeries);
 };
@@ -97,7 +118,10 @@ static int sfxCallback(const void* inputBuffer, void* outputBuffer,
 
 
 
-std::unordered_map<int, SoundEffectSeries> footstepSounds;
+std::unordered_map<int, SoundEffectSeries> footstepSounds = {
+    {3, grassStepSeries},
+    {1, sandStepSeries}
+};
 
 
 void Game::playFootstepSound() {
