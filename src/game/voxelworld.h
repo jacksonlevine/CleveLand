@@ -27,6 +27,8 @@ class VoxelWorld;
 #include "specialblocks/chest.h"
 #include "specialblocks/ladder.h"
 
+#include "../soundfxsystem.h"
+
 
 class VoxelWorld {
 public:

@@ -16,6 +16,8 @@ void VoxelWorld::setBlock(BlockCoord coord, uint32_t block, bool updateMultiplay
     userDataMap.at(cc).insert_or_assign(coord, block);
     
     udmMutex.unlock();  
+
+    playSound(block);
     if(updateMultiplayer) {
         (*multiplayerBlockSetFunc)(coord.x, coord.y, coord.z, block);
     }
@@ -35,34 +37,7 @@ void VoxelWorld::setBlockAndQueueRerender(BlockCoord coord, uint32_t block) {
         
         uint32_t blockBitsHere = blockAt(coord);
         uint32_t blockIDHere = blockBitsHere & BlockInfo::BLOCK_ID_BITS;
-        if(blockIDHere == 11) {
-            int top = DoorInfo::getDoorTopBit(blockBitsHere);
-            BlockCoord otherHalf;
-            if(top == 1) {
-                otherHalf = coord + BlockCoord(0, -1, 0);
-            } else {
-                otherHalf = coord + BlockCoord(0, 1, 0);
-            }
-            uint32_t otherHalfBits = blockAt(otherHalf);
-
-            DoorInfo::toggleDoorOpenBit(blockBitsHere);
-            DoorInfo::toggleDoorOpenBit(otherHalfBits);
-            udmMutex.lock();  
-           
-            userDataMap.at(cc).insert_or_assign(otherHalf, otherHalfBits);    
-            userDataMap.at(cc).insert_or_assign(coord, blockBitsHere);
-  udmMutex.unlock();    
-            auto chunkIt = takenCareOfChunkSpots.find(cc);
-                if(chunkIt != takenCareOfChunkSpots.end()) {
-                    
-                    BlockChunk *chunk = chunkIt->second;
-
-                    while(!deferredChunkQueue.push(chunk)) {
-
-                    }
-
-                }
-        }else
+        
 
             udmMutex.lock();  
            

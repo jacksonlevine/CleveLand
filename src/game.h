@@ -34,6 +34,10 @@
 #include "game/specialblocks/ladder.h"
 #include "network.h"
 #include <boost/asio.hpp>
+#include "soundfxsystem.h"
+
+
+extern SoundFXSystem sfs;
 
 
 class Camera3D;
@@ -47,8 +51,12 @@ public:
 
 
 
+    inline static float stepSoundTimer = 0.0f;
+    inline static float stepSoundInterval = 0.4f;
 
+    void playFootstepSound();
 
+    void footstepTimer();
 
 
     inline static int viewDistance = 5;

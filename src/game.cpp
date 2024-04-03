@@ -3,8 +3,150 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 #include <cmath>
+#include "portaudio.h"
+#include <sndfile.h>
+
+PaStream* sfxStream;
+
+
+SoundFXSystem sfs;
 
 //#define TIME_RENDER
+
+SoundEffect doorSound = sfs.add("assets/sfx/door.mp3");
+
+SoundEffect stoneStep1 = sfs.add("assets/sfx/stonestep1.mp3");
+SoundEffect stoneStep2 = sfs.add("assets/sfx/stonestep2.mp3");
+SoundEffect stoneStep3 = sfs.add("assets/sfx/stonestep3.mp3");
+SoundEffect stoneStep4 = sfs.add("assets/sfx/stonestep4.mp3");
+
+SoundEffect ladderSound = sfs.add("assets/sfx/ladder.mp3");
+
+SoundEffect inventorySound = sfs.add("assets/sfx/inventory.mp3");
+SoundEffect inventoryClose = sfs.add("assets/sfx/inventoryclose.mp3");
+
+SoundEffect buttonHover = sfs.add("assets/sfx/buttonover.mp3");
+SoundEffect buttonPress = sfs.add("assets/sfx/buttonpress.mp3");
+
+SoundEffect pickInInventory = sfs.add("assets/sfx/pickininventory.mp3");
+SoundEffect placeInInventory = sfs.add("assets/sfx/placeininventory.mp3");
+
+SoundEffectSeries stoneStepSeries{
+    {stoneStep1, stoneStep2, stoneStep3, stoneStep4}
+};
+
+SoundEffectSeries stonePlaceSeries{
+    {sfs.add("assets/sfx/stoneplace1.mp3"),
+    sfs.add("assets/sfx/stoneplace2.mp3"),
+    sfs.add("assets/sfx/stoneplace3.mp3")}
+};
+
+SoundEffectSeries glassPlaceSeries{
+    {sfs.add("assets/sfx/glassplace1.mp3"),
+    sfs.add("assets/sfx/glassplace2.mp3"),
+    sfs.add("assets/sfx/glassplace3.mp3"),
+    sfs.add("assets/sfx/glassplace4.mp3")}
+};
+
+SoundEffectSeries plantPlaceSeries{
+    {sfs.add("assets/sfx/plantplace1.mp3"),
+    sfs.add("assets/sfx/plantplace2.mp3"),
+    sfs.add("assets/sfx/plantplace3.mp3")}
+};
+
+std::function<void(int)> playSound = [](int block){
+    int blockID = (block & BlockInfo::BLOCK_ID_BITS);
+    if(blockID == 3) {
+        sfs.playNextInSeries(plantPlaceSeries);
+        return;
+    }
+    if(blockID == 5 || blockID == 9) {
+        sfs.playNextInSeries(stonePlaceSeries);
+        return;
+    }
+    if(blockID == 11) {
+        sfs.play(doorSound);
+        return;
+    }
+    sfs.playNextInSeries(stonePlaceSeries);
+};
+
+static int sfxCallback(const void* inputBuffer, void* outputBuffer,
+                         unsigned long framesPerBuffer,
+                         const PaStreamCallbackTimeInfo* timeInfo,
+                         PaStreamCallbackFlags statusFlags,
+                         void* userData) {
+    float* out = (float*)outputBuffer;
+    std::fill(out, out + framesPerBuffer*2, 0.0f);
+    for(RingBuffer * rbuf : sfs.outputBuffers) {
+        if(rbuf->count > 0) {
+            float input[512];
+            rbuf->readOneBuffer(input);
+            for (size_t i = 0; i < framesPerBuffer*2; i += 2) {
+                out[i] = std::max(-1.0f, std::min(1.0f, input[i] + out[i]));
+                out[i+1] = std::max(-1.0f, std::min(1.0f, input[i+1] + out[i+1]));
+            }
+        }
+
+        
+    }
+
+    return paContinue;
+}
+
+
+
+
+std::unordered_map<int, SoundEffectSeries> footstepSounds;
+
+
+void Game::playFootstepSound() {
+    uint32_t blockUnder = voxelWorld.blockAt(BlockCoord {
+            static_cast<int>(std::round(camera->position.x)),
+            static_cast<int>(std::round(camera->position.y-2)),
+            static_cast<int>(std::round(camera->position.z)),
+        });
+    uint32_t blockID = (blockUnder & BlockInfo::BLOCK_ID_BITS);
+    if(blockID != 0) {
+        if(footstepSounds.find(blockID) != footstepSounds.end()) {
+            sfs.playNextInSeries(footstepSounds.at(blockID));
+        } else {
+            sfs.playNextInSeries(stoneStepSeries);
+        }
+    }
+}
+
+
+void Game::footstepTimer() {
+    static float x = 0;
+    static float y = 0;
+    static float z = 0;
+
+    if(std::fabs(camera->position.x - x) > 0.01 ||
+            std::fabs(camera->position.z - z) > 0.01 ) {
+
+
+                x = camera->position.x;
+                y = camera->position.y;
+                z = camera->position.z;
+
+
+     if(stepSoundTimer > stepSoundInterval) {
+        
+        playFootstepSound();
+        stepSoundTimer = 0.0f;
+    } else {
+        stepSoundTimer += deltaTime;
+    }
+
+
+
+ }
+
+   
+    
+
+}
 
 
 
@@ -32,6 +174,34 @@ grounded(true), io_context()
     };
 
     
+    PaError err;
+
+    Pa_Initialize();
+
+    PaStreamParameters outputParameters;
+    outputParameters.device = Pa_GetDefaultOutputDevice(); // Default output device
+    outputParameters.channelCount = 2; // Stereo output
+    outputParameters.sampleFormat = paFloat32; // 32-bit floating-point output
+    outputParameters.suggestedLatency = Pa_GetDeviceInfo(outputParameters.device)->defaultLowOutputLatency;
+    outputParameters.hostApiSpecificStreamInfo = NULL;
+
+     err = Pa_OpenStream(&sfxStream,
+                        NULL, // No input parameters, as we're only playing audio
+                        &outputParameters, // Output parameters
+                        44100, // Sample rate
+                        256, // Frames per buffer
+                        paClipOff, // Stream flags
+                        sfxCallback, // Callback function
+                        NULL); // User data
+    if (err != paNoError) {
+        std::cout << "Error opening sfxStream" << Pa_GetErrorText(err) << "\n";
+    }
+
+    err = Pa_StartStream(sfxStream);
+    if (err != paNoError) {
+        // Handle error
+    }
+
 
     windowWidth = 1280;
     windowHeight = 720;
@@ -173,6 +343,8 @@ void Game::getAverageDelta() {
 
 void Game::stepMovementAndPhysics() {
 
+    static bool wasNGrounded = false;
+
 
             if(initialTimer > 0.0f) {
                 initialTimer -= deltaTime;
@@ -188,6 +360,7 @@ void Game::stepMovementAndPhysics() {
                if(std::find(collCage.solid.begin(), collCage.solid.end(), FLOOR) == collCage.solid.end())
                 {
                     grounded = false;
+                    wasNGrounded = true;
                 } else {
                     if(leaning) {
                         leanSpot = glm::vec3(std::round(camera->position.x),
@@ -285,6 +458,10 @@ void Game::stepMovementAndPhysics() {
                     if(side == FLOOR)
                     {
                         grounded = true;
+                        if(wasNGrounded) {
+                            playFootstepSound();
+                            wasNGrounded = false;
+                        }
                     }
                     if(side == ROOF)
                     {
@@ -440,7 +617,7 @@ void Game::draw() {
     
     drawParticles();
 
-
+    footstepTimer();
 
     glBindVertexArray(VAO);
     if(currentGuiButtons != nullptr) {
@@ -1941,11 +2118,22 @@ void Game::castPlaceRay() {
 
             DoorInfo::toggleDoorOpenBit(blockBitsHere);
             DoorInfo::toggleDoorOpenBit(otherHalfBits);
-            voxelWorld.udmMutex.lock();  
+
+            if(inMultiplayer) {
+                        
+                         (*mpBlockSetFunc)(otherHalf.x, otherHalf.y, otherHalf.z, otherHalfBits);  
+                         (*mpBlockSetFunc)(rayResult.blockHit.x, rayResult.blockHit.y, rayResult.blockHit.z, blockBitsHere);  
+                    } else {
+                        voxelWorld.setBlock(otherHalf, otherHalfBits);
+                        voxelWorld.setBlock(rayResult.blockHit, blockBitsHere);
+                    }
+
+    //                 voxelWorld.udmMutex.lock(); 
+
+    //         voxelWorld.userDataMap.at(rayResult.chunksToRebuild.front()).insert_or_assign(otherHalf, otherHalfBits);    
+    //         voxelWorld.userDataMap.at(rayResult.chunksToRebuild.front()).insert_or_assign(rayResult.blockHit, blockBitsHere);
+    // voxelWorld.udmMutex.unlock();    
            
-            voxelWorld.userDataMap.at(rayResult.chunksToRebuild.front()).insert_or_assign(otherHalf, otherHalfBits);    
-            voxelWorld.userDataMap.at(rayResult.chunksToRebuild.front()).insert_or_assign(rayResult.blockHit, blockBitsHere);
-  voxelWorld.udmMutex.unlock();    
             auto chunkIt = voxelWorld.takenCareOfChunkSpots.find(rayResult.chunksToRebuild.front());
                 if(chunkIt != voxelWorld.takenCareOfChunkSpots.end()) {
                     
