@@ -10,20 +10,9 @@ std::promise<void> receive_thread_promise;
 
 bool rcvtpromisesat = false;
 
-int INCOMING_SEQUENCE_NUMBER = -1;
-
-int OUTGOING_SEQUENCE_NUMBER = -1;
 
 std::mutex WRITE_MUTEX;
 
-std::unordered_map<int, std::vector<char>> BACKBURNER;
-
-int NEXT_INCOME_SEQ() {
-    return (INCOMING_SEQUENCE_NUMBER + 1) % 500;
-}
-int NEXT_OUTGO_SEQ() {
-    return (OUTGOING_SEQUENCE_NUMBER + 1) % 500;
-}
 
 Message createMessage(MessageType type, float x, float y, float z, uint32_t info) {
     Message msg;
@@ -59,7 +48,7 @@ NameMessage createNameMessage(int id, std::string name, size_t length) {
     return msg;
 }
 
-void UDPClient::start() {
+void TCPClient::start() {
     std::filesystem::create_directories(std::filesystem::path("multiplayer"));
     std::cout << "Client loop starting\n";
     shouldRunReceiveLoop.store(true);
@@ -91,16 +80,16 @@ void UDPClient::start() {
 
             while (shouldRunSendLoop.load()) {
 
-                Message heartbeat = createMessage(MessageType::Heartbeat, 0, 0, 0, 0);
+                Message heartbeat = createMessage(MessageType::Heartbeat, cameraPos->x, cameraPos->y, cameraPos->z, 0);
 
                 try {
                     send(heartbeat);
                 } catch (std::exception& e) {
                     std::cerr << "Error sending heartbeat: " << e.what() << std::endl;
                 }
-                for (int i = 0; i < 10; i++) {
+                for (int i = 0; i < 1; i++) {
                     if (shouldRunSendLoop.load()) {
-                        std::this_thread::sleep_for(std::chrono::seconds(1));
+                        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
                     }
                 }
                     
@@ -112,7 +101,7 @@ void UDPClient::start() {
     
 }
 
-void UDPClient::stop() {
+void TCPClient::stop() {
     shouldRunReceiveLoop.store(false);
     shouldRunSendLoop.store(false);
     
@@ -186,29 +175,19 @@ std::string getMessageTypeString(Message& m) {
             return std::string("Disconnect");
         case MessageType::TimeUpdate:
             return std::string("TimeUpdate");
-        case MessageType::Acknowledge:
-            return std::string("Acknowledge");
-        case MessageType::RequestSeq:
-            return std::string("RequestSeq");
     }
 }
 
-UDPClient::UDPClient(boost::asio::io_context& io_context, VoxelWorld *voxworld, std::function<void(float)> *gameTimeSet)
-    : io_context_(io_context), socket_(io_context), voxelWorld(voxworld), setGameTime(gameTimeSet) {
+TCPClient::TCPClient(boost::asio::io_context& io_context, VoxelWorld *voxworld, std::function<void(float)> *gameTimeSet, glm::vec3 *cameraPos)
+    : io_context_(io_context), socket_(io_context), voxelWorld(voxworld), setGameTime(gameTimeSet), cameraPos(cameraPos) {
 
     
 
 }
 
-void UDPClient::connect() {
+void TCPClient::connect() {
     try {
 
-
-    INCOMING_SEQUENCE_NUMBER = -1;
-
-    OUTGOING_SEQUENCE_NUMBER = -1;
-
-    socket_ = tcp::socket(io_context_);
     // Hardcode the server's IP address and port
     std::string server_ip = "127.0.0.1"; // Change this to your server's IP address
     std::string server_port = "12345"; // Change this to your server's port
@@ -216,25 +195,36 @@ void UDPClient::connect() {
     tcp::resolver resolver(io_context_);
     auto endpoints = resolver.resolve(server_ip, server_port);
 
+    if (endpoints.empty()) {
+    // Resolution failed
+    std::cout << "Failed to resolve server IP and port." << std::endl;
+    } else {
+        // Resolution succeeded, print resolved endpoints
+        std::cout << "Resolved endpoints:" << std::endl;
+        for (const auto& endpoint : endpoints) {
+            std::cout << endpoint.endpoint().address().to_string() << ":" << endpoint.endpoint().port() << std::endl;
+        }
+    }
 
     boost::asio::connect(socket_, endpoints);
-
+    
     std::cout << "Client connected\n";
     } catch (std::exception& e) {
         std::cout << "In connect: " << e.what() << "\n";
     }
 }
 
-void UDPClient::disconnect() {
+void TCPClient::disconnect() {
     socket_.close();
 }
 
-void UDPClient::send(const Message& message) {
+void TCPClient::send(const Message& message) {
+    std::cout << "Sending " << getMessageTypeString(static_cast<Message>(message)) << "\n";
     std::lock_guard<std::mutex> lock(WRITE_MUTEX);
     boost::asio::write(socket_, boost::asio::buffer(&message, sizeof(Message)));
 }
 
-void UDPClient::processMessage(Message* message) {
+void TCPClient::processMessage(Message* message) {
     
             
 
@@ -286,7 +276,7 @@ void UDPClient::processMessage(Message* message) {
 
             if (message->type == MessageType::TimeUpdate) {
                 (*setGameTime)(message->x);
-                std::cout << "Updated time to " << std::to_string(message->x) << "\n";
+                //std::cout << "Updated time to " << std::to_string(message->x) << "\n";
             }
             
             if (message->type == MessageType::Disconnect) {
@@ -311,19 +301,20 @@ void UDPClient::processMessage(Message* message) {
                         message->y,
                         message->z
                         });
+                    
                 }
                 else {
                     playerIt->x = message->x;
                     playerIt->y = message->y;
                     playerIt->z = message->z;
                 }
+                //printf("Player %i moved to %f %f %f", message->info, message->x, message->y, message->z);
             }
 }
 
 
 
-void UDPClient::receive() {
-    std::vector<char> recv_buffer(65536); // A large buffer, e.g., 64KB
+void TCPClient::receive() {
 
     try {
 
@@ -339,8 +330,9 @@ void UDPClient::receive() {
         }
             
             
-        std::cout << "Received: " << getMessageTypeString(message) << std::endl;
-        
+        if(message.type != PlayerMove && message.type != TimeUpdate) {
+            std::cout << "Received: " << getMessageTypeString(message) << std::endl;
+        }
 
 
         processMessage(&message);
@@ -349,9 +341,21 @@ void UDPClient::receive() {
 
 
     }
+    catch (boost::system::system_error& e) {
+        if (e.code() == boost::asio::error::eof) {
+            std::cout << "EOF encountered, continuing receive loop." << std::endl;
+            std::this_thread::sleep_for(std::chrono::seconds(5));
+            return; // Continue the receive loop
+        }
+
+        std::cout << "Boost System Error: " << e.what() << "\n";
+
+        //stop();
+    }
     catch (std::exception& e) {
         std::cout << "From this? " << e.what() << "\n";
-        stop();
+
+        //stop();
     }
 
 

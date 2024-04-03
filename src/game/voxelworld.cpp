@@ -24,15 +24,142 @@ void VoxelWorld::setBlock(BlockCoord coord, uint32_t block, bool updateMultiplay
 
 
 void VoxelWorld::setBlockAndQueueRerender(BlockCoord coord, uint32_t block) {
-    setBlock(coord, block, false);
+    //setBlock(coord, block, false);
     ChunkCoord cc(
         std::floor(static_cast<float>(coord.x) / chunkWidth),
         std::floor(static_cast<float>(coord.z) / chunkWidth)
     );
 
 
+    if(block != 0) {
+        
+        uint32_t blockBitsHere = blockAt(coord);
+        uint32_t blockIDHere = blockBitsHere & BlockInfo::BLOCK_ID_BITS;
+        if(blockIDHere == 11) {
+            int top = DoorInfo::getDoorTopBit(blockBitsHere);
+            BlockCoord otherHalf;
+            if(top == 1) {
+                otherHalf = coord + BlockCoord(0, -1, 0);
+            } else {
+                otherHalf = coord + BlockCoord(0, 1, 0);
+            }
+            uint32_t otherHalfBits = blockAt(otherHalf);
+
+            DoorInfo::toggleDoorOpenBit(blockBitsHere);
+            DoorInfo::toggleDoorOpenBit(otherHalfBits);
+            udmMutex.lock();  
+           
+            userDataMap.at(cc).insert_or_assign(otherHalf, otherHalfBits);    
+            userDataMap.at(cc).insert_or_assign(coord, blockBitsHere);
+  udmMutex.unlock();    
+            auto chunkIt = takenCareOfChunkSpots.find(cc);
+                if(chunkIt != takenCareOfChunkSpots.end()) {
+                    
+                    BlockChunk *chunk = chunkIt->second;
+
+                    while(!deferredChunkQueue.push(chunk)) {
+
+                    }
+
+                }
+        }else
+
+            udmMutex.lock();  
+           
+            if(userDataMap.find(cc) == userDataMap.end()) {
+                userDataMap.insert_or_assign(cc, 
+                std::unordered_map<BlockCoord, unsigned int, IntTupHash>());
+            }
+            udmMutex.unlock();     
+            glm::vec3 blockHit(coord.x, coord.y, coord.z);
+
+            BlockCoord placePoint(coord.x, coord.y, coord.z);
+            
+            ChunkCoord chunkToReb(
+                static_cast<int>(std::floor(static_cast<float>(placePoint.x)/chunkWidth)),
+                static_cast<int>(std::floor(static_cast<float>(placePoint.z)/chunkWidth)));
+            udmMutex.lock();  
+              
+            if(userDataMap.find(chunkToReb) == userDataMap.end()) {
+                userDataMap.insert_or_assign(chunkToReb, std::unordered_map<BlockCoord, unsigned int, IntTupHash>());
+            }
+
+            udmMutex.unlock();   
+            
+            
+            if ((block & BlockInfo::BLOCK_ID_BITS) == 12){
+//                 udmMutex.lock();  
+              
+//                 userDataMap.at(chunkToReb).insert_or_assign(placePoint, selectedBlockID);
+// udmMutex.unlock();   
 
 
+                setBlock(placePoint, block, false);
+
+
+                auto chunkIt = takenCareOfChunkSpots.find(chunkToReb);
+                if(chunkIt != takenCareOfChunkSpots.end()) {
+                    
+                    BlockChunk *chunk = chunkIt->second;
+
+
+                    while(!lightUpdateQueue.push(chunk)) {
+
+                    }
+
+                }
+            }else {
+
+                std::set<BlockChunk *> implicated;
+                for(BlockCoord& neigh : BlockInfo::neighbors) {
+                    auto segIt = lightMap.find(coord + neigh);
+                    if(segIt != lightMap.end()) {
+                        
+                        for(LightRay& ray : segIt->second.rays) {
+                            ChunkCoord chunkOfOrigin(
+                                std::floor(static_cast<float>(ray.origin.x)/chunkWidth),
+                                std::floor(static_cast<float>(ray.origin.z)/chunkWidth)
+                            );
+                            auto chunkIt = takenCareOfChunkSpots.find(chunkOfOrigin);
+                            if(chunkIt != takenCareOfChunkSpots.end()){
+                                implicated.insert(chunkIt->second);
+                            }
+                                
+                        }
+                        
+                    }
+                }
+                for(BlockChunk * pointer : implicated) {
+                    while(!lightUpdateQueue.push(pointer)) {
+
+                    }
+                    //std::cout << "Doing this\n";
+                }
+
+// udmMutex.lock();  
+           
+
+//                 userDataMap.at(chunkToReb).insert_or_assign(placePoint, selectedBlockID);
+//  udmMutex.unlock();     
+                setBlock(placePoint, block, false);
+                auto chunkIt = takenCareOfChunkSpots.find(chunkToReb);
+                if(chunkIt != takenCareOfChunkSpots.end()) {
+                    
+                    BlockChunk *chunk = chunkIt->second;
+
+
+                    while(!deferredChunkQueue.push(chunk)) {
+
+                    }
+
+                }
+
+                
+
+        }
+    }
+    else
+    if(block == 0) {
         uint32_t blockBitsHere = blockAt(coord);
         uint32_t blockIDHere = blockBitsHere & BlockInfo::BLOCK_ID_BITS;
         if(blockIDHere == 11) {
@@ -51,8 +178,8 @@ void VoxelWorld::setBlockAndQueueRerender(BlockCoord coord, uint32_t block) {
 
             //  udmMutex.unlock();
 
-             setBlock(otherHalf, 0);       
-            setBlock(coord, 0); 
+             setBlock(otherHalf, 0, false);       
+            setBlock(coord, 0, false); 
 
             auto chunkIt = takenCareOfChunkSpots.find(cc);
                 if(chunkIt != takenCareOfChunkSpots.end()) {
@@ -77,7 +204,7 @@ void VoxelWorld::setBlockAndQueueRerender(BlockCoord coord, uint32_t block) {
 
             //      udmMutex.unlock();   
 
-                setBlock(coord, 0);  
+                setBlock(coord, 0, false);  
                 // blockBreakParticles(coord, 25);
 
 
@@ -111,7 +238,7 @@ void VoxelWorld::setBlockAndQueueRerender(BlockCoord coord, uint32_t block) {
     //         userDataMap.at(rayResult.chunksToRebuild.front()).insert_or_assign(rayResult.blockHit, 0);
             
     // udmMutex.unlock();    
-                setBlock(coord, 0);  
+                setBlock(coord, 0, false);  
                 // blockBreakParticles(rayResult.blockHit, 25);
 
 
@@ -173,7 +300,7 @@ void VoxelWorld::setBlockAndQueueRerender(BlockCoord coord, uint32_t block) {
 
 
 
-
+    }
 
 
 }

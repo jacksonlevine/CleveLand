@@ -33,6 +33,7 @@
 #include "game/specialblocks/chest.h"
 #include "game/specialblocks/ladder.h"
 #include "network.h"
+#include <boost/asio.hpp>
 
 
 class Camera3D;
@@ -42,7 +43,7 @@ public:
 
 
     boost::asio::io_context io_context;
-    UDPClient *client;
+    TCPClient *client;
 
 
 
@@ -148,6 +149,8 @@ public:
 
     void drawBlockOverlay();
 
+    void drawPlayers();
+
     void frameBufferSizeCallback(GLFWwindow *window, int width, int height);
     void mouseButtonCallback(GLFWwindow *window, int button, int action, int mods);
     void mouseCallback(GLFWwindow *window, double xpos, double ypos);
@@ -157,6 +160,8 @@ public:
 
     void drawSky(float top_r, float top_g, float top_b, float top_a,
     float bot_r, float bot_g, float bot_b, float bot_a, float cameraPitch);
+
+    std::function<void (int, int, int, uint32_t)>* mpBlockSetFunc;
 
     void castBreakRay();
     void castPlaceRay();

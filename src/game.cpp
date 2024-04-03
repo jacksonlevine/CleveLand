@@ -7,6 +7,7 @@
 //#define TIME_RENDER
 
 
+
 Game::Game() : lastFrame(0), focused(false), camera(nullptr),
 collCage([this](BlockCoord b){
     uint32_t blockBitsHere = voxelWorld.blockAt(b);
@@ -24,14 +25,20 @@ collCage([this](BlockCoord b){
     return (blockIDHere != 0 && blockIDHere != 2);
 }),
 user(glm::vec3(0,0,0), glm::vec3(0,0,0)),
-grounded(true)
+grounded(true), io_context()
 {
     static std::function<void(float)> setTimeFunc = [this](float t) {
         timeOfDay = t;
     };
 
-    client = new UDPClient(io_context, &voxelWorld, &setTimeFunc);
+    
 
+    windowWidth = 1280;
+    windowHeight = 720;
+    camera = new Camera3D(this);
+
+
+    client = new TCPClient(io_context, &voxelWorld, &setTimeFunc, &(camera->position));
 
     static std::function<void(int,int,int,uint32_t)> mpBlockSetFunc = [this](int x,int y,int z,uint32_t b) {
         if(inMultiplayer) {
@@ -41,12 +48,14 @@ grounded(true)
             client->send(m);
         } 
     };
+    this->mpBlockSetFunc = &mpBlockSetFunc;
 
     voxelWorld.multiplayerBlockSetFunc = &mpBlockSetFunc;
 
-    windowWidth = 1280;
-    windowHeight = 720;
-    camera = new Camera3D(this);
+
+
+
+
     mouseSensitivity = 0.1;
     averageDeltaTime = 0.0f;
 
@@ -1517,16 +1526,22 @@ void Game::goToMultiplayerWorld() {
         
         client->receivedWorld.store(false);
 
+        
         client->start();
+        inMultiplayer = true;
 
         Message m = createMessage(MessageType::RequestWorldString, 0, 0, 0, 0);
 
         client->send(m);
+
+
+
         std::this_thread::sleep_for(std::chrono::seconds(1));
         receive_thread_promise.get_future().get();
     } catch (std::exception& e) {
         std::cout << "Error: " << e.what() << "\n";
         connected = false;
+        inMultiplayer = false;
         std::cout << "Is this priting\n";
     }
 
@@ -1571,6 +1586,7 @@ void Game::goToMultiplayerWorld() {
             button.rebuildDisplayData();
             button.uploaded = false;
         }
+        inMultiplayer = false;
     }
     
 
@@ -1762,9 +1778,14 @@ void Game::castBreakRay() {
             // voxelWorld.userDataMap.at(rayResult.chunksToRebuild.front()).insert_or_assign(rayResult.blockHit, 0);
 
             //  voxelWorld.udmMutex.unlock();
-
-             voxelWorld.setBlock(otherHalf, 0);       
-            voxelWorld.setBlock(rayResult.blockHit, 0); 
+            if(inMultiplayer) {
+                (*mpBlockSetFunc)(otherHalf.x, otherHalf.y, otherHalf.z, 0);      
+                (*mpBlockSetFunc)(rayResult.blockHit.x, rayResult.blockHit.y, rayResult.blockHit.z, 0);       
+            } else {
+                 voxelWorld.setBlock(otherHalf, 0);       
+                voxelWorld.setBlock(rayResult.blockHit, 0); 
+            }
+            
 
             auto chunkIt = voxelWorld.takenCareOfChunkSpots.find(rayResult.chunksToRebuild.front());
                 if(chunkIt != voxelWorld.takenCareOfChunkSpots.end()) {
@@ -1790,8 +1811,14 @@ void Game::castBreakRay() {
 
             //      voxelWorld.udmMutex.unlock();   
 
-                voxelWorld.setBlock(rayResult.blockHit, 0);  
-                blockBreakParticles(rayResult.blockHit, 25);
+                if(inMultiplayer) {
+                    (*mpBlockSetFunc)(rayResult.blockHit.x, rayResult.blockHit.y, rayResult.blockHit.z, 0);      
+                } else {
+                    voxelWorld.setBlock(rayResult.blockHit, 0);  
+
+                    
+                }
+                    blockBreakParticles(rayResult.blockHit, 25);
 
                 for(ChunkCoord& ccoord : rayResult.chunksToRebuild) {
                     auto chunkIt = voxelWorld.takenCareOfChunkSpots.find(ccoord);
@@ -1824,7 +1851,12 @@ void Game::castBreakRay() {
     //         voxelWorld.userDataMap.at(rayResult.chunksToRebuild.front()).insert_or_assign(rayResult.blockHit, 0);
             
     // voxelWorld.udmMutex.unlock();    
-                voxelWorld.setBlock(rayResult.blockHit, 0);  
+    if(inMultiplayer) {
+         (*mpBlockSetFunc)(rayResult.blockHit.x, rayResult.blockHit.y, rayResult.blockHit.z, 0);  
+    } else {
+        voxelWorld.setBlock(rayResult.blockHit, 0);  
+    }
+                
                 blockBreakParticles(rayResult.blockHit, 25);
 
 
@@ -1880,6 +1912,9 @@ void Game::castBreakRay() {
     }
 }
 void Game::castPlaceRay() {
+    if(inMultiplayer) {
+        std::cout << "I'm in multiplayer, AND I'M GAY!!!!\n";
+    }
     RayCastResult rayResult = rayCast(
         voxelWorld.chunkWidth,
         camera->position,
@@ -1997,8 +2032,13 @@ void Game::castPlaceRay() {
             
 //                     voxelWorld.userDataMap.at(chunkToReb).insert_or_assign(placePoint, ladderID);
 // voxelWorld.udmMutex.unlock();    
-
-                    voxelWorld.setBlock(placePoint, ladderID);
+                    if(inMultiplayer) {
+                        
+                         (*mpBlockSetFunc)(placePoint.x, placePoint.y, placePoint.z, ladderID);  
+                    } else {
+                       voxelWorld.setBlock(placePoint, ladderID); 
+                    }
+                    
 
                     auto chunkIt = voxelWorld.takenCareOfChunkSpots.find(chunkToReb);
                     if(chunkIt != voxelWorld.takenCareOfChunkSpots.end()) {
@@ -2044,7 +2084,12 @@ void Game::castPlaceRay() {
               
 //                     voxelWorld.userDataMap.at(chunkToReb).insert_or_assign(placePoint, chestID);
 // voxelWorld.udmMutex.unlock();   
-                    voxelWorld.setBlock(placePoint, chestID);
+if(inMultiplayer)  {
+    (*mpBlockSetFunc)(placePoint.x, placePoint.y, placePoint.z, chestID);  
+} else {
+     voxelWorld.setBlock(placePoint, chestID);
+}
+                   
                     auto chunkIt = voxelWorld.takenCareOfChunkSpots.find(chunkToReb);
                     if(chunkIt != voxelWorld.takenCareOfChunkSpots.end()) {
                         
@@ -2133,9 +2178,14 @@ void Game::castPlaceRay() {
     //                         voxelWorld.userDataMap.at(chunkToReb2).insert_or_assign(rightUp, neighTopBits);
     //                         voxelWorld.udmMutex.unlock();     
 
-
-                            voxelWorld.setBlock(right, blockBitsRight);
-                            voxelWorld.setBlock(rightUp, neighTopBits);
+                            if(inMultiplayer) {
+                                (*mpBlockSetFunc)(right.x, right.y, right.z, blockBitsRight);  
+                                (*mpBlockSetFunc)(rightUp.x, rightUp.y, rightUp.z, neighTopBits);  
+                            } else {
+                                voxelWorld.setBlock(right, blockBitsRight);
+                                voxelWorld.setBlock(rightUp, neighTopBits);
+                            }
+                            
                         }
                     }
                     if((blockBitsLeft & BlockInfo::BLOCK_ID_BITS) == 11) {
@@ -2159,9 +2209,14 @@ void Game::castPlaceRay() {
 //                             voxelWorld.userDataMap.at(chunkToReb2).insert_or_assign(left, blockBitsLeft);
 //                             voxelWorld.userDataMap.at(chunkToReb2).insert_or_assign(leftUp, neighTopBits);
 //                             voxelWorld.udmMutex.unlock();     
-
-                            voxelWorld.setBlock(left, blockBitsLeft);
-                            voxelWorld.setBlock(leftUp, neighTopBits);
+                            if(inMultiplayer) {
+                                (*mpBlockSetFunc)(left.x, left.y, left.z, blockBitsLeft);  
+                                (*mpBlockSetFunc)(leftUp.x, leftUp.y, leftUp.z, neighTopBits);  
+                            } else {
+                                voxelWorld.setBlock(left, blockBitsLeft);
+                                voxelWorld.setBlock(leftUp, neighTopBits);
+                            }
+                            
                         }
                     }
 
@@ -2170,10 +2225,13 @@ void Game::castPlaceRay() {
 //                     voxelWorld.userDataMap.at(chunkToReb).insert_or_assign(placePoint, bottomID);
 //                     voxelWorld.userDataMap.at(chunkToReb).insert_or_assign(placeAbove, topID);
 // voxelWorld.udmMutex.unlock();     
-
+if(inMultiplayer) {
+                                (*mpBlockSetFunc)(placePoint.x, placePoint.y, placePoint.z, bottomID);  
+                                (*mpBlockSetFunc)(placeAbove.x, placeAbove.y, placeAbove.z, topID);  
+                            } else {
                     voxelWorld.setBlock(placePoint, bottomID);
                     voxelWorld.setBlock(placeAbove, topID);
-
+                            }
                     auto chunkIt = voxelWorld.takenCareOfChunkSpots.find(chunkToReb);
                     if(chunkIt != voxelWorld.takenCareOfChunkSpots.end()) {
                         
@@ -2193,8 +2251,12 @@ void Game::castPlaceRay() {
 //                 voxelWorld.userDataMap.at(chunkToReb).insert_or_assign(placePoint, selectedBlockID);
 // voxelWorld.udmMutex.unlock();   
 
-
-                voxelWorld.setBlock(placePoint, selectedBlockID);
+                if(inMultiplayer) {
+                    (*mpBlockSetFunc)(placePoint.x, placePoint.y, placePoint.z, selectedBlockID);  
+                } else {
+                    voxelWorld.setBlock(placePoint, selectedBlockID);
+                }
+                
 
 
                 auto chunkIt = voxelWorld.takenCareOfChunkSpots.find(chunkToReb);
@@ -2240,8 +2302,13 @@ void Game::castPlaceRay() {
            
 
 //                 voxelWorld.userDataMap.at(chunkToReb).insert_or_assign(placePoint, selectedBlockID);
-//  voxelWorld.udmMutex.unlock();     
-                voxelWorld.setBlock(placePoint, selectedBlockID);
+//  voxelWorld.udmMutex.unlock();  
+                if(inMultiplayer) {
+                    (*mpBlockSetFunc)(placePoint.x, placePoint.y, placePoint.z, selectedBlockID);  
+                } else {
+                    voxelWorld.setBlock(placePoint, selectedBlockID);
+                }
+                
                 auto chunkIt = voxelWorld.takenCareOfChunkSpots.find(chunkToReb);
                 if(chunkIt != voxelWorld.takenCareOfChunkSpots.end()) {
                     

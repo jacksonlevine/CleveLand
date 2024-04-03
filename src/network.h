@@ -13,6 +13,7 @@
 #include <future>
 #include "util/username.h"
 #include <mutex>
+#include <memory>
 
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_generators.hpp>
@@ -36,8 +37,6 @@ enum MessageType {
     Heartbeat,
     Disconnect,
     TimeUpdate,
-    Acknowledge,
-    RequestSeq,
 };
 
 struct Message {
@@ -49,12 +48,6 @@ struct Message {
     uint32_t info;
 };
 
-extern int INCOMING_SEQUENCE_NUMBER;
-extern int OUTGOING_SEQUENCE_NUMBER;
-extern std::unordered_map<int, std::vector<char>> BACKBURNER;
-
-int NEXT_INCOME_SEQ();
-int NEXT_OUTGO_SEQ();
 
 Message createMessage(MessageType type, float x, float y, float z, uint32_t info);
 
@@ -85,9 +78,11 @@ extern std::promise<void> receive_thread_promise;
 
 std::string getMessageTypeString(Message& m);
 
-class UDPClient {
+class Camera3D;
+
+class TCPClient {
 public:
-    UDPClient(boost::asio::io_context& io_context, VoxelWorld *voxworld, std::function<void(float)> *gameTimeSet);
+    TCPClient(boost::asio::io_context& io_context, VoxelWorld *voxworld, std::function<void(float)> *gameTimeSet, glm::vec3 *cameraPos);
 
     void send(const Message& message);
 
@@ -111,11 +106,11 @@ public:
 private:
     boost::asio::io_context& io_context_;
     
-    tcp::endpoint server_endpoint_;
     std::thread receive_thread;
     std::thread send_thread;
     VoxelWorld* voxelWorld;
     std::function<void(float)>* setGameTime;
+    glm::vec3 *cameraPos;
 };
 
 #endif
