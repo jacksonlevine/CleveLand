@@ -7,7 +7,7 @@
 #include <sndfile.h>
 
 PaStream* sfxStream;
-
+PaStream* musicStream;
 
 SoundFXSystem sfs;
 
@@ -72,6 +72,41 @@ SoundEffectSeries sandStepSeries{
     sfs.add("assets/sfx/sandstep4.mp3"),
     sfs.add("assets/sfx/sandstep5.mp3")}
 };
+
+std::vector<float> cricketAudio;
+size_t cricketAudioIndex = 0;
+
+bool IN_GAME = false;
+
+float CRICKET_DULLING = 0.0f;
+
+static int musicCallback(const void* inputBuffer, void* outputBuffer,
+                         unsigned long framesPerBuffer,
+                         const PaStreamCallbackTimeInfo* timeInfo,
+                         PaStreamCallbackFlags statusFlags,
+                         void* userData) {
+    float* out = (float*)outputBuffer;
+
+        if(IN_GAME) {
+            for (size_t i = 0; i < framesPerBuffer; ++i) {
+
+                    *out++ = std::max(-1.0f, cricketAudio[cricketAudioIndex * 2] - CRICKET_DULLING * 2.0f);     // Left channel
+                    *out++ = std::max(-1.0f, cricketAudio[cricketAudioIndex * 2 + 1] - CRICKET_DULLING * 2.0f); // Right channel
+                    cricketAudioIndex = (cricketAudioIndex + 1) % (cricketAudio.size() / 2);
+
+            }
+        } else {
+            for (size_t i = 0; i < framesPerBuffer; ++i) {
+
+                    *out++ = 0;     // Left channel
+                    *out++ = 0; // Right channel
+
+            }
+        }
+            
+    return paContinue;
+}
+
 std::function<void(int)> playSound = [](int block){
     int blockID = (block & BlockInfo::BLOCK_ID_BITS);
     if(blockID == 3) {
@@ -172,6 +207,29 @@ void Game::footstepTimer() {
 
 }
 
+std::vector<float> loadAudioFile(const std::string& filename) {
+    SF_INFO sfinfo;
+    SNDFILE* sndfile = sf_open(filename.c_str(), SFM_READ, &sfinfo);
+    if (sndfile == nullptr) {
+        std::cerr << "Error opening audio file: " << filename << "\n";
+        return {};
+    }
+
+
+    std::vector<float> buffer(sfinfo.frames * sfinfo.channels);
+    long long numFramesRead = sf_readf_float(sndfile, buffer.data(), sfinfo.frames);
+
+    std::cout << "Num frames read: " << std::to_string(numFramesRead) << "\n";
+
+    if (numFramesRead < sfinfo.frames) {
+        std::cerr << "Error reading frames from audio file: " << filename << "\n";
+    }
+
+    sf_close(sndfile);
+    return buffer;
+}
+
+
 
 
 Game::Game() : lastFrame(0), focused(false), camera(nullptr),
@@ -197,7 +255,8 @@ grounded(true), io_context()
         timeOfDay = t;
     };
 
-    
+    cricketAudio = loadAudioFile("assets/sfx/crickets.mp3");
+
     PaError err;
 
     Pa_Initialize();
@@ -226,6 +285,23 @@ grounded(true), io_context()
         // Handle error
     }
 
+
+    err = Pa_OpenStream(&musicStream,
+                        NULL, // No input parameters, as we're only playing audio
+                        &outputParameters, // Output parameters
+                        44100, // Sample rate
+                        256, // Frames per buffer
+                        paClipOff, // Stream flags
+                        musicCallback, // Callback function
+                        NULL); // User data
+    if (err != paNoError) {
+        std::cout << "Error opening musicStream" << Pa_GetErrorText(err) << "\n";
+    }
+
+        err = Pa_StartStream(musicStream);
+    if (err != paNoError) {
+        // Handle error
+    }
 
     windowWidth = 1280;
     windowHeight = 720;
@@ -309,6 +385,8 @@ grounded(true), io_context()
 
                 sunsetFactor = gaussian(timeOfDay, dayLength*(3.0f/4.0f), dayLength/16.0f);
                 sunriseFactor = gaussian(timeOfDay, dayLength/6.0f, dayLength/16.0f);
+                CRICKET_DULLING = gaussian(timeOfDay, 0.0f, dayLength/2.0f);
+
 
                 static float textureAnimInterval = 0.1f;
                 static float textureAnimTimer = 0.0f;
@@ -1889,6 +1967,7 @@ void Game::updateTime() {
 }
 
 void Game::runStep() {
+    IN_GAME = inGame;
     (*loopFunc)();
 }
 
