@@ -124,7 +124,9 @@ public:
 
     void populateChunksAndGeometryStores(entt::registry &registry, int viewDistance);
 
-    void rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool immediateInPlace, bool light);
+    void rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool immediateInPlace, bool light, bool user = false);
+
+    void chunkUpdateThreadFunctionUser(int loadRadius);
 
     void chunkUpdateThreadFunction(int loadRadius);
 
@@ -132,9 +134,10 @@ public:
 
     boost::lockfree::queue<int, boost::lockfree::capacity<2304>> geometryStoreQueue;
     boost::lockfree::queue<int, boost::lockfree::capacity<2304>> highPriorityGeometryStoreQueue;
-
+    boost::lockfree::queue<int, boost::lockfree::capacity<2304>> userGeometryStoreQueue;
 
     boost::lockfree::queue<BlockChunk*, boost::lockfree::capacity<2304>> deferredChunkQueue;
+    boost::lockfree::queue<BlockChunk*, boost::lockfree::capacity<2304>> userPowerQueue;
 
     boost::lockfree::queue<BlockChunk*, boost::lockfree::capacity<2304>> lightUpdateQueue;
 
@@ -150,7 +153,7 @@ public:
 
 
     std::thread chunkUpdateThread;
-
+    std::thread userChunkUpdateThread;
 
     static float noiseFunction(int x, int y, int z);
 

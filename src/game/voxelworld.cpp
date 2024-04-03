@@ -78,7 +78,7 @@ void VoxelWorld::setBlockAndQueueRerender(BlockCoord coord, uint32_t block) {
                     BlockChunk *chunk = chunkIt->second;
 
 
-                    while(!lightUpdateQueue.push(chunk)) {
+                    while(!userPowerQueue.push(chunk)) {
 
                     }
 
@@ -105,7 +105,7 @@ void VoxelWorld::setBlockAndQueueRerender(BlockCoord coord, uint32_t block) {
                     }
                 }
                 for(BlockChunk * pointer : implicated) {
-                    while(!lightUpdateQueue.push(pointer)) {
+                    while(!userPowerQueue.push(pointer)) {
 
                     }
                     //std::cout << "Doing this\n";
@@ -123,7 +123,7 @@ void VoxelWorld::setBlockAndQueueRerender(BlockCoord coord, uint32_t block) {
                     BlockChunk *chunk = chunkIt->second;
 
 
-                    while(!deferredChunkQueue.push(chunk)) {
+                    while(!userPowerQueue.push(chunk)) {
 
                     }
 
@@ -161,7 +161,7 @@ void VoxelWorld::setBlockAndQueueRerender(BlockCoord coord, uint32_t block) {
                     
                     BlockChunk *chunk = chunkIt->second;
 
-                    while(!deferredChunkQueue.push(chunk)) {
+                    while(!userPowerQueue.push(chunk)) {
 
                     }
 
@@ -193,7 +193,7 @@ void VoxelWorld::setBlockAndQueueRerender(BlockCoord coord, uint32_t block) {
                        BlockChunk *chunk = chunkIt->second;
 
 
-                       while(!lightUpdateQueue.push(chunk)) {
+                       while(!userPowerQueue.push(chunk)) {
 
                        }
 
@@ -237,7 +237,7 @@ void VoxelWorld::setBlockAndQueueRerender(BlockCoord coord, uint32_t block) {
                     }
                 }
                 for(BlockChunk * pointer : implicated) {
-                    while(!lightUpdateQueue.push(pointer)) {
+                    while(!userPowerQueue.push(pointer)) {
 
                     }
                 }
@@ -257,7 +257,7 @@ void VoxelWorld::setBlockAndQueueRerender(BlockCoord coord, uint32_t block) {
                        BlockChunk *chunk = chunkIt->second;
 
 
-                       while(!deferredChunkQueue.push(chunk)) {
+                       while(!userPowerQueue.push(chunk)) {
 
                        }
 
@@ -340,6 +340,23 @@ void VoxelWorld::getOffsetFromSeed() {
 
 #define DEV
 
+void VoxelWorld::chunkUpdateThreadFunctionUser(int loadRadius) {
+    while(runChunkThread.load()) {
+
+        BlockChunk* chunk3 = 0;
+        while(userPowerQueue.pop(chunk3)) {
+            if(!runChunkThread.load()) {
+                break;
+            }
+            std::cout << "doing stuff on user chunk\n";
+            rebuildChunk(chunk3, chunk3->position, true, false, true);
+        }
+
+    }
+}
+
+
+
 void VoxelWorld::chunkUpdateThreadFunction(int loadRadius) {
     stillRunningThread = true;
     #ifdef DEV
@@ -362,6 +379,8 @@ void VoxelWorld::chunkUpdateThreadFunction(int loadRadius) {
         if (!runChunkThread.load()) {
             break;
         }
+
+       
 
         
 
@@ -431,6 +450,10 @@ void VoxelWorld::chunkUpdateThreadFunction(int loadRadius) {
                         if(first) {
                             initialLoadProgress += 1;
                         } else {
+                            if(userPowerQueue.pop(chunk)) {
+                                rebuildChunk(chunk, chunk->position, true, true, true);
+                                break;
+                            }
                             if(deferredChunkQueue.pop(chunk)) {
                                 rebuildChunk(chunk, chunk->position, true, false);
                                 break;
@@ -441,6 +464,10 @@ void VoxelWorld::chunkUpdateThreadFunction(int loadRadius) {
                         break;
                     }
                     if(!first) {
+                        if(userPowerQueue.pop(chunk)) {
+                                rebuildChunk(chunk, chunk->position, true, true, true);
+                                break;
+                            }
                         if(deferredChunkQueue.pop(chunk)) {
                                 rebuildChunk(chunk, chunk->position, true, false);
                                 break;
@@ -503,7 +530,7 @@ void VoxelWorld::populateChunksAndGeometryStores(entt::registry &registry, int v
 }
 
 
-void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool immediateInPlace, bool light) {
+void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool immediateInPlace, bool light, bool user) {
 
 
 
@@ -1036,7 +1063,20 @@ void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool im
         catch (std::exception e) {
             std::cout << e.what() << "\n";
         }
-    if(!immediateInPlace) {
+
+          if (user) {
+
+
+            while(!userGeometryStoreQueue.push(chunk->geometryStorePoolIndex)) {
+
+            }
+
+
+    } else {
+
+
+
+        if(!immediateInPlace) {
 
         // bool found = false;
         // for(int i : geometryStoresToRebuild) {
@@ -1055,7 +1095,7 @@ void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool im
         if(takenCareOfChunkSpots.find(chunk->position) == takenCareOfChunkSpots.end()) {
             takenCareOfChunkSpots.insert_or_assign(chunk->position, chunk);
         }
-    } else {
+      } else {
 
         while(!highPriorityGeometryStoreQueue.push(chunk->geometryStorePoolIndex)) {
 
@@ -1063,6 +1103,16 @@ void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool im
 
 
     }
+
+
+
+
+    }
+
+    
+
+  
+  
 
     float elapsed = glfwGetTime() - time;
     timeChunkMeshing += elapsed;

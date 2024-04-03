@@ -90,8 +90,8 @@ static int musicCallback(const void* inputBuffer, void* outputBuffer,
         if(IN_GAME) {
             for (size_t i = 0; i < framesPerBuffer; ++i) {
 
-                    *out++ = std::max(-1.0f, cricketAudio[cricketAudioIndex * 2] - CRICKET_DULLING * 2.0f);     // Left channel
-                    *out++ = std::max(-1.0f, cricketAudio[cricketAudioIndex * 2 + 1] - CRICKET_DULLING * 2.0f); // Right channel
+                    *out++ = std::max(-1.0f, cricketAudio[cricketAudioIndex * 2] * (1.0f - CRICKET_DULLING));     // Left channel
+                    *out++ = std::max(-1.0f, cricketAudio[cricketAudioIndex * 2 + 1] * (1.0f - CRICKET_DULLING)); // Right channel
                     cricketAudioIndex = (cricketAudioIndex + 1) % (cricketAudio.size() / 2);
 
             }
@@ -385,8 +385,15 @@ grounded(true), io_context()
 
                 sunsetFactor = gaussian(timeOfDay, dayLength*(3.0f/4.0f), dayLength/16.0f);
                 sunriseFactor = gaussian(timeOfDay, dayLength/6.0f, dayLength/16.0f);
-                CRICKET_DULLING = gaussian(timeOfDay, 0.0f, dayLength/2.0f);
+                // Calculate the distance from timeOfDay to 0 and dayLength
+                float distanceToZero = timeOfDay;
+                float distanceToDayLength = dayLength - timeOfDay;
 
+                // Choose the closer peak (0 or dayLength) for the Gaussian curve
+                float cricketPeak = (distanceToZero < distanceToDayLength) ? 0.0f : dayLength;
+
+                // Calculate CRICKET_DULLING using the chosen peak
+                CRICKET_DULLING = gaussian(timeOfDay, cricketPeak, dayLength / 2.0f);
 
                 static float textureAnimInterval = 0.1f;
                 static float textureAnimTimer = 0.0f;
@@ -431,16 +438,7 @@ grounded(true), io_context()
 }
 
 void Game::getAverageDelta() {
-    static int times = 0;
-    static float accum = 0.0f;
-    if(times < 100) {
-        accum += static_cast<float>(deltaTime);
-        times++;
-    } else {
-        averageDeltaTime = accum / 100;
-        times = 0;
-        accum = 0.0f;
-    }
+    averageDeltaTime = std::min(deltaTime, 0.02);
 }
 
 void Game::stepMovementAndPhysics() {
@@ -1035,6 +1033,82 @@ void Game::stepChunkDraw() {
     voxelWorld.cameraDirection = camera->direction;
 
     int poppedIndex = 0;
+    if(voxelWorld.userGeometryStoreQueue.pop(poppedIndex)) {
+
+            GeometryStore &geometryStore = voxelWorld.geometryStorePool[poppedIndex];
+            if(geometryStore.myLock.try_lock()) {
+                if(!registry.all_of<MeshComponent>(geometryStore.me)) {
+                    MeshComponent m;
+                    m.length = geometryStore.verts.size();
+                    bindWorldGeometry(
+                        m.vbov,
+                        m.vbouv,
+                        geometryStore.verts.data(),
+                        geometryStore.uvs.data(),
+                        geometryStore.verts.size(),
+                        geometryStore.uvs.size()
+                    );
+                    //Transparent stuff
+                    m.tlength = geometryStore.tverts.size();
+                    bindWorldGeometry(
+                        m.tvbov,
+                        m.tvbouv,
+                        geometryStore.tverts.data(),
+                        geometryStore.tuvs.data(),
+                        geometryStore.tverts.size(),
+                        geometryStore.tuvs.size()
+                    );
+                    registry.emplace<MeshComponent>(geometryStore.me, m);
+                } else {
+                    MeshComponent &m = registry.get<MeshComponent>(geometryStore.me);
+                    glDeleteBuffers(1, &m.vbov);
+                    glDeleteBuffers(1, &m.vbouv);
+                    glGenBuffers(1, &m.vbov);
+                    glGenBuffers(1, &m.vbouv);
+
+
+                    m.length = geometryStore.verts.size();
+                    bindWorldGeometry(
+                        m.vbov,
+                        m.vbouv,
+                        geometryStore.verts.data(),
+                        geometryStore.uvs.data(),
+                        geometryStore.verts.size(),
+                        geometryStore.uvs.size()
+                    );
+                    //Transparent stuff
+                    glDeleteBuffers(1, &m.tvbov);
+                    glDeleteBuffers(1, &m.tvbouv);
+                    glGenBuffers(1, &m.tvbov);
+                    glGenBuffers(1, &m.tvbouv);
+
+                    m.tlength = geometryStore.tverts.size();
+                    bindWorldGeometry(
+                        m.tvbov,
+                        m.tvbouv,
+                        geometryStore.tverts.data(),
+                        geometryStore.tuvs.data(),
+                        geometryStore.tverts.size(),
+                        geometryStore.tuvs.size()
+                    );
+                }
+                geometryStore.myLock.unlock();
+                if(loadRendering) {
+
+                    initialChunksRendered += 1;
+                    //std::cout << initialChunksRendered << "\n";
+                    if(initialChunksRendered >= numMustLoad) {
+                        //std::cout << "Done! Rendered " << numMustLoad << " chunks.\n";
+                        loadRendering = false;
+                    }
+                }
+            } else {
+                while(!voxelWorld.highPriorityGeometryStoreQueue.push(poppedIndex)) {
+
+                }
+            }
+
+    } else
     if(voxelWorld.highPriorityGeometryStoreQueue.pop(poppedIndex)) {
 
             GeometryStore &geometryStore = voxelWorld.geometryStorePool[poppedIndex];
@@ -1235,6 +1309,10 @@ void Game::displayEscapeMenu() {
 
             if(voxelWorld.chunkUpdateThread.joinable()) {
                 voxelWorld.chunkUpdateThread.join();
+                std::cout << "Joined Voxelworld Thread\n";
+            }
+            if(voxelWorld.userChunkUpdateThread.joinable()) {
+                voxelWorld.userChunkUpdateThread.join();
                 std::cout << "Joined Voxelworld Thread\n";
             }
 
@@ -1682,7 +1760,11 @@ void Game::changeViewDistance(int newValue) {
         voxelWorld.chunkUpdateThread = std::thread([this](){
             voxelWorld.chunkUpdateThreadFunction(viewDistance);
         });
+        voxelWorld.userChunkUpdateThread = std::thread([this](){
+            voxelWorld.chunkUpdateThreadFunctionUser(viewDistance);
+        });
         voxelWorld.chunkUpdateThread.detach();
+        voxelWorld.userChunkUpdateThread.detach();
     changingViewDistance = false;
 
     saveSettings();
@@ -1785,7 +1867,12 @@ void Game::goToSingleplayerWorld(const char *worldname) {
     voxelWorld.chunkUpdateThread = std::thread([this](){
         voxelWorld.chunkUpdateThreadFunction(viewDistance);
         });
-    voxelWorld.chunkUpdateThread.detach();
+
+        voxelWorld.userChunkUpdateThread = std::thread([this](){
+            voxelWorld.chunkUpdateThreadFunctionUser(viewDistance);
+        });
+        voxelWorld.chunkUpdateThread.detach();
+        voxelWorld.userChunkUpdateThread.detach();
 
     camera->setFocused(true);
 
@@ -1853,7 +1940,11 @@ void Game::goToMultiplayerWorld() {
         voxelWorld.chunkUpdateThread = std::thread([this](){
             voxelWorld.chunkUpdateThreadFunction(viewDistance);
             });
+        voxelWorld.userChunkUpdateThread = std::thread([this](){
+            voxelWorld.chunkUpdateThreadFunctionUser(viewDistance);
+        });
         voxelWorld.chunkUpdateThread.detach();
+        voxelWorld.userChunkUpdateThread.detach();
 
         camera->setFocused(true);
 
