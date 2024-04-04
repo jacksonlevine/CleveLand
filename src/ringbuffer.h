@@ -9,8 +9,8 @@ struct RingBuffer {
     std::atomic<int> writeHead;
     std::atomic<int> count;
     size_t maxBuffers = 128;
-    size_t channels = 2;
-    size_t bufferSize = 256;
+    size_t channels = 1;
+    size_t bufferSize = 480;
     std::vector<std::vector<float>> buffers;
     RingBuffer& operator=(RingBuffer&& other) noexcept;
     RingBuffer(const RingBuffer& other);

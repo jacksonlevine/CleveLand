@@ -9,7 +9,7 @@ RingBuffer::RingBuffer() {
         buf.resize(this->bufferSize*channels);
     }
     maxBuffers = 128;
-    bufferSize = 256;
+    bufferSize = 480;
 }
 
 RingBuffer::RingBuffer(size_t bufferSize) : bufferSize(bufferSize) 
