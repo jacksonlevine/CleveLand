@@ -51,6 +51,7 @@ struct Person {
 };
 
 Person::Person() {
+    this->rbuf = RingBuffer(480);
     this->decoder = opus_decoder_create(SAMPLERATE, 1, &this->opusErr);
     this->deleteTimer = 0;
 }
@@ -254,7 +255,7 @@ void promptForChoices() {
 std::atomic<bool> runChatThread = false;
 
 void handle_receive(const boost::system::error_code& error, std::size_t bytes_transferred) {
-    if (!error && bytes_transferred >= sizeof(AudioPacket)) {
+    if (!error && bytes_transferred == sizeof(AudioPacket)) {
 
         auto &personIt = std::find_if(
             allPeople.begin(),
@@ -283,7 +284,7 @@ void handle_receive(const boost::system::error_code& error, std::size_t bytes_tr
             0
         );
 
-        personIt->rbuf.write(newBuf,personIt->rbuf.bufferSize);
+        personIt->rbuf.write(newBuf,480);
     }
     if(runChatThread.load()) {
         start_receive(); // Start another async receive

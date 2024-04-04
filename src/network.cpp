@@ -189,7 +189,7 @@ void TCPClient::connect() {
     try {
 
     // Hardcode the server's IP address and port
-    std::string server_ip = "127.0.0.1"; // Change this to your server's IP address
+    std::string server_ip = "192.168.1.131"; // Change this to your server's IP address
     std::string server_port = "12345"; // Change this to your server's port
 
     tcp::resolver resolver(io_context_);
