@@ -21,6 +21,11 @@ SoundFXSystem sfs;
 
 SoundEffect doorSound = sfs.add("assets/sfx/door.mp3");
 
+SoundEffectSeries doorSoundSeries{
+    {sfs.add("assets/sfx/door1.mp3"),
+    sfs.add("assets/sfx/door2.mp3"),}
+};
+
 SoundEffect stoneStep1 = sfs.add("assets/sfx/stonestep1.mp3");
 SoundEffect stoneStep2 = sfs.add("assets/sfx/stonestep2.mp3");
 SoundEffect stoneStep3 = sfs.add("assets/sfx/stonestep3.mp3");
@@ -38,6 +43,7 @@ SoundEffect pickInInventory = sfs.add("assets/sfx/pickininventory.mp3");
 SoundEffect placeInInventory = sfs.add("assets/sfx/placeininventory.mp3");
 
 bool MOVINGINWATER = false;
+bool HEAD_COVERED = false;
 
 SoundEffectSeries stoneStepSeries{
     {stoneStep1, stoneStep2, stoneStep3, stoneStep4}
@@ -102,9 +108,13 @@ size_t underWaterIndex = 0;
 
 float waterMoveLevel = 0.0f;
 
-#define FADERNUM 1
+float CRICKET_VOLUME = 0.0f;
+
+
+#define FADERNUM 2
 Fader audioFaders[FADERNUM] = {
-    Fader(&waterMoveLevel, false, 0.1)
+    Fader(&waterMoveLevel, false, 0.1),
+    Fader(&CRICKET_VOLUME, true, 0.1)
 };
 
 void tickFaders() {
@@ -122,8 +132,6 @@ float CRICKET_DULLING = 0.0f;
 
 
 
-
-
 static int musicCallback(const void* inputBuffer, void* outputBuffer,
                          unsigned long framesPerBuffer,
                          const PaStreamCallbackTimeInfo* timeInfo,
@@ -134,8 +142,8 @@ static int musicCallback(const void* inputBuffer, void* outputBuffer,
         if(IN_GAME) {
             for (size_t i = 0; i < framesPerBuffer; ++i) {
 
-                    *out++ = std::min(1.0f, std::max(-1.0f, cricketAudio[cricketAudioIndex * 2] * (1.0f - CRICKET_DULLING) + waterMoveLevel * (UNDERWATER_VIEW ? underWaterAudio[underWaterIndex * 2] : waterMoveAudio[waterMoveIndex * 2])));     // Left channel
-                    *out++ = std::min(1.0f, std::max(-1.0f, cricketAudio[cricketAudioIndex * 2 + 1] * (1.0f - CRICKET_DULLING) + waterMoveLevel * (UNDERWATER_VIEW ? underWaterAudio[underWaterIndex * 2 + 1] : waterMoveAudio[waterMoveIndex * 2 + 1]) )); // Right channel
+                    *out++ = std::min(1.0f, std::max(-1.0f, CRICKET_VOLUME * (((UNDERWATER_VIEW ) ? 0.0f : cricketAudio[cricketAudioIndex * 2]) * (1.0f - CRICKET_DULLING)) + waterMoveLevel * (UNDERWATER_VIEW ? underWaterAudio[underWaterIndex * 2] : waterMoveAudio[waterMoveIndex * 2])));     // Left channel
+                    *out++ = std::min(1.0f, std::max(-1.0f, CRICKET_VOLUME * (((UNDERWATER_VIEW ) ? 0.0f : cricketAudio[cricketAudioIndex * 2 + 1]) * (1.0f - CRICKET_DULLING)) + waterMoveLevel * (UNDERWATER_VIEW ? underWaterAudio[underWaterIndex * 2 + 1] : waterMoveAudio[waterMoveIndex * 2 + 1]) )); // Right channel
                     cricketAudioIndex = (cricketAudioIndex + 1) % (cricketAudio.size() / 2);
                     waterMoveIndex = (waterMoveIndex + 1) % (waterMoveAudio.size() / 2);
                     underWaterIndex = (underWaterIndex + 1) % (underWaterAudio.size() / 2);
@@ -164,7 +172,7 @@ std::function<void(int)> playSound = [](int block){
         return;
     }
     if(blockID == 11) {
-        sfs.play(doorSound);
+        sfs.playNextInSeries(doorSoundSeries);
         return;
     }
     if(blockID == 8 || blockID == 12) {
@@ -529,6 +537,39 @@ grounded(true), io_context()
     }
 
 
+
+}
+
+
+void Game::checkAboveHeadThreadFunction() {
+    static glm::vec3 prevPos(0,0,0);
+    
+   while (shouldRunHeadCoveredLoop.load()) { 
+    
+    if(camera->position != prevPos) {
+        
+        bool headCov = false;
+        for(int i = std::floor(camera->position.y); i < std::floor(camera->position.y) + 10; i++) {
+            BlockCoord coord(std::round(camera->position.x), i, std::round(camera->position.z));
+            uint32_t block = voxelWorld.blockAt(coord);
+
+            uint32_t blockID = (block & BlockInfo::BLOCK_ID_BITS);
+            if(std::find(BlockInfo::semiTransparents.begin(), BlockInfo::semiTransparents.end(), blockID) == BlockInfo::semiTransparents.end() && blockID != 0) {
+                headCov = true;
+                headCovered.store(true);
+                break;
+            }
+        }
+
+        if(!headCov) {
+            headCovered.store(false);
+        }
+
+
+        prevPos = camera->position;
+    }
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+}
 
 }
 
@@ -1069,6 +1110,11 @@ void Game::stepChunkDraw() {
     } else {
         underWaterView = 0.0f;
         UNDERWATER_VIEW = false;
+    }
+    if(headCovered.load()) {
+        audioFaders[1].down();
+    } else {
+        audioFaders[1].up();
     }
 
     BlockCoord feetCoord(
@@ -2018,6 +2064,10 @@ void Game::goToMultiplayerWorld() {
 
         connectToChat();
 
+
+        
+
+
         std::cout << "Got  to here\n";
         initialTimer = 1.0f;
         voxelWorld.initialLoadProgress = 0;
@@ -2052,6 +2102,16 @@ void Game::goToMultiplayerWorld() {
         camera->setFocused(true);
 
         inGame = true;
+
+        shouldRunHeadCoveredLoop.store(true);
+
+        static auto headLoopFunc = [this](){
+            checkAboveHeadThreadFunction();
+        };
+
+        headCoveredLoop = std::thread(headLoopFunc);
+
+        headCoveredLoop.detach();
     } else {
         static std::string offlinemsg("Server is offline. Click to retry.");
         (*currentGuiButtons)[0].label = offlinemsg.c_str();
@@ -2072,6 +2132,10 @@ void Game::exitMultiplayer() {
     client->stop();
     client->disconnect();
     client->receivedWorld.store(false);
+    shouldRunHeadCoveredLoop.store(false);
+    if(headCoveredLoop.joinable()) {
+        headCoveredLoop.join();
+    }
 }
 
 void Game::displayLoadScreen(const char* message, float progress, bool inMainLoop) {

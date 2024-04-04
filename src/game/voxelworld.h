@@ -95,17 +95,17 @@ public:
             IntTupHash
     >                       lightMapAmbient;
 
-    void depropogateLightOrigin(BlockCoord spot, BlockCoord origin, std::set<BlockChunk*> *imp, std::unordered_map<
-            BlockCoord,
-            LightSegment,
-            IntTupHash
-    >& lightMap);
+    // void depropogateLightOrigin(BlockCoord spot, BlockCoord origin, std::set<BlockChunk*> *imp, std::unordered_map<
+    //         BlockCoord,
+    //         LightSegment,
+    //         IntTupHash
+    // >& lightMap);
     void depropogateLightOriginIteratively(BlockCoord origin, std::set<BlockChunk*> *imp, std::unordered_map<BlockCoord,LightSegment,IntTupHash>& lightMap);
-    void propogateLightOrigin(BlockCoord spot, BlockCoord origin, int value, std::set<BlockChunk*> *imp, std::unordered_map<BlockCoord, uint32_t, IntTupHash>& memo, std::unordered_map<
-            BlockCoord,
-            LightSegment,
-            IntTupHash
-    > &lightMap);
+    // void propogateLightOrigin(BlockCoord spot, BlockCoord origin, int value, std::set<BlockChunk*> *imp, std::unordered_map<BlockCoord, uint32_t, IntTupHash>& memo, std::unordered_map<
+    //         BlockCoord,
+    //         LightSegment,
+    //         IntTupHash
+    // > &lightMap);
     void propogateLightOriginIteratively(BlockCoord spot, BlockCoord origin, int value, std::set<BlockChunk*> *imp, std::unordered_map<BlockCoord, uint32_t, IntTupHash>& memo, std::unordered_map<
             BlockCoord,
             LightSegment,
@@ -148,6 +148,8 @@ public:
     >                   hasHadInitialLightPass;
     
     std::mutex hashadlightMutex;
+
+    std::mutex lightMapMutex;
     
     inline static bool shouldTryReload = false;
 
@@ -187,6 +189,8 @@ public:
     void locallySetBlock(BlockCoord coord, uint32_t block);
     void setBlock(BlockCoord coord, uint32_t block, bool updateMultiplayer = true);
     void setBlockAndQueueRerender(BlockCoord coord, uint32_t block);
+
+    void checkAboveHeadThreadFunction();
     
     inline static int initialLoadProgress = 0;
 

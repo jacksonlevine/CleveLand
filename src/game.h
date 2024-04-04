@@ -49,7 +49,9 @@ public:
     boost::asio::io_context io_context;
     TCPClient *client;
 
-
+    std::thread headCoveredLoop;
+    inline static std::atomic<bool> shouldRunHeadCoveredLoop = false;
+    inline static std::atomic<bool> headCovered = false;
 
     inline static float stepSoundTimer = 0.0f;
     inline static float footstepInterval = 0.4f;
@@ -144,6 +146,8 @@ public:
     void bindBillBoardGeometry(GLuint billposvbo, std::vector<Particle> &billinstances);
     void bindBillBoardGeometryNoUpload(GLuint billposvbo);
 
+
+    void checkAboveHeadThreadFunction();
     inline static glm::vec3 blockOverlayCoord = glm::vec3(0,0,0);
     inline static bool blockOverlayShowing = false;
     inline static float necessaryBlockBreakingTime = 1.0f;

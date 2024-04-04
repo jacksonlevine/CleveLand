@@ -117,7 +117,7 @@ void VoxelWorld::setBlockAndQueueRerender(BlockCoord coord, uint32_t block) {
                     }
                 }
                 for(BlockChunk * pointer : implicated) {
-                    while(!userPowerQueue.push(pointer)) {
+                    while(!lightUpdateQueue.push(pointer)) {
 
                     }
                     //std::cout << "Doing this\n";
@@ -249,7 +249,7 @@ void VoxelWorld::setBlockAndQueueRerender(BlockCoord coord, uint32_t block) {
                     }
                 }
                 for(BlockChunk * pointer : implicated) {
-                    while(!userPowerQueue.push(pointer)) {
+                    while(!lightUpdateQueue.push(pointer)) {
 
                     }
                 }
@@ -1078,6 +1078,9 @@ void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool im
             while(!userGeometryStoreQueue.push(chunk->geometryStorePoolIndex)) {
 
             }
+            if(takenCareOfChunkSpots.find(chunk->position) == takenCareOfChunkSpots.end()) {
+                takenCareOfChunkSpots.insert_or_assign(chunk->position, chunk);
+            }
 
 
     } else {
@@ -1176,50 +1179,50 @@ void VoxelWorld::depropogateLightOriginIteratively(BlockCoord origin, std::set<B
 
 
 
-void VoxelWorld::depropogateLightOrigin(BlockCoord spot, BlockCoord origin, std::set<BlockChunk*> *imp, std::unordered_map<
-            BlockCoord,
-            LightSegment,
-            IntTupHash
-    >& lightMap  ) {
+// void VoxelWorld::depropogateLightOrigin(BlockCoord spot, BlockCoord origin, std::set<BlockChunk*> *imp, std::unordered_map<
+//             BlockCoord,
+//             LightSegment,
+//             IntTupHash
+//     >& lightMap  ) {
 
-    ChunkCoord chunkCoordOfOrigin(
-        std::floor(static_cast<float>(origin.x)/chunkWidth),
-        std::floor(static_cast<float>(origin.z)/chunkWidth)
-    );
+//     ChunkCoord chunkCoordOfOrigin(
+//         std::floor(static_cast<float>(origin.x)/chunkWidth),
+//         std::floor(static_cast<float>(origin.z)/chunkWidth)
+//     );
 
-    ChunkCoord chunkCoordHere(
-        std::floor(static_cast<float>(spot.x)/chunkWidth),
-        std::floor(static_cast<float>(spot.z)/chunkWidth)
-    );
+//     ChunkCoord chunkCoordHere(
+//         std::floor(static_cast<float>(spot.x)/chunkWidth),
+//         std::floor(static_cast<float>(spot.z)/chunkWidth)
+//     );
 
-    if(chunkCoordOfOrigin != chunkCoordHere) {
-        auto chunkIt = takenCareOfChunkSpots.find(chunkCoordHere);
-        if(chunkIt != takenCareOfChunkSpots.end()) {
-            imp->insert(chunkIt->second);
-        }
-    }
+//     if(chunkCoordOfOrigin != chunkCoordHere) {
+//         auto chunkIt = takenCareOfChunkSpots.find(chunkCoordHere);
+//         if(chunkIt != takenCareOfChunkSpots.end()) {
+//             imp->insert(chunkIt->second);
+//         }
+//     }
 
-    auto segIt = lightMap.find(spot);
-    if(segIt != lightMap.end()) {
-
-
-        auto rayIt = std::find_if(segIt->second.rays.begin(), segIt->second.rays.end(), [origin](LightRay& ray){
-            return ray.origin == origin;
-        });
-
-        if(rayIt != segIt->second.rays.end()) {
-            std::vector<int> directions = rayIt->directions;
-            segIt->second.rays.erase(rayIt);
-            for(int direction : directions) {
-                depropogateLightOrigin(spot + BlockInfo::neighbors[direction], origin, imp, lightMap);
-            }
-        }
+//     auto segIt = lightMap.find(spot);
+//     if(segIt != lightMap.end()) {
 
 
+//         auto rayIt = std::find_if(segIt->second.rays.begin(), segIt->second.rays.end(), [origin](LightRay& ray){
+//             return ray.origin == origin;
+//         });
 
-    }
+//         if(rayIt != segIt->second.rays.end()) {
+//             std::vector<int> directions = rayIt->directions;
+//             segIt->second.rays.erase(rayIt);
+//             for(int direction : directions) {
+//                 depropogateLightOrigin(spot + BlockInfo::neighbors[direction], origin, imp, lightMap);
+//             }
+//         }
 
-}
+
+
+//     }
+
+// }
 
 struct spotForQueue {
     int value;
@@ -1264,7 +1267,7 @@ void VoxelWorld::propogateLightOriginIteratively(BlockCoord spot, BlockCoord ori
             }
 
 
-
+            lightMapMutex.lock();
             auto segIt = lightMap.find(n.spot);
             if (segIt == lightMap.end()) {
                 segIt = lightMap.insert({n.spot, LightSegment()}).first;
@@ -1283,11 +1286,13 @@ void VoxelWorld::propogateLightOriginIteratively(BlockCoord spot, BlockCoord ori
             } else if (rayIt->value < n.value) {
                 rayIt->value = n.value;
             }
+            lightMapMutex.unlock();
 
             if (n.value > 1) {
+                lightMapMutex.lock();
                 for (int i = 0; i < BlockInfo::neighbors.size(); ++i) {
                     BlockCoord next = n.spot + BlockInfo::neighbors[i];
-
+                    
                     // Find or create a ray for the neighbor
                     auto nextSegIt = lightMap.find(next);
                     if (nextSegIt == lightMap.end()) {
@@ -1314,104 +1319,106 @@ void VoxelWorld::propogateLightOriginIteratively(BlockCoord spot, BlockCoord ori
                             rayIt->directions.push_back(i);
                         }
                     }
+                    
                 }
+                lightMapMutex.unlock();
             }
         }
     }
 }
 
-void VoxelWorld::propogateLightOrigin(BlockCoord spot, BlockCoord origin, int value, std::set<BlockChunk*> *imp, std::unordered_map<BlockCoord, uint32_t, IntTupHash>& memo, std::unordered_map<
-            BlockCoord,
-            LightSegment,
-            IntTupHash
-    >  &lightMap) {
-    if(value > 0) {
+// void VoxelWorld::propogateLightOrigin(BlockCoord spot, BlockCoord origin, int value, std::set<BlockChunk*> *imp, std::unordered_map<BlockCoord, uint32_t, IntTupHash>& memo, std::unordered_map<
+//             BlockCoord,
+//             LightSegment,
+//             IntTupHash
+//     >  &lightMap) {
+//     if(value > 0) {
 
-        ChunkCoord chunkCoordOfOrigin(
-            std::floor(static_cast<float>(origin.x)/chunkWidth),
-            std::floor(static_cast<float>(origin.z)/chunkWidth)
-        );
+//         ChunkCoord chunkCoordOfOrigin(
+//             std::floor(static_cast<float>(origin.x)/chunkWidth),
+//             std::floor(static_cast<float>(origin.z)/chunkWidth)
+//         );
 
-        ChunkCoord chunkCoordHere(
-            std::floor(static_cast<float>(spot.x)/chunkWidth),
-            std::floor(static_cast<float>(spot.z)/chunkWidth)
-        );
+//         ChunkCoord chunkCoordHere(
+//             std::floor(static_cast<float>(spot.x)/chunkWidth),
+//             std::floor(static_cast<float>(spot.z)/chunkWidth)
+//         );
 
-       if(chunkCoordOfOrigin != chunkCoordHere) {
-            auto chunkIt = takenCareOfChunkSpots.find(chunkCoordHere);
-            if(chunkIt != takenCareOfChunkSpots.end()) {
-                imp->insert(chunkIt->second);
-            }
-        }
+//        if(chunkCoordOfOrigin != chunkCoordHere) {
+//             auto chunkIt = takenCareOfChunkSpots.find(chunkCoordHere);
+//             if(chunkIt != takenCareOfChunkSpots.end()) {
+//                 imp->insert(chunkIt->second);
+//             }
+//         }
 
-        auto segIt = lightMap.find(spot);
-        if(segIt == lightMap.end()) {
-            lightMap.insert_or_assign(spot, LightSegment());
-        }
-        segIt = lightMap.find(spot);
+//         auto segIt = lightMap.find(spot);
+//         if(segIt == lightMap.end()) {
+//             lightMap.insert_or_assign(spot, LightSegment());
+//         }
+//         segIt = lightMap.find(spot);
 
-        auto rayIt = std::find_if(segIt->second.rays.begin(), segIt->second.rays.end(), [origin](LightRay& ray){
-            return ray.origin == origin;
-        });
+//         auto rayIt = std::find_if(segIt->second.rays.begin(), segIt->second.rays.end(), [origin](LightRay& ray){
+//             return ray.origin == origin;
+//         });
 
-        //if theres not already a ray of this origin here
-        if(rayIt == segIt->second.rays.end()) {
+//         //if theres not already a ray of this origin here
+//         if(rayIt == segIt->second.rays.end()) {
 
-            int neighborIndex = 0;
-            LightRay thisRay;
-            thisRay.value = value;
-            thisRay.origin = origin;
-            //figure out the directions its going
-            for(BlockCoord& neigh : BlockInfo::neighbors) {
-                uint32_t blockBitsHere = blockAtMemo(spot + neigh, memo);
-                uint32_t blockIDHere = blockBitsHere & BlockInfo::BLOCK_ID_BITS;
-                bool goingHere = (blockIDHere == 0 || 
-                std::find(BlockInfo::transparents.begin(), BlockInfo::transparents.end(), blockIDHere) != BlockInfo::transparents.end() ||
-                std::find(BlockInfo::semiTransparents.begin(), BlockInfo::semiTransparents.end(), blockIDHere) != BlockInfo::semiTransparents.end());
-                if(goingHere) {
-                    thisRay.directions.push_back(neighborIndex);
-                }
-                neighborIndex++;
-            }
+//             int neighborIndex = 0;
+//             LightRay thisRay;
+//             thisRay.value = value;
+//             thisRay.origin = origin;
+//             //figure out the directions its going
+//             for(BlockCoord& neigh : BlockInfo::neighbors) {
+//                 uint32_t blockBitsHere = blockAtMemo(spot + neigh, memo);
+//                 uint32_t blockIDHere = blockBitsHere & BlockInfo::BLOCK_ID_BITS;
+//                 bool goingHere = (blockIDHere == 0 || 
+//                 std::find(BlockInfo::transparents.begin(), BlockInfo::transparents.end(), blockIDHere) != BlockInfo::transparents.end() ||
+//                 std::find(BlockInfo::semiTransparents.begin(), BlockInfo::semiTransparents.end(), blockIDHere) != BlockInfo::semiTransparents.end());
+//                 if(goingHere) {
+//                     thisRay.directions.push_back(neighborIndex);
+//                 }
+//                 neighborIndex++;
+//             }
 
-            segIt->second.rays.push_back(thisRay);
-            for(int dir : thisRay.directions) {
+//             segIt->second.rays.push_back(thisRay);
+//             for(int dir : thisRay.directions) {
 
-                propogateLightOrigin(spot + BlockInfo::neighbors[dir], origin, value - 1, imp, memo, lightMap);
+//                 propogateLightOrigin(spot + BlockInfo::neighbors[dir], origin, value - 1, imp, memo, lightMap);
 
-            }
+//             }
 
-        } else { //if there is a ray of this origin here, then if it is less than our value, bring it up to it, and propogate on.
-            if(rayIt->value < value) {
-                rayIt->value = value;
+//         } else { //if there is a ray of this origin here, then if it is less than our value, bring it up to it, and propogate on.
+//             if(rayIt->value < value) {
+//                 rayIt->value = value;
 
             
-                int neighborIndex = 0;
-                //figure out the directions its going
-                for(BlockCoord& neigh : BlockInfo::neighbors) {
-                    uint32_t blockBitsHere = blockAtMemo(spot + neigh, memo);
-                    uint32_t blockIDHere = blockBitsHere & BlockInfo::BLOCK_ID_BITS;
-                    bool goingHere = (blockIDHere == 0 || 
-                    std::find(BlockInfo::transparents.begin(), BlockInfo::transparents.end(), blockIDHere) != BlockInfo::transparents.end() ||
-                    std::find(BlockInfo::semiTransparents.begin(), BlockInfo::semiTransparents.end(), blockIDHere) != BlockInfo::semiTransparents.end());
-                    if(goingHere) {
-                        if(std::find(rayIt->directions.begin(), rayIt->directions.end(), neighborIndex) == rayIt->directions.end()) {
-                            rayIt->directions.push_back(neighborIndex);
-                        }
-                    }
-                    neighborIndex++;
-                }
+//                 int neighborIndex = 0;
+//                 //figure out the directions its going
+//                 for(BlockCoord& neigh : BlockInfo::neighbors) {
+//                     uint32_t blockBitsHere = blockAtMemo(spot + neigh, memo);
+//                     uint32_t blockIDHere = blockBitsHere & BlockInfo::BLOCK_ID_BITS;
+//                     bool goingHere = (blockIDHere == 0 || 
+//                     std::find(BlockInfo::transparents.begin(), BlockInfo::transparents.end(), blockIDHere) != BlockInfo::transparents.end() ||
+//                     std::find(BlockInfo::semiTransparents.begin(), BlockInfo::semiTransparents.end(), blockIDHere) != BlockInfo::semiTransparents.end());
+//                     if(goingHere) {
+//                         if(std::find(rayIt->directions.begin(), rayIt->directions.end(), neighborIndex) == rayIt->directions.end()) {
+//                             rayIt->directions.push_back(neighborIndex);
+//                         }
+//                     }
+//                     neighborIndex++;
+//                 }
 
-                for(int dir : rayIt->directions) {
+//                 for(int dir : rayIt->directions) {
 
-                    propogateLightOrigin(spot + BlockInfo::neighbors[dir], origin, value - 1, imp, memo, lightMap);
+//                     propogateLightOrigin(spot + BlockInfo::neighbors[dir], origin, value - 1, imp, memo, lightMap);
 
-                }
-            }
+//                 }
+//             }
 
-        }
-    }
-}
+//         }
+//     }
+// }
 
 
 
@@ -1439,11 +1446,12 @@ void VoxelWorld::lightPassOnChunk(ChunkCoord chunkCoord, std::unordered_map<Bloc
             for(int z = 0; z < chunkWidth; ++z) {
                 for(int y = 0; y < chunkHeight; ++y) {
                     BlockCoord coord(chunkCoord.x * chunkWidth + x, y, chunkCoord.z * chunkWidth + z);
+                    lightMapMutex.lock();
                     auto lightIt = lightMap.find(coord);
                     if(lightIt != lightMap.end()) {
                         for(LightRay& ray : lightIt->second.rays) {
 
-
+                            lightMapMutex.unlock();
                             ChunkCoord chunkCoordOfOrigin(
                                 std::floor(static_cast<float>(ray.origin.x)/chunkWidth),
                                 std::floor(static_cast<float>(ray.origin.z)/chunkWidth)
@@ -1458,11 +1466,14 @@ void VoxelWorld::lightPassOnChunk(ChunkCoord chunkCoord, std::unordered_map<Bloc
                                     lightSources.insert(originWeRemoving);
                                 }
                             }
+                            lightMapMutex.lock();
 
                             
                         }
                         
                     }
+                    lightMapMutex.unlock();
+
                     if(blockAtMemo(coord, memo) == 12) {
                         lightSources.insert(coord);
                     }
@@ -1495,7 +1506,12 @@ void VoxelWorld::lightPassOnChunk(ChunkCoord chunkCoord, std::unordered_map<Bloc
 
 
 
+void VoxelWorld::checkAboveHeadThreadFunction() {
 
+
+
+
+}
 
 
 
