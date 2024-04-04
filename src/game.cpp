@@ -401,7 +401,7 @@ grounded(true), io_context()
     } else {
     }
 
-    promptForChoices();
+    //promptForChoices();
 
 
     static std::function<void(int,int,int,uint32_t)> mpBlockSetFunc = [this](int x,int y,int z,uint32_t b) {
@@ -2423,6 +2423,17 @@ void Game::castPlaceRay() {
                     } else {
                         voxelWorld.setBlock(otherHalf, otherHalfBits);
                         voxelWorld.setBlock(rayResult.blockHit, blockBitsHere);
+
+                        auto chunkIt = voxelWorld.takenCareOfChunkSpots.find(rayResult.chunksToRebuild.front());
+                        if(chunkIt != voxelWorld.takenCareOfChunkSpots.end()) {
+                            
+                            BlockChunk *chunk = chunkIt->second;
+
+                            while(!voxelWorld.deferredChunkQueue.push(chunk)) {
+
+                            }
+
+                        }
                     }
 
     //                 voxelWorld.udmMutex.lock(); 
@@ -2431,16 +2442,7 @@ void Game::castPlaceRay() {
     //         voxelWorld.userDataMap.at(rayResult.chunksToRebuild.front()).insert_or_assign(rayResult.blockHit, blockBitsHere);
     // voxelWorld.udmMutex.unlock();    
            
-            auto chunkIt = voxelWorld.takenCareOfChunkSpots.find(rayResult.chunksToRebuild.front());
-                if(chunkIt != voxelWorld.takenCareOfChunkSpots.end()) {
-                    
-                    BlockChunk *chunk = chunkIt->second;
-
-                    while(!voxelWorld.deferredChunkQueue.push(chunk)) {
-
-                    }
-
-                }
+            
         }else
 
         if(rayResult.chunksToRebuild.size() > 0) {
@@ -2451,6 +2453,7 @@ void Game::castPlaceRay() {
                 std::unordered_map<BlockCoord, unsigned int, IntTupHash>());
             }
             voxelWorld.udmMutex.unlock();     
+
             glm::vec3 blockHit(rayResult.blockHit.x, rayResult.blockHit.y, rayResult.blockHit.z);
             glm::vec3 hitPoint = rayResult.head;
 
@@ -2485,7 +2488,8 @@ void Game::castPlaceRay() {
                 voxelWorld.userDataMap.insert_or_assign(chunkToReb, std::unordered_map<BlockCoord, unsigned int, IntTupHash>());
             }
 
-            voxelWorld.udmMutex.unlock();   
+            voxelWorld.udmMutex.unlock();  
+
             if(selectedBlockID == 14) {
                 static std::vector<BlockCoord> neighborAxes = {
                     BlockCoord(1,0,0),
@@ -2522,20 +2526,22 @@ void Game::castPlaceRay() {
                          (*mpBlockSetFunc)(placePoint.x, placePoint.y, placePoint.z, ladderID);  
                     } else {
                        voxelWorld.setBlock(placePoint, ladderID); 
+
+                       auto chunkIt = voxelWorld.takenCareOfChunkSpots.find(chunkToReb);
+                        if(chunkIt != voxelWorld.takenCareOfChunkSpots.end()) {
+                            
+                            BlockChunk *chunk = chunkIt->second;
+
+
+                            while(!voxelWorld.deferredChunkQueue.push(chunk)) {
+
+                            }
+
+                        }
                     }
                     
 
-                    auto chunkIt = voxelWorld.takenCareOfChunkSpots.find(chunkToReb);
-                    if(chunkIt != voxelWorld.takenCareOfChunkSpots.end()) {
-                        
-                        BlockChunk *chunk = chunkIt->second;
-
-
-                        while(!voxelWorld.deferredChunkQueue.push(chunk)) {
-
-                        }
-
-                    }
+                    
                 
             } else
             if(selectedBlockID == 13) {
@@ -2573,9 +2579,7 @@ if(inMultiplayer)  {
     (*mpBlockSetFunc)(placePoint.x, placePoint.y, placePoint.z, chestID);  
 } else {
      voxelWorld.setBlock(placePoint, chestID);
-}
-                   
-                    auto chunkIt = voxelWorld.takenCareOfChunkSpots.find(chunkToReb);
+     auto chunkIt = voxelWorld.takenCareOfChunkSpots.find(chunkToReb);
                     if(chunkIt != voxelWorld.takenCareOfChunkSpots.end()) {
                         
                         BlockChunk *chunk = chunkIt->second;
@@ -2586,6 +2590,9 @@ if(inMultiplayer)  {
                         }
 
                     }
+}
+                   
+                    
                 
             } else
             if(selectedBlockID == 11){ //placing  door
@@ -2716,7 +2723,6 @@ if(inMultiplayer) {
                             } else {
                     voxelWorld.setBlock(placePoint, bottomID);
                     voxelWorld.setBlock(placeAbove, topID);
-                            }
                     auto chunkIt = voxelWorld.takenCareOfChunkSpots.find(chunkToReb);
                     if(chunkIt != voxelWorld.takenCareOfChunkSpots.end()) {
                         
@@ -2728,6 +2734,8 @@ if(inMultiplayer) {
                         }
 
                     }
+                            }
+                    
                 }
             } else 
             if (selectedBlockID == 12){
@@ -2740,48 +2748,25 @@ if(inMultiplayer) {
                     (*mpBlockSetFunc)(placePoint.x, placePoint.y, placePoint.z, selectedBlockID);  
                 } else {
                     voxelWorld.setBlock(placePoint, selectedBlockID);
+                    auto chunkIt = voxelWorld.takenCareOfChunkSpots.find(chunkToReb);
+                    if(chunkIt != voxelWorld.takenCareOfChunkSpots.end()) {
+                        
+                        BlockChunk *chunk = chunkIt->second;
+
+
+                        while(!voxelWorld.lightUpdateQueue.push(chunk)) {
+
+                        }
+
+                    }
                 }
                 
 
 
-                auto chunkIt = voxelWorld.takenCareOfChunkSpots.find(chunkToReb);
-                if(chunkIt != voxelWorld.takenCareOfChunkSpots.end()) {
-                    
-                    BlockChunk *chunk = chunkIt->second;
-
-
-                    while(!voxelWorld.lightUpdateQueue.push(chunk)) {
-
-                    }
-
-                }
+                
             }else {
 
-                std::set<BlockChunk *> implicated;
-                for(BlockCoord& neigh : BlockInfo::neighbors) {
-                    auto segIt = voxelWorld.lightMap.find(rayResult.blockHit + neigh);
-                    if(segIt != voxelWorld.lightMap.end()) {
-                        
-                        for(LightRay& ray : segIt->second.rays) {
-                            ChunkCoord chunkOfOrigin(
-                                std::floor(static_cast<float>(ray.origin.x)/voxelWorld.chunkWidth),
-                                std::floor(static_cast<float>(ray.origin.z)/voxelWorld.chunkWidth)
-                            );
-                            auto chunkIt = voxelWorld.takenCareOfChunkSpots.find(chunkOfOrigin);
-                            if(chunkIt != voxelWorld.takenCareOfChunkSpots.end()){
-                                implicated.insert(chunkIt->second);
-                            }
-                                
-                        }
-                        
-                    }
-                }
-                for(BlockChunk * pointer : implicated) {
-                    while(!voxelWorld.lightUpdateQueue.push(pointer)) {
-
-                    }
-                    //std::cout << "Doing this\n";
-                }
+                
 
 // voxelWorld.udmMutex.lock();  
            
@@ -2792,19 +2777,45 @@ if(inMultiplayer) {
                     (*mpBlockSetFunc)(placePoint.x, placePoint.y, placePoint.z, selectedBlockID);  
                 } else {
                     voxelWorld.setBlock(placePoint, selectedBlockID);
-                }
-                
-                auto chunkIt = voxelWorld.takenCareOfChunkSpots.find(chunkToReb);
-                if(chunkIt != voxelWorld.takenCareOfChunkSpots.end()) {
-                    
-                    BlockChunk *chunk = chunkIt->second;
+                    std::set<BlockChunk *> implicated;
+                    for(BlockCoord& neigh : BlockInfo::neighbors) {
+                        auto segIt = voxelWorld.lightMap.find(rayResult.blockHit + neigh);
+                        if(segIt != voxelWorld.lightMap.end()) {
+                            
+                            for(LightRay& ray : segIt->second.rays) {
+                                ChunkCoord chunkOfOrigin(
+                                    std::floor(static_cast<float>(ray.origin.x)/voxelWorld.chunkWidth),
+                                    std::floor(static_cast<float>(ray.origin.z)/voxelWorld.chunkWidth)
+                                );
+                                auto chunkIt = voxelWorld.takenCareOfChunkSpots.find(chunkOfOrigin);
+                                if(chunkIt != voxelWorld.takenCareOfChunkSpots.end()){
+                                    implicated.insert(chunkIt->second);
+                                }
+                                    
+                            }
+                            
+                        }
+                    }
+                    for(BlockChunk * pointer : implicated) {
+                        while(!voxelWorld.lightUpdateQueue.push(pointer)) {
+
+                        }
+                        //std::cout << "Doing this\n";
+                    }
+                    auto chunkIt = voxelWorld.takenCareOfChunkSpots.find(chunkToReb);
+                    if(chunkIt != voxelWorld.takenCareOfChunkSpots.end()) {
+                        
+                        BlockChunk *chunk = chunkIt->second;
 
 
-                    while(!voxelWorld.deferredChunkQueue.push(chunk)) {
+                        while(!voxelWorld.deferredChunkQueue.push(chunk)) {
+
+                        }
 
                     }
-
                 }
+                
+                
             }
                 
 

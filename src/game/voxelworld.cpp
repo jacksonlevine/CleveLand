@@ -1,13 +1,14 @@
 #include "voxelworld.h"
 
-
-void VoxelWorld::setBlock(BlockCoord coord, uint32_t block, bool updateMultiplayer) {
+void VoxelWorld::locallySetBlock(BlockCoord coord, uint32_t block) {
     ChunkCoord cc(
         std::floor(static_cast<float>(coord.x) / chunkWidth),
         std::floor(static_cast<float>(coord.z) / chunkWidth)
     );
+    
+
     udmMutex.lock();  
-            
+        
     auto chunkIt = userDataMap.find(cc);
 
     if(chunkIt == userDataMap.end()) {
@@ -17,10 +18,21 @@ void VoxelWorld::setBlock(BlockCoord coord, uint32_t block, bool updateMultiplay
     
     udmMutex.unlock();  
 
+
+}
+
+
+void VoxelWorld::setBlock(BlockCoord coord, uint32_t block, bool updateMultiplayer) {
+    ChunkCoord cc(
+        std::floor(static_cast<float>(coord.x) / chunkWidth),
+        std::floor(static_cast<float>(coord.z) / chunkWidth)
+    );
+    
     playSound(block);
     if(updateMultiplayer) {
         (*multiplayerBlockSetFunc)(coord.x, coord.y, coord.z, block);
-    }
+    } 
+    locallySetBlock(coord, block);
         
 }
 
@@ -349,7 +361,7 @@ void VoxelWorld::chunkUpdateThreadFunctionUser(int loadRadius) {
                 break;
             }
             std::cout << "doing stuff on user chunk\n";
-            rebuildChunk(chunk3, chunk3->position, true, false, true);
+            rebuildChunk(chunk3, chunk3->position, true, true, true);
         }
 
     }
@@ -380,7 +392,9 @@ void VoxelWorld::chunkUpdateThreadFunction(int loadRadius) {
             break;
         }
 
-       
+       BlockChunk* chunk4 = 0;
+
+
 
         
 
@@ -450,10 +464,7 @@ void VoxelWorld::chunkUpdateThreadFunction(int loadRadius) {
                         if(first) {
                             initialLoadProgress += 1;
                         } else {
-                            if(userPowerQueue.pop(chunk)) {
-                                rebuildChunk(chunk, chunk->position, true, true, true);
-                                break;
-                            }
+
                             if(deferredChunkQueue.pop(chunk)) {
                                 rebuildChunk(chunk, chunk->position, true, false);
                                 break;
@@ -464,10 +475,7 @@ void VoxelWorld::chunkUpdateThreadFunction(int loadRadius) {
                         break;
                     }
                     if(!first) {
-                        if(userPowerQueue.pop(chunk)) {
-                                rebuildChunk(chunk, chunk->position, true, true, true);
-                                break;
-                            }
+
                         if(deferredChunkQueue.pop(chunk)) {
                                 rebuildChunk(chunk, chunk->position, true, false);
                                 break;

@@ -299,13 +299,13 @@ PaError startupPortAudio(PaStream *stream, PaStreamCallback *streamCallback, boo
     PaStreamParameters outputParameters;
 
     inputParameters.channelCount = 1;
-    inputParameters.device = PREFERRED_INPUT_DEVICE;
+    inputParameters.device = Pa_GetDefaultInputDevice();
     inputParameters.sampleFormat = paFloat32;
     inputParameters.suggestedLatency = Pa_GetDeviceInfo(inputParameters.device)->defaultLowInputLatency;
     inputParameters.hostApiSpecificStreamInfo = NULL;
 
     outputParameters.channelCount = 1;
-    outputParameters.device = PREFERRED_OUTPUT_DEVICE;
+    outputParameters.device = Pa_GetDefaultOutputDevice();;
     outputParameters.sampleFormat = paFloat32;
     outputParameters.suggestedLatency = Pa_GetDeviceInfo(outputParameters.device)->defaultLowOutputLatency;
     outputParameters.hostApiSpecificStreamInfo = NULL;
@@ -368,7 +368,7 @@ void connectToChat() {
             client_socket = &socket;
 
             udp::resolver resolver(context);
-            server_endpoints = resolver.resolve(udp::v4(), SERVER_IP, SERVER_PORT);
+            server_endpoints = resolver.resolve(udp::v4(), "192.168.1.131", "6969");
             std::cout << "Connected." << std::endl;
             startupPortAudio(sendingStream, sendingAudioCallback, true);
             startupPortAudio(receivingStream, receivingAudioCallback, false);

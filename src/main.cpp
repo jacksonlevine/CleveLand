@@ -13,8 +13,10 @@
 
 
 int main() {
-    std::cout << "Please enter your username: ";
-    std::getline(std::cin, USERNAME);
+    //::cout << "Please enter your username: ";
+    //std::getline(std::cin, USERNAME);
+
+    USERNAME = "Test name";
 
     Game game;
 
