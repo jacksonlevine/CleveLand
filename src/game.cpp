@@ -5,9 +5,15 @@
 #include <cmath>
 #include "portaudio.h"
 #include <sndfile.h>
+#include "util/fade.h"
+
+#include "chat/chat.h"
 
 PaStream* sfxStream;
 PaStream* musicStream;
+
+float channels = 0;
+float samplerate = 0;
 
 SoundFXSystem sfs;
 
@@ -30,6 +36,8 @@ SoundEffect buttonPress = sfs.add("assets/sfx/buttonpress.mp3");
 
 SoundEffect pickInInventory = sfs.add("assets/sfx/pickininventory.mp3");
 SoundEffect placeInInventory = sfs.add("assets/sfx/placeininventory.mp3");
+
+bool MOVINGINWATER = false;
 
 SoundEffectSeries stoneStepSeries{
     {stoneStep1, stoneStep2, stoneStep3, stoneStep4}
@@ -73,12 +81,48 @@ SoundEffectSeries sandStepSeries{
     sfs.add("assets/sfx/sandstep5.mp3")}
 };
 
+SoundEffectSeries waterSeries{
+    {sfs.add("assets/sfx/water1.mp3"),
+    sfs.add("assets/sfx/water2.mp3"),
+    sfs.add("assets/sfx/water3.mp3"),
+    sfs.add("assets/sfx/water4.mp3"),
+    sfs.add("assets/sfx/water5.mp3")}
+};
+
+bool UNDERWATER_VIEW = false;
+
 std::vector<float> cricketAudio;
 size_t cricketAudioIndex = 0;
+
+std::vector<float> waterMoveAudio;
+size_t waterMoveIndex = 0;
+
+std::vector<float> underWaterAudio;
+size_t underWaterIndex = 0;
+
+float waterMoveLevel = 0.0f;
+
+#define FADERNUM 1
+Fader audioFaders[FADERNUM] = {
+    Fader(&waterMoveLevel, false, 0.1)
+};
+
+void tickFaders() {
+    for(int i = 0; i < FADERNUM; i++) {
+        audioFaders[i].tick();
+    }
+}
+
+
 
 bool IN_GAME = false;
 
 float CRICKET_DULLING = 0.0f;
+
+
+
+
+
 
 static int musicCallback(const void* inputBuffer, void* outputBuffer,
                          unsigned long framesPerBuffer,
@@ -90,9 +134,11 @@ static int musicCallback(const void* inputBuffer, void* outputBuffer,
         if(IN_GAME) {
             for (size_t i = 0; i < framesPerBuffer; ++i) {
 
-                    *out++ = std::max(-1.0f, cricketAudio[cricketAudioIndex * 2] * (1.0f - CRICKET_DULLING));     // Left channel
-                    *out++ = std::max(-1.0f, cricketAudio[cricketAudioIndex * 2 + 1] * (1.0f - CRICKET_DULLING)); // Right channel
+                    *out++ = std::min(1.0f, std::max(-1.0f, cricketAudio[cricketAudioIndex * 2] * (1.0f - CRICKET_DULLING) + waterMoveLevel * (UNDERWATER_VIEW ? underWaterAudio[underWaterIndex * 2] : waterMoveAudio[waterMoveIndex * 2])));     // Left channel
+                    *out++ = std::min(1.0f, std::max(-1.0f, cricketAudio[cricketAudioIndex * 2 + 1] * (1.0f - CRICKET_DULLING) + waterMoveLevel * (UNDERWATER_VIEW ? underWaterAudio[underWaterIndex * 2 + 1] : waterMoveAudio[waterMoveIndex * 2 + 1]) )); // Right channel
                     cricketAudioIndex = (cricketAudioIndex + 1) % (cricketAudio.size() / 2);
+                    waterMoveIndex = (waterMoveIndex + 1) % (waterMoveAudio.size() / 2);
+                    underWaterIndex = (underWaterIndex + 1) % (underWaterAudio.size() / 2);
 
             }
         } else {
@@ -123,6 +169,9 @@ std::function<void(int)> playSound = [](int block){
     }
     if(blockID == 8 || blockID == 12) {
         sfs.playNextInSeries(glassPlaceSeries);
+    }
+    if(blockID == 2 && !UNDERWATER_VIEW) {
+        sfs.playNextInSeries(waterSeries);
     }
     sfs.playNextInSeries(stonePlaceSeries);
 };
@@ -183,27 +232,43 @@ void Game::footstepTimer() {
 
     if(std::fabs(camera->position.x - x) > 0.01 ||
             std::fabs(camera->position.z - z) > 0.01 ) {
-
-
                 x = camera->position.x;
                 y = camera->position.y;
                 z = camera->position.z;
 
+                if(stepSoundTimer > footstepInterval) {
+                    
+                    playFootstepSound();
+                    stepSoundTimer = 0.0f;
+                } else {
 
-     if(stepSoundTimer > stepSoundInterval) {
+
+                    stepSoundTimer += deltaTime;
+                }
+
+                static bool previousMovingInWater = false;
+
+
+                if(inWater) {
+                        
+                        MOVINGINWATER = true;
+                } else {
+                    MOVINGINWATER = false;
+                }
+
+                if (previousMovingInWater != (MOVINGINWATER)) {
+                    if(MOVINGINWATER) {
+                        audioFaders[0].up();
+                    }else {
+                        audioFaders[0].down();
+                    }
+                    
+                    previousMovingInWater = MOVINGINWATER;
+                }
+        }
+
         
-        playFootstepSound();
-        stepSoundTimer = 0.0f;
-    } else {
-        stepSoundTimer += deltaTime;
-    }
-
-
-
- }
-
-   
-    
+            
 
 }
 
@@ -214,6 +279,9 @@ std::vector<float> loadAudioFile(const std::string& filename) {
         std::cerr << "Error opening audio file: " << filename << "\n";
         return {};
     }
+
+    samplerate = sfinfo.samplerate;
+    channels = sfinfo.channels;
 
 
     std::vector<float> buffer(sfinfo.frames * sfinfo.channels);
@@ -256,14 +324,16 @@ grounded(true), io_context()
     };
 
     cricketAudio = loadAudioFile("assets/sfx/crickets.mp3");
-
+    waterMoveAudio = loadAudioFile("assets/sfx/watermove.mp3");
+    underWaterAudio = loadAudioFile("assets/sfx/underwater.mp3");
+    
     PaError err;
 
     Pa_Initialize();
 
     PaStreamParameters outputParameters;
     outputParameters.device = Pa_GetDefaultOutputDevice(); // Default output device
-    outputParameters.channelCount = 2; // Stereo output
+    outputParameters.channelCount = channels; // Stereo output
     outputParameters.sampleFormat = paFloat32; // 32-bit floating-point output
     outputParameters.suggestedLatency = Pa_GetDeviceInfo(outputParameters.device)->defaultLowOutputLatency;
     outputParameters.hostApiSpecificStreamInfo = NULL;
@@ -271,7 +341,7 @@ grounded(true), io_context()
      err = Pa_OpenStream(&sfxStream,
                         NULL, // No input parameters, as we're only playing audio
                         &outputParameters, // Output parameters
-                        44100, // Sample rate
+                        samplerate, // Sample rate
                         256, // Frames per buffer
                         paClipOff, // Stream flags
                         sfxCallback, // Callback function
@@ -289,7 +359,7 @@ grounded(true), io_context()
     err = Pa_OpenStream(&musicStream,
                         NULL, // No input parameters, as we're only playing audio
                         &outputParameters, // Output parameters
-                        44100, // Sample rate
+                        samplerate, // Sample rate
                         256, // Frames per buffer
                         paClipOff, // Stream flags
                         musicCallback, // Callback function
@@ -309,6 +379,28 @@ grounded(true), io_context()
 
 
     client = new TCPClient(io_context, &voxelWorld, &setTimeFunc, &(camera->position));
+
+
+    int opusErr;
+    theFuckinEncoderDude = opus_encoder_create(
+        static_cast<opus_int32>(SAMPLERATE),
+        1,
+        OPUS_APPLICATION_VOIP,
+        &opusErr
+    );
+
+    if(opusErr != OPUS_OK) {
+        std::cerr << "Error: Opus could not initialize." << '\n';
+    }
+
+    err = Pa_Initialize();
+    if(err == paNoError) {
+        std::cout << "Portaudio initialized." << '\n';
+    } else {
+    }
+
+    promptForChoices();
+
 
     static std::function<void(int,int,int,uint32_t)> mpBlockSetFunc = [this](int x,int y,int z,uint32_t b) {
         if(inMultiplayer) {
@@ -378,6 +470,7 @@ grounded(true), io_context()
             };
 
             if(inGame) {
+                tickFaders();
                 voxelWorld.runStep(deltaTime);
                 timeOfDay = std::fmod(timeOfDay + deltaTime, dayLength);
                 ambientBrightnessMult = std::max(0.05f, std::min(1.0f, gaussian(timeOfDay, dayLength/2.0f, dayLength/2.0f) * 1.3f));
@@ -970,8 +1063,10 @@ void Game::stepChunkDraw() {
     );
     if(voxelWorld.blockAt(headCoord) == 2) {
         underWaterView = 1.0f;
+        UNDERWATER_VIEW = true;
     } else {
         underWaterView = 0.0f;
+        UNDERWATER_VIEW = false;
     }
 
     BlockCoord feetCoord(
@@ -986,18 +1081,23 @@ void Game::stepChunkDraw() {
         std::round(camera->position.z)
     );
 
-    static bool previousInWater  = false;
+    static bool previouslyInWater  = false;
 
     uint32_t blockUsersIn = voxelWorld.blockAt(feetCoord) & BlockInfo::BLOCK_ID_BITS;
     uint32_t blockUsersInLowered = voxelWorld.blockAt(feetCoord2) & BlockInfo::BLOCK_ID_BITS;
 
     if(blockUsersIn == 2) {
         inWater = true;
-        if(previousInWater != inWater) {
-            previousInWater = inWater;
+
+        footstepInterval = 1.0f;
+        if(previouslyInWater != inWater) {
+            previouslyInWater = inWater;
             splashyParticles(feetCoord2, 15);
+            sfs.playNextInSeries(waterSeries);
         }
-    } 
+    } else {
+        footstepInterval = 0.4f;
+    }
 
     if(blockUsersIn == 14) {
         inClimbable = true;
@@ -1010,7 +1110,7 @@ void Game::stepChunkDraw() {
     if(blockUsersInLowered != 2)
     {
         inWater = false;
-        previousInWater = false;
+        previouslyInWater = false;
     }
 
 
@@ -1305,7 +1405,7 @@ void Game::displayEscapeMenu() {
             
             inGame = false;
             voxelWorld.runChunkThread.store(false);
-
+            
 
             if(voxelWorld.chunkUpdateThread.joinable()) {
                 voxelWorld.chunkUpdateThread.join();
@@ -1914,6 +2014,7 @@ void Game::goToMultiplayerWorld() {
 
     if(connected) {
 
+        connectToChat();
 
         std::cout << "Got  to here\n";
         initialTimer = 1.0f;
@@ -1965,7 +2066,7 @@ void Game::goToMultiplayerWorld() {
 
 void Game::exitMultiplayer() {
     inMultiplayer = false;
-    
+    disconnectFromChat();
     client->stop();
     client->disconnect();
     client->receivedWorld.store(false);

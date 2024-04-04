@@ -52,7 +52,7 @@ public:
 
 
     inline static float stepSoundTimer = 0.0f;
-    inline static float stepSoundInterval = 0.4f;
+    inline static float footstepInterval = 0.4f;
 
     void playFootstepSound();
 

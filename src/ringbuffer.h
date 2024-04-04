@@ -1,3 +1,6 @@
+#ifndef RINGBUFFER_H
+#define RINGBUFFER_H
+
 #include <vector>
 #include <atomic>
 
@@ -16,3 +19,5 @@ struct RingBuffer {
     void write(float *data, size_t amount);
     void readOneBuffer(float *out);
 };
+
+#endif
