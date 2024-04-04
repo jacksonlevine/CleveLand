@@ -4,24 +4,26 @@ RingBuffer::RingBuffer() {
     this->readHead = 0;
     this->writeHead = 0;
     this->count = 0;
+    maxBuffers = 128;
     this->buffers.resize(this->maxBuffers);
     for(auto &buf : this->buffers) {
         buf.resize(this->bufferSize*channels);
     }
-    maxBuffers = 128;
+    
     bufferSize = 480;
 }
 
-RingBuffer::RingBuffer(size_t bufferSize) : bufferSize(bufferSize) 
+RingBuffer::RingBuffer(size_t bufferSize, int channels) : bufferSize(bufferSize), channels(channels)
 {
     this->readHead = 0;
     this->writeHead = 0;
     this->count = 0;
+    maxBuffers = 128;
     this->buffers.resize(this->maxBuffers);
     for(auto &buf : this->buffers) {
         buf.resize(this->bufferSize*channels);
     }
-    maxBuffers = 128;
+    
 }
 
 RingBuffer& RingBuffer::operator=(RingBuffer&& other) noexcept {

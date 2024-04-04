@@ -22,7 +22,7 @@ public:
     void playNextInSeries(SoundEffectSeries& series);
     std::vector<RingBuffer*> outputBuffers;
 private:
-    inline static size_t bufferSize = 256;
+    inline static size_t bufferSize = 480;
     std::vector<std::vector<float>> masterBuffers;
 };
 

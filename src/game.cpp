@@ -169,9 +169,11 @@ std::function<void(int)> playSound = [](int block){
     }
     if(blockID == 8 || blockID == 12) {
         sfs.playNextInSeries(glassPlaceSeries);
+        return;
     }
     if(blockID == 2 && !UNDERWATER_VIEW) {
         sfs.playNextInSeries(waterSeries);
+        return;
     }
     sfs.playNextInSeries(stonePlaceSeries);
 };
@@ -185,7 +187,7 @@ static int sfxCallback(const void* inputBuffer, void* outputBuffer,
     std::fill(out, out + framesPerBuffer*2, 0.0f);
     for(RingBuffer * rbuf : sfs.outputBuffers) {
         if(rbuf->count > 0) {
-            float input[512];
+            float input[1024];
             rbuf->readOneBuffer(input);
             for (size_t i = 0; i < framesPerBuffer*2; i += 2) {
                 out[i] = std::max(-1.0f, std::min(1.0f, input[i] + out[i]));
@@ -342,7 +344,7 @@ grounded(true), io_context()
                         NULL, // No input parameters, as we're only playing audio
                         &outputParameters, // Output parameters
                         samplerate, // Sample rate
-                        256, // Frames per buffer
+                        480, // Frames per buffer
                         paClipOff, // Stream flags
                         sfxCallback, // Callback function
                         NULL); // User data
@@ -360,7 +362,7 @@ grounded(true), io_context()
                         NULL, // No input parameters, as we're only playing audio
                         &outputParameters, // Output parameters
                         samplerate, // Sample rate
-                        256, // Frames per buffer
+                        480, // Frames per buffer
                         paClipOff, // Stream flags
                         musicCallback, // Callback function
                         NULL); // User data

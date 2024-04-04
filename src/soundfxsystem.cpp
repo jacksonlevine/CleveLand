@@ -24,7 +24,8 @@ SoundEffect SoundFXSystem::add(std::string path) {
 
     if(success == true) {
         masterBuffers.push_back(buffer);
-        outputBuffers.push_back(new RingBuffer(bufferSize));
+        RingBuffer* buf = new RingBuffer(bufferSize, 2);
+        outputBuffers.push_back(buf);
         return myID;
     } else {
         return -1;
@@ -33,7 +34,7 @@ SoundEffect SoundFXSystem::add(std::string path) {
 
 void SoundFXSystem::play(SoundEffect sound) {
     while(outputBuffers.at(sound)->count > 0) {
-        float trash[512];
+        float trash[960];
         outputBuffers.at(sound)->readOneBuffer(trash);
     }
     outputBuffers.at(sound)->write(masterBuffers.at(sound).data(), masterBuffers.at(sound).size());

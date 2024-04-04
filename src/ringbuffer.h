@@ -15,7 +15,7 @@ struct RingBuffer {
     RingBuffer& operator=(RingBuffer&& other) noexcept;
     RingBuffer(const RingBuffer& other);
     RingBuffer();
-    RingBuffer(size_t bufferSize);
+    RingBuffer(size_t bufferSize, int channels);
     void write(float *data, size_t amount);
     void readOneBuffer(float *out);
 };

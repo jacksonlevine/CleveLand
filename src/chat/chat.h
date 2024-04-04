@@ -51,7 +51,7 @@ struct Person {
 };
 
 Person::Person() {
-    this->rbuf = RingBuffer(480);
+    this->rbuf = RingBuffer(480, 1);
     this->decoder = opus_decoder_create(SAMPLERATE, 1, &this->opusErr);
     this->deleteTimer = 0;
 }
