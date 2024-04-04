@@ -98,7 +98,9 @@ void VoxelWorld::setBlockAndQueueRerender(BlockCoord coord, uint32_t block) {
             }else {
 
                 std::set<BlockChunk *> implicated;
+                lightMapMutex.lock();
                 for(BlockCoord& neigh : BlockInfo::neighbors) {
+                    
                     auto segIt = lightMap.find(coord + neigh);
                     if(segIt != lightMap.end()) {
                         
@@ -116,6 +118,7 @@ void VoxelWorld::setBlockAndQueueRerender(BlockCoord coord, uint32_t block) {
                         
                     }
                 }
+                lightMapMutex.unlock();
                 for(BlockChunk * pointer : implicated) {
                     while(!lightUpdateQueue.push(pointer)) {
 
@@ -228,7 +231,7 @@ void VoxelWorld::setBlockAndQueueRerender(BlockCoord coord, uint32_t block) {
                 setBlock(coord, 0, false);  
                 // blockBreakParticles(rayResult.blockHit, 25);
 
-
+                lightMapMutex.lock();
                 std::set<BlockChunk *> implicated;
                 for(BlockCoord& neigh : BlockInfo::neighbors) {
                     auto segIt = lightMap.find(coord + neigh);
@@ -248,6 +251,7 @@ void VoxelWorld::setBlockAndQueueRerender(BlockCoord coord, uint32_t block) {
                         
                     }
                 }
+                lightMapMutex.unlock();
                 for(BlockChunk * pointer : implicated) {
                     while(!lightUpdateQueue.push(pointer)) {
 
@@ -676,13 +680,14 @@ void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool im
                         int doorTop = DoorInfo::getDoorTopBit(flags);
 
                         float blockLightVal = 0.0f;
+                        lightMapMutex.lock();
                         auto segIt = lightMap.find(coord);
                         if(segIt != lightMap.end()) {
                             for(LightRay& ray : segIt->second.rays) {
                                 blockLightVal = std::min(blockLightVal + ray.value, 16.0f);
                             }
                         }
-                        
+                        lightMapMutex.unlock();
                         int index = 0;
                         for(float vert : DoorInfo::doorModels[modelIndex]) {
                             float thisvert = 0.0f;
@@ -1157,7 +1162,7 @@ void VoxelWorld::depropogateLightOriginIteratively(BlockCoord origin, std::set<B
                 imp->insert(chunkIt->second);
             }
         }
-
+        lightMapMutex.lock();
         auto segIt = lightMap.find(spot);
         if(segIt != lightMap.end()) {
             auto rayIt = std::find_if(segIt->second.rays.begin(), segIt->second.rays.end(), [origin](LightRay& ray){
@@ -1173,6 +1178,7 @@ void VoxelWorld::depropogateLightOriginIteratively(BlockCoord origin, std::set<B
                 }
             }
         }
+        lightMapMutex.unlock();
     }
 }
 
@@ -1183,7 +1189,7 @@ void VoxelWorld::depropogateLightOriginIteratively(BlockCoord origin, std::set<B
 //             BlockCoord,
 //             LightSegment,
 //             IntTupHash
-//     >& lightMap  ) {
+//     >&   ) {
 
 //     ChunkCoord chunkCoordOfOrigin(
 //         std::floor(static_cast<float>(origin.x)/chunkWidth),

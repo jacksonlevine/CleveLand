@@ -142,8 +142,8 @@ static int musicCallback(const void* inputBuffer, void* outputBuffer,
         if(IN_GAME) {
             for (size_t i = 0; i < framesPerBuffer; ++i) {
 
-                    *out++ = std::min(1.0f, std::max(-1.0f, CRICKET_VOLUME * (((UNDERWATER_VIEW ) ? 0.0f : cricketAudio[cricketAudioIndex * 2]) * (1.0f - CRICKET_DULLING)) + waterMoveLevel * (UNDERWATER_VIEW ? underWaterAudio[underWaterIndex * 2] : waterMoveAudio[waterMoveIndex * 2])));     // Left channel
-                    *out++ = std::min(1.0f, std::max(-1.0f, CRICKET_VOLUME * (((UNDERWATER_VIEW ) ? 0.0f : cricketAudio[cricketAudioIndex * 2 + 1]) * (1.0f - CRICKET_DULLING)) + waterMoveLevel * (UNDERWATER_VIEW ? underWaterAudio[underWaterIndex * 2 + 1] : waterMoveAudio[waterMoveIndex * 2 + 1]) )); // Right channel
+                    *out++ = std::min(1.0f, std::max(-1.0f, CRICKET_VOLUME * (((UNDERWATER_VIEW ) ? 0.0f : cricketAudio[cricketAudioIndex * 2])) + waterMoveLevel * (UNDERWATER_VIEW ? underWaterAudio[underWaterIndex * 2] : waterMoveAudio[waterMoveIndex * 2])));     // Left channel
+                    *out++ = std::min(1.0f, std::max(-1.0f, CRICKET_VOLUME * (((UNDERWATER_VIEW ) ? 0.0f : cricketAudio[cricketAudioIndex * 2 + 1])) + waterMoveLevel * (UNDERWATER_VIEW ? underWaterAudio[underWaterIndex * 2 + 1] : waterMoveAudio[waterMoveIndex * 2 + 1]) )); // Right channel
                     cricketAudioIndex = (cricketAudioIndex + 1) % (cricketAudio.size() / 2);
                     waterMoveIndex = (waterMoveIndex + 1) % (waterMoveAudio.size() / 2);
                     underWaterIndex = (underWaterIndex + 1) % (underWaterAudio.size() / 2);
@@ -240,6 +240,8 @@ void Game::footstepTimer() {
     static float y = 0;
     static float z = 0;
 
+          static bool previousMovingInWater = false;
+
     if(std::fabs(camera->position.x - x) > 0.01 ||
             std::fabs(camera->position.z - z) > 0.01 ) {
                 x = camera->position.x;
@@ -256,7 +258,7 @@ void Game::footstepTimer() {
                     stepSoundTimer += deltaTime;
                 }
 
-                static bool previousMovingInWater = false;
+          
 
 
                 if(inWater) {
@@ -266,7 +268,12 @@ void Game::footstepTimer() {
                     MOVINGINWATER = false;
                 }
 
-                if (previousMovingInWater != (MOVINGINWATER)) {
+                
+        } else {
+            MOVINGINWATER = false;
+        }
+
+        if (previousMovingInWater != (MOVINGINWATER)) {
                     if(MOVINGINWATER) {
                         audioFaders[0].up();
                     }else {
@@ -275,7 +282,6 @@ void Game::footstepTimer() {
                     
                     previousMovingInWater = MOVINGINWATER;
                 }
-        }
 
         
             
