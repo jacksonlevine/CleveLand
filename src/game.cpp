@@ -468,7 +468,10 @@ grounded(true), io_context()
             
             draw();
             
-
+            if(rightClickTimear > 0.0f) {
+                rightClickTimear = std::max(0.0f, rightClickTimear -= deltaTime);
+            }
+            
             glfwPollEvents();
             updateTime();
             runPeriodicTick();
@@ -2271,7 +2274,13 @@ void Game::mouseButtonCallback(GLFWwindow *window, int button, int action, int m
             }
                 
             if(button == GLFW_MOUSE_BUTTON_RIGHT)
-                castPlaceRay();
+
+                if(rightClickTimear <= 0.0f) {
+                    castPlaceRay();
+                    rightClickTimear = rightClickCooldown;
+
+                }
+                
         }
 
         clickedOnElement = mousedOverElement;
@@ -2457,7 +2466,7 @@ void Game::castBreakRay() {
 }
 void Game::castPlaceRay() {
     if(inMultiplayer) {
-        std::cout << "I'm in multiplayer, AND I'M GAY!!!!\n";
+        std::cout << "I'm in multiplayer\n";
     }
     RayCastResult rayResult = rayCast(
         voxelWorld.chunkWidth,
@@ -2470,6 +2479,7 @@ void Game::castPlaceRay() {
         false
     );
     if(rayResult.hit) {
+        
 
         uint32_t blockBitsHere = voxelWorld.blockAt(rayResult.blockHit);
         uint32_t blockIDHere = blockBitsHere & BlockInfo::BLOCK_ID_BITS;
@@ -2490,7 +2500,9 @@ void Game::castPlaceRay() {
                         
                          (*mpBlockSetFunc)(otherHalf.x, otherHalf.y, otherHalf.z, otherHalfBits);  
                          (*mpBlockSetFunc)(rayResult.blockHit.x, rayResult.blockHit.y, rayResult.blockHit.z, blockBitsHere);  
+
                     } else {
+
                         voxelWorld.setBlock(otherHalf, otherHalfBits);
                         voxelWorld.setBlock(rayResult.blockHit, blockBitsHere);
 
@@ -2548,7 +2560,13 @@ void Game::castPlaceRay() {
 
 
             BlockCoord placePoint(rayResult.blockHit.x+hitNormal.x, rayResult.blockHit.y+hitNormal.y, rayResult.blockHit.z+hitNormal.z);
-            
+            if(voxelWorld.blockAt(placePoint) != 0) {
+                return;
+            }
+            if(placePoint == BlockCoord(std::round(camera->position.x), std::round(camera->position.y-1), std::round(camera->position.z)) ||
+        placePoint == BlockCoord(std::round(camera->position.x), std::round(camera->position.y), std::round(camera->position.z))) {
+            return;
+        }
             ChunkCoord chunkToReb(
                 static_cast<int>(std::floor(static_cast<float>(placePoint.x)/voxelWorld.chunkWidth)),
                 static_cast<int>(std::floor(static_cast<float>(placePoint.z)/voxelWorld.chunkWidth)));

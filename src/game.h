@@ -104,6 +104,9 @@ public:
     inline static float mousedOverElement = 0.0f;
     inline static float clickedOnElement = 0.0f;
 
+    inline static float rightClickCooldown = 0.1f;
+    inline static float rightClickTimear = 0.0f;
+
     inline static float initialTimer = 0.0f;
 
     inline static std::vector<GUIButton> *currentGuiButtons = nullptr;
