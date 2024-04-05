@@ -83,7 +83,7 @@ void VoxelWorld::setBlockAndQueueRerender(BlockCoord coord, uint32_t block) {
 
                 setBlock(placePoint, block, false);
 
-
+                takenCareOfChunkMutex.lock();
                 auto chunkIt = takenCareOfChunkSpots.find(chunkToReb);
                 if(chunkIt != takenCareOfChunkSpots.end()) {
                     
@@ -95,6 +95,7 @@ void VoxelWorld::setBlockAndQueueRerender(BlockCoord coord, uint32_t block) {
                     }
 
                 }
+                takenCareOfChunkMutex.unlock();
             }else {
 
                 std::set<BlockChunk *> implicated;
@@ -109,10 +110,12 @@ void VoxelWorld::setBlockAndQueueRerender(BlockCoord coord, uint32_t block) {
                                 std::floor(static_cast<float>(ray.origin.x)/chunkWidth),
                                 std::floor(static_cast<float>(ray.origin.z)/chunkWidth)
                             );
+                            takenCareOfChunkMutex.lock();
                             auto chunkIt = takenCareOfChunkSpots.find(chunkOfOrigin);
                             if(chunkIt != takenCareOfChunkSpots.end()){
                                 implicated.insert(chunkIt->second);
                             }
+                            takenCareOfChunkMutex.unlock();
                                 
                         }
                         
@@ -132,6 +135,7 @@ void VoxelWorld::setBlockAndQueueRerender(BlockCoord coord, uint32_t block) {
 //                 userDataMap.at(chunkToReb).insert_or_assign(placePoint, selectedBlockID);
 //  udmMutex.unlock();     
                 setBlock(placePoint, block, false);
+                takenCareOfChunkMutex.lock();
                 auto chunkIt = takenCareOfChunkSpots.find(chunkToReb);
                 if(chunkIt != takenCareOfChunkSpots.end()) {
                     
@@ -143,6 +147,7 @@ void VoxelWorld::setBlockAndQueueRerender(BlockCoord coord, uint32_t block) {
                     }
 
                 }
+                takenCareOfChunkMutex.unlock();
 
                 
 
@@ -170,7 +175,7 @@ void VoxelWorld::setBlockAndQueueRerender(BlockCoord coord, uint32_t block) {
 
              setBlock(otherHalf, 0, false);       
             setBlock(coord, 0, false); 
-
+takenCareOfChunkMutex.lock();
             auto chunkIt = takenCareOfChunkSpots.find(cc);
                 if(chunkIt != takenCareOfChunkSpots.end()) {
                     
@@ -181,6 +186,7 @@ void VoxelWorld::setBlockAndQueueRerender(BlockCoord coord, uint32_t block) {
                     }
 
                 }
+                takenCareOfChunkMutex.unlock();
         }else
         if(blockIDHere == 12) {
             //     udmMutex.lock();  
@@ -197,7 +203,7 @@ void VoxelWorld::setBlockAndQueueRerender(BlockCoord coord, uint32_t block) {
                 setBlock(coord, 0, false);  
                 // blockBreakParticles(coord, 25);
 
-
+takenCareOfChunkMutex.lock();
                     auto chunkIt = takenCareOfChunkSpots.find(cc);
                     if(chunkIt != takenCareOfChunkSpots.end()) {
                         //std::cout << "it's here" << "\n";
@@ -214,6 +220,7 @@ void VoxelWorld::setBlockAndQueueRerender(BlockCoord coord, uint32_t block) {
 
 
                     }
+                    takenCareOfChunkMutex.unlock();
 
 
         } else
@@ -242,11 +249,12 @@ void VoxelWorld::setBlockAndQueueRerender(BlockCoord coord, uint32_t block) {
                                 std::floor(static_cast<float>(ray.origin.x)/chunkWidth),
                                 std::floor(static_cast<float>(ray.origin.z)/chunkWidth)
                             );
+                            takenCareOfChunkMutex.lock();
                             auto chunkIt = takenCareOfChunkSpots.find(chunkOfOrigin);
                             if(chunkIt != takenCareOfChunkSpots.end()){
                                 implicated.insert(chunkIt->second);
                             }
-                                
+                                takenCareOfChunkMutex.unlock();
                         }
                         
                     }
@@ -262,7 +270,7 @@ void VoxelWorld::setBlockAndQueueRerender(BlockCoord coord, uint32_t block) {
 
 
 
-       
+                takenCareOfChunkMutex.lock();
                     auto chunkIt = takenCareOfChunkSpots.find(cc);
                     if(chunkIt != takenCareOfChunkSpots.end()) {
                         //std::cout << "it's here" << "\n";
@@ -279,6 +287,7 @@ void VoxelWorld::setBlockAndQueueRerender(BlockCoord coord, uint32_t block) {
 
 
                     }
+                    takenCareOfChunkMutex.unlock();
 
         }
 
@@ -439,7 +448,9 @@ void VoxelWorld::chunkUpdateThreadFunction(int loadRadius) {
                     for(int z = cameraChunkPos.z - loadRadius; z < cameraChunkPos.z + loadRadius; ++z) {
 
                         ChunkCoord thisChunkCoord(x,z);
+                        takenCareOfChunkMutex.lock();
                         if(takenCareOfChunkSpots.find(thisChunkCoord) == takenCareOfChunkSpots.end()) {
+                            takenCareOfChunkMutex.unlock();
                             bool hasHadPass = false;
                             hashadlightMutex.lock();
                             if (hasHadInitialLightPass.find(thisChunkCoord) != hasHadInitialLightPass.end()) {
@@ -460,7 +471,11 @@ void VoxelWorld::chunkUpdateThreadFunction(int loadRadius) {
                             
 
                             takenChunkIndex++;
+                        } else {
+                            takenCareOfChunkMutex.unlock();
                         }
+
+
                         
                         if(!runChunkThread.load()) {
                             break;
@@ -551,9 +566,11 @@ void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool im
     std::unordered_map<BlockCoord, uint32_t, IntTupHash> memo;
 
     if(!immediateInPlace) {
+        takenCareOfChunkMutex.lock();
         if(takenCareOfChunkSpots.find(chunk->position) != takenCareOfChunkSpots.end()) {
             takenCareOfChunkSpots.erase(chunk->position);
         }
+        takenCareOfChunkMutex.unlock();
         chunk->position = newPosition;
         generateChunk(newPosition, memo);
     }
@@ -1083,9 +1100,11 @@ void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool im
             while(!userGeometryStoreQueue.push(chunk->geometryStorePoolIndex)) {
 
             }
+            takenCareOfChunkMutex.lock();
             if(takenCareOfChunkSpots.find(chunk->position) == takenCareOfChunkSpots.end()) {
                 takenCareOfChunkSpots.insert_or_assign(chunk->position, chunk);
             }
+            takenCareOfChunkMutex.unlock();
 
 
     } else {
@@ -1108,9 +1127,11 @@ void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool im
         while(!geometryStoreQueue.push(chunk->geometryStorePoolIndex)) {
 
         }
+        takenCareOfChunkMutex.lock();
         if(takenCareOfChunkSpots.find(chunk->position) == takenCareOfChunkSpots.end()) {
             takenCareOfChunkSpots.insert_or_assign(chunk->position, chunk);
         }
+        takenCareOfChunkMutex.unlock();
       } else {
 
         while(!highPriorityGeometryStoreQueue.push(chunk->geometryStorePoolIndex)) {
@@ -1157,10 +1178,12 @@ void VoxelWorld::depropogateLightOriginIteratively(BlockCoord origin, std::set<B
         );
 
         if(chunkCoordOfOrigin != chunkCoordHere) {
+            takenCareOfChunkMutex.lock();
             auto chunkIt = takenCareOfChunkSpots.find(chunkCoordHere);
             if(chunkIt != takenCareOfChunkSpots.end()) {
                 imp->insert(chunkIt->second);
             }
+            takenCareOfChunkMutex.unlock();
         }
         lightMapMutex.lock();
         auto segIt = lightMap.find(spot);
@@ -1266,10 +1289,12 @@ void VoxelWorld::propogateLightOriginIteratively(BlockCoord spot, BlockCoord ori
             );
 
             if(chunkCoordOfOrigin != chunkCoordHere) {
+                takenCareOfChunkMutex.lock();
                 auto chunkIt = takenCareOfChunkSpots.find(chunkCoordHere);
                 if(chunkIt != takenCareOfChunkSpots.end()) {
                     imp->insert(chunkIt->second);
                 }
+                takenCareOfChunkMutex.unlock();
             }
 
 
@@ -1759,10 +1784,12 @@ BlockCoord(0, 1, -2),
                                     if(memoIt != memo.end()){
                                         memo.erase(coorHere);
                                     }
+                                    takenCareOfChunkMutex.lock();
                                     auto chunkIt = takenCareOfChunkSpots.find(chunkHere);
                                     if(chunkIt != takenCareOfChunkSpots.end()) {
                                         implicatedChunks.insert(chunkIt->second);
                                     }
+                                    takenCareOfChunkMutex.unlock();
                                 }
                                 nudmMutex.unlock();
                             }

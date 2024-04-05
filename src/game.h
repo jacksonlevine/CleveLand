@@ -35,7 +35,7 @@
 #include "network.h"
 #include <boost/asio.hpp>
 #include "soundfxsystem.h"
-
+#include "util/playergeo.h"
 
 extern SoundFXSystem sfs;
 
@@ -88,6 +88,7 @@ public:
     std::unique_ptr<Shader> wireFrameShader;
     std::unique_ptr<Shader> billBoardShader;
     std::unique_ptr<Shader> blockOverlayShader;
+    std::unique_ptr<Shader> playerShader;
     
     GLuint menuTexture;
     GLuint menuBackgroundTexture;
@@ -116,6 +117,16 @@ public:
 
     std::vector<Particle> particleDisplayData;
     inline static bool particlesUploaded = false;
+
+
+    inline static GLuint playersVAO = 0;
+
+    inline static GLuint basePlayerVBO = 0;
+    inline static GLuint playerPosVBO = 0;
+
+
+    std::vector<PlayerGeo> playerDisplayData;
+    inline static bool playerGeoUploaded = false;
 
     void initializeShaders();
     void initializeTextures();
@@ -149,6 +160,10 @@ public:
     void bindBillBoardGeometry(GLuint billposvbo, std::vector<Particle> &billinstances);
     void bindBillBoardGeometryNoUpload(GLuint billposvbo);
 
+    void bindPlayerGeometry(GLuint billposvbo, std::vector<PlayerGeo> &billinstances);
+    void bindPlayerGeometryNoUpload(GLuint billposvbo);
+
+    void drawPlayers();
 
     void checkAboveHeadThreadFunction();
     inline static glm::vec3 blockOverlayCoord = glm::vec3(0,0,0);
@@ -163,8 +178,6 @@ public:
     void bindBlockOverlayGeometryNoUpload();
 
     void drawBlockOverlay();
-
-    void drawPlayers();
 
     void frameBufferSizeCallback(GLFWwindow *window, int width, int height);
     void mouseButtonCallback(GLFWwindow *window, int button, int action, int mods);

@@ -13,6 +13,8 @@ bool rcvtpromisesat = false;
 
 std::mutex WRITE_MUTEX;
 
+std::atomic<bool> PLAYERSCHANGED = false;
+
 
 Message createMessage(MessageType type, float x, float y, float z, uint32_t info) {
     Message msg;
@@ -89,7 +91,7 @@ void TCPClient::start() {
                 }
                 for (int i = 0; i < 1; i++) {
                     if (shouldRunSendLoop.load()) {
-                        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+                        std::this_thread::sleep_for(std::chrono::milliseconds(250));
                     }
                 }
                     
@@ -136,12 +138,15 @@ void clientStringToPlayerList(std::vector<OtherPlayer> &out, std::string in) {
             }
             if(wordIndex == 1) {
                 thisPlayer.x = std::stof(word);
+                thisPlayer.lx = std::stof(word);
             }
             if(wordIndex == 2) {
                 thisPlayer.y = std::stof(word);
+                thisPlayer.ly = std::stof(word);
             }
             if(wordIndex == 3) {
                 thisPlayer.z = std::stof(word);
+                thisPlayer.lz = std::stof(word);
             }
             if(wordIndex == 5) {
                 thisPlayer.name = word;
@@ -295,19 +300,34 @@ void TCPClient::processMessage(Message* message) {
                     });
 
                 if (playerIt == PLAYERS.end()) {
-                    PLAYERS.push_back(OtherPlayer{
+                    PLAYERS.push_back(
+                        {
                         static_cast<int>(message->info),
                         message->x,
                         message->y,
-                        message->z
+                        message->z,
+
+                        message->x,
+                        message->y,
+                        message->z,
+
+                        0.0f
+
                         });
                     
                 }
                 else {
+                    playerIt->lx = playerIt->x;
+                    playerIt->ly = playerIt->y;
+                    playerIt->lz = playerIt->z;
+
                     playerIt->x = message->x;
                     playerIt->y = message->y;
                     playerIt->z = message->z;
+
+                    playerIt->t = 0.0f;
                 }
+                PLAYERSCHANGED.store(true);
                 //printf("Player %i moved to %f %f %f", message->info, message->x, message->y, message->z);
             }
 }

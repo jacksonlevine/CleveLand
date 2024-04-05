@@ -444,8 +444,8 @@ grounded(true), io_context()
     glewInit();
     glViewport(0, 0, windowWidth, windowHeight);
     glEnable(GL_DEPTH_TEST);
-    glEnable(GL_CULL_FACE);
-    glCullFace(GL_BACK);
+    // glEnable(GL_CULL_FACE);
+    // glCullFace(GL_BACK);
     glFrontFace(GL_CW);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -467,7 +467,8 @@ grounded(true), io_context()
 
             
             draw();
-            
+
+
             if(rightClickTimear > 0.0f) {
                 rightClickTimear = std::max(0.0f, rightClickTimear -= deltaTime);
             }
@@ -490,6 +491,7 @@ grounded(true), io_context()
 
             if(inGame) {
                 tickFaders();
+                
                 voxelWorld.runStep(deltaTime);
                 timeOfDay = std::fmod(timeOfDay + deltaTime, dayLength);
                 ambientBrightnessMult = std::max(0.05f, std::min(1.0f, gaussian(timeOfDay, dayLength/2.0f, dayLength/2.0f) * 1.3f));
@@ -861,6 +863,9 @@ void Game::draw() {
     
     
     drawParticles();
+    if(inMultiplayer) {
+        drawPlayers();
+    }
 
     footstepTimer();
 
@@ -2337,10 +2342,8 @@ void Game::castBreakRay() {
             } else {
                  voxelWorld.setBlock(otherHalf, 0);       
                 voxelWorld.setBlock(rayResult.blockHit, 0); 
-            }
-            
 
-            auto chunkIt = voxelWorld.takenCareOfChunkSpots.find(rayResult.chunksToRebuild.front());
+                 auto chunkIt = voxelWorld.takenCareOfChunkSpots.find(rayResult.chunksToRebuild.front());
                 if(chunkIt != voxelWorld.takenCareOfChunkSpots.end()) {
                     
                     BlockChunk *chunk = chunkIt->second;
@@ -2350,6 +2353,10 @@ void Game::castBreakRay() {
                     }
 
                 }
+            }
+            
+
+           
         }else
         if(blockIDHere == 12) {
             if(rayResult.chunksToRebuild.size() > 0) {
@@ -2369,11 +2376,7 @@ void Game::castBreakRay() {
                 } else {
                     voxelWorld.setBlock(rayResult.blockHit, 0);  
 
-                    
-                }
-                    blockBreakParticles(rayResult.blockHit, 25);
-
-                for(ChunkCoord& ccoord : rayResult.chunksToRebuild) {
+                        for(ChunkCoord& ccoord : rayResult.chunksToRebuild) {
                     auto chunkIt = voxelWorld.takenCareOfChunkSpots.find(ccoord);
                     if(chunkIt != voxelWorld.takenCareOfChunkSpots.end()) {
                         //std::cout << "it's here" << "\n";
@@ -2391,6 +2394,10 @@ void Game::castBreakRay() {
 
                     }
                 }
+                }
+                    blockBreakParticles(rayResult.blockHit, 25);
+
+                
         }
         } else
         if(rayResult.chunksToRebuild.size() > 0) {
@@ -2408,11 +2415,7 @@ void Game::castBreakRay() {
          (*mpBlockSetFunc)(rayResult.blockHit.x, rayResult.blockHit.y, rayResult.blockHit.z, 0);  
     } else {
         voxelWorld.setBlock(rayResult.blockHit, 0);  
-    }
-                
-                blockBreakParticles(rayResult.blockHit, 25);
-
-
+        
                 std::set<BlockChunk *> implicated;
                 for(BlockCoord& neigh : BlockInfo::neighbors) {
                     auto segIt = voxelWorld.lightMap.find(rayResult.blockHit + neigh);
@@ -2437,10 +2440,6 @@ void Game::castBreakRay() {
 
                     }
                 }
-                
-
-
-
 
                 for(ChunkCoord& ccoord : rayResult.chunksToRebuild) {
                     auto chunkIt = voxelWorld.takenCareOfChunkSpots.find(ccoord);
@@ -2460,6 +2459,17 @@ void Game::castBreakRay() {
 
                     }
                 }
+    }
+                
+                blockBreakParticles(rayResult.blockHit, 25);
+
+
+                
+
+
+
+
+                
         }
 
     }
@@ -3312,6 +3322,68 @@ void Game::initializeShaders() {
         )glsl",
         "wireFrameShader"
     );
+    playerShader = std::make_unique<Shader>(
+        R"glsl(
+            #version 330 core
+            
+            layout(location = 0) in vec3 vertexPosition; // Quad vertex positions
+            layout(location = 1) in float cornerID;    // Corner ID of quad
+            layout(location = 2) in vec3 lastPosition;
+            layout(location = 3) in vec3 instancePosition; 
+            layout(location = 4) in float timePosted;
+            
+
+            out vec2 tcoord;
+
+            out float tpas;
+
+            uniform mat4 mvp;
+            uniform float time;
+
+            void main() {
+
+                float timePassed = min(1.0, (time - timePosted)/0.250);
+                tpas = timePassed;
+
+                vec3 mixPosition = mix(lastPosition, instancePosition, timePassed);
+
+                // Transform position to clip space
+                gl_Position = mvp * vec4(mixPosition + vertexPosition, 1.0);
+
+
+
+                vec2 baseUV = vec2(mod(1.0f, 16.0f)/16.0f, 1.0f - floor(1.0f/16.0f));
+
+                // Selecting UV based on cornerID
+                if (cornerID == 0.0) {
+                    tcoord = baseUV;
+                } else if (cornerID == 1.0) {
+                    tcoord = vec2(baseUV.x + (1.0f/64.0f), baseUV.y);
+                } else if (cornerID == 2.0) {
+                    tcoord = vec2(baseUV.x + (1.0f/64.0f), baseUV.y - (1.0f/64.0f));
+                } else if (cornerID == 3.0) {
+                    tcoord = vec2(baseUV.x, baseUV.y - (1.0f/64.0f));
+                }
+            }
+        )glsl",
+        R"glsl(
+            #version 330 core
+            in vec2 tcoord;
+            out vec4 FragColor;
+            uniform sampler2D ourTexture;
+
+            in float tpas;
+
+            void main()
+            {
+                vec4 texColor = texture(ourTexture, tcoord);
+                FragColor = texColor;
+                FragColor = vec4(tpas, 0.0, 0.0, 1.0);
+            }
+
+        )glsl",
+        "playerShader"
+    );
     billBoardShader = std::make_unique<Shader>(
         R"glsl(
             #version 330 core
@@ -3829,6 +3901,309 @@ void Game::bindBillBoardGeometryNoUpload(GLuint billposvbo) {
 
 
 
+void Game::bindPlayerGeometry(GLuint playerposvbo, std::vector<PlayerGeo> &billinstances) {
+
+
+
+    if(basePlayerVBO == 0) {
+        glGenBuffers(1, &basePlayerVBO);
+        static float quadVertices[] = {
+            // Positions         // Corner IDs
+    // Front face
+    -0.4f, -0.4f,  0.4f, 0.0f,  // Corner 0
+     0.4f, -0.4f,  0.4f, 1.0f,  // Corner 1
+     0.4f,  0.4f,  0.4f, 2.0f,  // Corner 2
+
+    -0.4f, -0.4f,  0.4f, 0.0f,  // Corner 0
+     0.4f,  0.4f,  0.4f, 2.0f,  // Corner 2
+    -0.4f,  0.4f,  0.4f, 3.0f,  // Corner 3
+
+    // Back face
+    -0.4f, -0.4f, -0.4f, 0.0f,  // Corner 4
+     0.4f, -0.4f, -0.4f, 1.0f,  // Corner 5
+     0.4f,  0.4f, -0.4f, 2.0f,  // Corner 6
+
+    -0.4f, -0.4f, -0.4f, 0.0f,  // Corner 4
+     0.4f,  0.4f, -0.4f, 2.0f,  // Corner 6
+    -0.4f,  0.4f, -0.4f, 3.0f,  // Corner 7
+
+    // Top face
+    -0.4f,  0.4f,  0.4f, 0.0f,  // Corner 3
+     0.4f,  0.4f,  0.4f, 1.0f,  // Corner 2
+     0.4f,  0.4f, -0.4f, 2.0f,  // Corner 6
+
+    -0.4f,  0.4f,  0.4f, 0.0f,  // Corner 3
+     0.4f,  0.4f, -0.4f, 2.0f,  // Corner 6
+    -0.4f,  0.4f, -0.4f, 3.0f,  // Corner 7
+
+    // Bottom face
+    -0.4f, -0.4f,  0.4f, 0.0f,  // Corner 0
+     0.4f, -0.4f,  0.4f, 1.0f,  // Corner 1
+     0.4f, -0.4f, -0.4f, 2.0f,  // Corner 5
+
+    -0.4f, -0.4f,  0.4f, 0.0f,  // Corner 0
+     0.4f, -0.4f, -0.4f, 2.0f,  // Corner 5
+    -0.4f, -0.4f, -0.4f, 3.0f,  // Corner 4
+
+    // Right face
+     0.4f, -0.4f,  0.4f,0.0f,  // Corner 1
+     0.4f, -0.4f, -0.4f, 1.0f,  // Corner 5
+     0.4f,  0.4f, -0.4f, 2.0f,  // Corner 6
+
+     0.4f, -0.4f,  0.4f, 0.0f,  // Corner 1
+     0.4f,  0.4f, -0.4f, 2.0f,  // Corner 6
+     0.4f,  0.4f,  0.4f, 3.0f,  // Corner 2
+
+    // Left face
+    -0.4f, -0.4f,  0.4f, 0.0f,  // Corner 0
+    -0.4f, -0.4f, -0.4f, 1.0f,  // Corner 4
+    -0.4f,  0.4f, -0.4f, 2.0f,  // Corner 7
+
+    -0.4f, -0.4f,  0.4f, 0.0f,  // Corner 0
+    -0.4f,  0.4f, -0.4f, 2.0f,  // Corner 7
+    -0.4f,  0.4f,  0.4f, 3.0f   // Corner 3
+};
+            // Quad vertices
+        glBindBuffer(GL_ARRAY_BUFFER, basePlayerVBO);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), quadVertices, GL_STATIC_DRAW);
+
+        // Vertex position attribute
+        GLint posAttrib = glGetAttribLocation(playerShader->shaderID, "vertexPosition");
+        glEnableVertexAttribArray(posAttrib);
+        glVertexAttribPointer(posAttrib, 3, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+
+        // Corner ID attribute
+        GLint cornerAttrib = glGetAttribLocation(playerShader->shaderID, "cornerID");
+        glEnableVertexAttribArray(cornerAttrib);
+        glVertexAttribPointer(cornerAttrib, 1, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(3 * sizeof(float)));
+    } else {
+        glBindBuffer(GL_ARRAY_BUFFER, basePlayerVBO);
+
+        // Vertex position attribute
+        GLint posAttrib = glGetAttribLocation(playerShader->shaderID, "vertexPosition");
+        glEnableVertexAttribArray(posAttrib);
+        glVertexAttribPointer(posAttrib, 3, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+
+        // Corner ID attribute
+        GLint cornerAttrib = glGetAttribLocation(playerShader->shaderID, "cornerID");
+        glEnableVertexAttribArray(cornerAttrib);
+        glVertexAttribPointer(cornerAttrib, 1, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(3 * sizeof(float)));
+    }
+
+    int error = glGetError();
+    if (error != GL_NO_ERROR)
+    {
+        std::cerr << "Bind players geom err (1): " << error << std::endl;
+    }
+
+
+    // Instance positions
+    glBindBuffer(GL_ARRAY_BUFFER, playerposvbo);
+    glBufferData(GL_ARRAY_BUFFER, billinstances.size() * sizeof(PlayerGeo), billinstances.data(), GL_STATIC_DRAW);
+
+    GLint lastinst_attrib = glGetAttribLocation(playerShader->shaderID, "lastPosition");
+
+    glEnableVertexAttribArray(lastinst_attrib);
+    glVertexAttribPointer(lastinst_attrib, 3, GL_FLOAT, GL_FALSE, sizeof(PlayerGeo), (void*)0);
+    glVertexAttribDivisor(lastinst_attrib, 1); // Instanced attribute
+
+
+    GLint inst_attrib = glGetAttribLocation(playerShader->shaderID, "instancePosition");
+
+    glEnableVertexAttribArray(inst_attrib);
+    glVertexAttribPointer(inst_attrib, 3, GL_FLOAT, GL_FALSE, sizeof(PlayerGeo), (void*)(3*sizeof(float)));
+    glVertexAttribDivisor(inst_attrib, 1); // Instanced attribute
+    
+    GLint t_attrib = glGetAttribLocation(playerShader->shaderID, "timePosted");
+
+    glEnableVertexAttribArray(t_attrib);
+    glVertexAttribPointer(t_attrib, 1, GL_FLOAT, GL_FALSE, sizeof(PlayerGeo), (void*)(6*sizeof(float)));
+    glVertexAttribDivisor(t_attrib, 1); // Instanced attribute
+    
+
+
+    // GLint rot_attrib = glGetAttribLocation(playerShader->shaderID, "rotation");
+
+    // glEnableVertexAttribArray(rot_attrib);
+    // glVertexAttribPointer(rot_attrib, 1, GL_FLOAT, GL_FALSE, sizeof(PlayerGeo), (void*)(3*sizeof(float)));
+    // glVertexAttribDivisor(rot_attrib, 1); // Instanced attribute
+
+    error = glGetError();
+    if (error != GL_NO_ERROR)
+    {
+        std::cerr << "Bind players geom err (2): " << error << std::endl;
+    }
+
+}
+
+void Game::bindPlayerGeometryNoUpload(GLuint playerposvbo) {
+
+ 
+    if(basePlayerVBO == 0) {
+        glGenBuffers(1, &basePlayerVBO);
+        static float quadVertices[] = {
+            // Positions         // Corner IDs
+    // Front face
+    -0.4f, -0.4f,  0.4f, 0.0f,  // Corner 0
+     0.4f, -0.4f,  0.4f, 1.0f,  // Corner 1
+     0.4f,  0.4f,  0.4f, 2.0f,  // Corner 2
+
+    -0.4f, -0.4f,  0.4f, 0.0f,  // Corner 0
+     0.4f,  0.4f,  0.4f, 2.0f,  // Corner 2
+    -0.4f,  0.4f,  0.4f, 3.0f,  // Corner 3
+
+    // Back face
+    -0.4f, -0.4f, -0.4f, 0.0f,  // Corner 4
+     0.4f, -0.4f, -0.4f, 1.0f,  // Corner 5
+     0.4f,  0.4f, -0.4f, 2.0f,  // Corner 6
+
+    -0.4f, -0.4f, -0.4f, 0.0f,  // Corner 4
+     0.4f,  0.4f, -0.4f, 2.0f,  // Corner 6
+    -0.4f,  0.4f, -0.4f, 3.0f,  // Corner 7
+
+    // Top face
+    -0.4f,  0.4f,  0.4f, 0.0f,  // Corner 3
+     0.4f,  0.4f,  0.4f, 1.0f,  // Corner 2
+     0.4f,  0.4f, -0.4f, 2.0f,  // Corner 6
+
+    -0.4f,  0.4f,  0.4f, 0.0f,  // Corner 3
+     0.4f,  0.4f, -0.4f, 2.0f,  // Corner 6
+    -0.4f,  0.4f, -0.4f, 3.0f,  // Corner 7
+
+    // Bottom face
+    -0.4f, -0.4f,  0.4f, 0.0f,  // Corner 0
+     0.4f, -0.4f,  0.4f, 1.0f,  // Corner 1
+     0.4f, -0.4f, -0.4f, 2.0f,  // Corner 5
+
+    -0.4f, -0.4f,  0.4f, 0.0f,  // Corner 0
+     0.4f, -0.4f, -0.4f, 2.0f,  // Corner 5
+    -0.4f, -0.4f, -0.4f, 3.0f,  // Corner 4
+
+    // Right face
+     0.4f, -0.4f,  0.4f,0.0f,  // Corner 1
+     0.4f, -0.4f, -0.4f, 1.0f,  // Corner 5
+     0.4f,  0.4f, -0.4f, 2.0f,  // Corner 6
+
+     0.4f, -0.4f,  0.4f, 0.0f,  // Corner 1
+     0.4f,  0.4f, -0.4f, 2.0f,  // Corner 6
+     0.4f,  0.4f,  0.4f, 3.0f,  // Corner 2
+
+    // Left face
+    -0.4f, -0.4f,  0.4f, 0.0f,  // Corner 0
+    -0.4f, -0.4f, -0.4f, 1.0f,  // Corner 4
+    -0.4f,  0.4f, -0.4f, 2.0f,  // Corner 7
+
+    -0.4f, -0.4f,  0.4f, 0.0f,  // Corner 0
+    -0.4f,  0.4f, -0.4f, 2.0f,  // Corner 7
+    -0.4f,  0.4f,  0.4f, 3.0f   // Corner 3
+};
+            // Quad vertices
+        glBindBuffer(GL_ARRAY_BUFFER, basePlayerVBO);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), quadVertices, GL_STATIC_DRAW);
+
+        // Vertex position attribute
+        GLint posAttrib = glGetAttribLocation(playerShader->shaderID, "vertexPosition");
+        glEnableVertexAttribArray(posAttrib);
+        glVertexAttribPointer(posAttrib, 3, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+
+        // Corner ID attribute
+        GLint cornerAttrib = glGetAttribLocation(playerShader->shaderID, "cornerID");
+        glEnableVertexAttribArray(cornerAttrib);
+        glVertexAttribPointer(cornerAttrib, 1, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(3 * sizeof(float)));
+    } else {
+        glBindBuffer(GL_ARRAY_BUFFER, basePlayerVBO);
+
+        // Vertex position attribute
+        GLint posAttrib = glGetAttribLocation(playerShader->shaderID, "vertexPosition");
+        glEnableVertexAttribArray(posAttrib);
+        glVertexAttribPointer(posAttrib, 3, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+
+        // Corner ID attribute
+        GLint cornerAttrib = glGetAttribLocation(playerShader->shaderID, "cornerID");
+        glEnableVertexAttribArray(cornerAttrib);
+        glVertexAttribPointer(cornerAttrib, 1, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(3 * sizeof(float)));
+    }
+
+    int error = glGetError();
+    if (error != GL_NO_ERROR)
+    {
+        std::cerr << "Bind players geom err (1): " << error << std::endl;
+    }
+
+
+    // Instance positions
+    glBindBuffer(GL_ARRAY_BUFFER, playerposvbo);
+    GLint inst_attrib = glGetAttribLocation(playerShader->shaderID, "instancePosition");
+
+    glEnableVertexAttribArray(inst_attrib);
+    glVertexAttribPointer(inst_attrib, 3, GL_FLOAT, GL_FALSE, sizeof(PlayerGeo), (void*)0);
+    glVertexAttribDivisor(inst_attrib, 1); // Instanced attribute
+
+
+    // GLint rot_attrib = glGetAttribLocation(playerShader->shaderID, "rotation");
+
+    // glEnableVertexAttribArray(rot_attrib);
+    // glVertexAttribPointer(rot_attrib, 1, GL_FLOAT, GL_FALSE, sizeof(PlayerGeo), (void*)(3*sizeof(float)));
+    // glVertexAttribDivisor(rot_attrib, 1); // Instanced attribute
+
+    error = glGetError();
+    if (error != GL_NO_ERROR)
+    {
+        std::cerr << "Bind players geom err (2): " << error << std::endl;
+    }
+
+
+}
+
+
+void Game::drawPlayers() {
+    if(playersVAO == 0) {
+        glGenVertexArrays(1, &playersVAO);
+    }
+    if(playerPosVBO == 0) {
+        glGenBuffers(1, &playerPosVBO);
+    }
+    glBindVertexArray(playersVAO);
+    glUseProgram(playerShader->shaderID);
+    GLuint mvp_loc = glGetUniformLocation(playerShader->shaderID, "mvp");
+
+    // std::cout << "MVP loc: " << std::to_string(mvp_loc) << "\n";
+    // for (int i = 0; i < 4; ++i) {
+    //     for (int j = 0; j < 4; ++j) {
+    //         std::cout << camera->mvp[j][i] << " ";  // Note: glm uses column-major order
+    //     }
+    //     std::cout << std::endl;
+    // }
+    
+    glUniformMatrix4fv(mvp_loc, 1, GL_FALSE, glm::value_ptr(camera->mvp));
+
+    GLuint t_loc = glGetUniformLocation(playerShader->shaderID, "time");
+
+    glUniform1f(t_loc, static_cast<float>(glfwGetTime()));
+    //std::cout << "sending time: " << static_cast<float>(glfwGetTime()) << std::endl;
+
+    static std::vector<PlayerGeo> disp;
+    if(PLAYERSCHANGED.load()) {
+        disp.clear();
+        //std::cout << "Other players size: " << std::to_string(PLAYERS.size()) << "\n";
+        for(OtherPlayer & player : PLAYERS) {
+            //std::cout << "Player at: " << std::to_string(player.x) << ", " << std::to_string(player.y) << ", " << std::to_string(player.z) << "\n";
+            disp.push_back(PlayerGeo{
+            glm::vec3(player.lx, player.ly, player.lz),
+                glm::vec3(player.x, player.y, player.z) ,
+                static_cast<float>(glfwGetTime()),
+                0.0f
+            });
+            //std::cout << "timePosted: " << static_cast<float>(glfwGetTime()) << std::endl;
+
+        }
+        PLAYERSCHANGED.store(false);
+    }
+    glBindTexture(GL_TEXTURE_2D, worldTexture);
+    bindPlayerGeometry(playerPosVBO, disp);
+    glDrawArraysInstanced(GL_TRIANGLES, 0, 6*6, disp.size());
+    glBindVertexArray(0);
+}
 
 
 

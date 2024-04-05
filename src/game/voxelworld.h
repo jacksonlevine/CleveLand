@@ -60,6 +60,7 @@ public:
         BlockChunk*,
         IntTupHash
     >                   takenCareOfChunkSpots;
+    std::mutex takenCareOfChunkMutex;
 
     glm::vec3 cameraPosition;
     glm::vec3 cameraDirection;

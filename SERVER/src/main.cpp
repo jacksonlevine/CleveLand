@@ -357,15 +357,20 @@ private:
                                 moved = true;
                             }
 
-                            
-                            for (const auto&[key, value] : CLIENTS) {
-                                Message m = createMessage(MessageType::PlayerMove, cli.x, cli.y, cli.z, id);
-                                boost::asio::write(*(value.socket), boost::asio::buffer(&m, sizeof(Message)));
-                                auto inactive_duration = std::chrono::duration_cast<std::chrono::seconds>(now - value.last_active);
-                                if (inactive_duration.count() > 50) {
-                                    keysToRemove.push_back(key);
+                            if(moved) {
+                                for (const auto&[key, value] : CLIENTS) {
+                                    if(key != id) {
+                                        Message m = createMessage(MessageType::PlayerMove, cli.x, cli.y, cli.z, id);
+                                        boost::asio::write(*(value.socket), boost::asio::buffer(&m, sizeof(Message)));
+                                        auto inactive_duration = std::chrono::duration_cast<std::chrono::seconds>(now - value.last_active);
+                                        if (inactive_duration.count() > 50) {
+                                            keysToRemove.push_back(key);
+                                        }
+                                    }
+                                    
                                 }
-                            }
+                            }    
+                                
 
                             for(int& key : keysToRemove) {
                                 CLIENTS.erase(key);
@@ -476,20 +481,37 @@ void updateTime() {
     lastFrame = currentFrame;
 }
 
+float lastFrame2 = 0.0f;
+float deltaTime2 = 0.0f;
+
+void updateTime2() {
+    double currentFrame2 = glfwGetTime();
+    deltaTime2 = currentFrame2 - lastFrame2;
+    lastFrame2 = currentFrame2;
+}
+
 
 float timeTickTimer = 0.0f;
+float timeTickInterval = 10.0f;
 void timeOfDayThreadFunction() {
 
-    // while(runTimeFunc.load()) {
-        
-    //     std::this_thread::sleep_for(std::chrono::seconds(5));
-        
+    updateTime2();
+    if(timeTickTimer > timeTickInterval) {
         float time = timeOfDay->getTime();
         updateTime();
         time += deltaTime;
         std::cout << "Updated time to " << std::to_string(time) << '\n';
         timeOfDay->setTime(time);
         timeOfDay->sendTimeOut();
+        timeTickTimer = 0.0f;
+    } else {
+        timeTickTimer += deltaTime2;
+    }
+    // while(runTimeFunc.load()) {
+        
+    //     std::this_thread::sleep_for(std::chrono::seconds(5));
+        
+        
     // }
 }
 

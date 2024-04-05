@@ -58,6 +58,10 @@ struct OtherPlayer {
     float x;
     float y;
     float z;
+    float lx;
+    float ly;
+    float lz;
+    float t;
     std::string name;
 };
 
@@ -74,6 +78,7 @@ NameMessage createNameMessage(int id, std::string name, size_t length);
 void clientStringToPlayerList(std::vector<OtherPlayer> &out, std::string in);
 
 extern std::vector<OtherPlayer> PLAYERS;
+extern std::atomic<bool> PLAYERSCHANGED;
 extern std::promise<void> receive_thread_promise;
 
 std::string getMessageTypeString(Message& m);
