@@ -452,6 +452,22 @@ grounded(true), io_context()
     glDepthFunc(GL_LESS);
     initializeShaders();
     initializeTextures();
+
+
+    glfwSetCharCallback(window, [](GLFWwindow* win, unsigned int codepoint){
+        Game* instance = static_cast<Game*>(glfwGetWindowUserPointer(win));
+        if (instance) {
+            std::lock_guard<std::mutex> guard(GUIMutex);
+            if(instance->updateThese.size() > 0) {
+                for(auto [key, guiElement] : instance->updateThese) {
+                    updateGUIL(guiElement, KeyInput{false, static_cast<char>(codepoint), false});
+                }
+            }
+        }
+    });
+
+
+
     hud = new Hud();
     hud->rebuildDisplayData();
     //voxelWorld.populateChunksAndGeometryStores(registry);
@@ -474,7 +490,7 @@ grounded(true), io_context()
             }
             
             glfwPollEvents();
-            updateTime();
+
             updateCamRot();
             runPeriodicTick();
 
@@ -525,7 +541,6 @@ grounded(true), io_context()
         static float timer = 0.0f;
         drawSplashScreen();
         glfwPollEvents();
-        updateTime();
         if(timer > 2.0f) {
             loopFunc = &normalFunc;
         } else {
@@ -883,24 +898,24 @@ void Game::draw() {
 
         mousedOverElement = 0.0f;
 
-        for(GUIButton& button : *currentGuiButtons) {
+        for(GUIElement* button : *currentGuiButtons) {
             double xpos, ypos;
             glfwGetCursorPos(window, &xpos, &ypos);
-            if(xpos > button.screenPos.x * windowWidth &&
-            xpos < (button.screenPos.x + button.screenWidth) * windowWidth &&
-            ypos > button.screenPos.y * windowHeight &&
-            ypos < (button.screenPos.y + button.screenHeight) * windowHeight)
+            if(xpos > button->screenPos.x * windowWidth &&
+            xpos < (button->screenPos.x + button->screenWidth) * windowWidth &&
+            ypos > button->screenPos.y * windowHeight &&
+            ypos < (button->screenPos.y + button->screenHeight) * windowHeight)
             {
-                mousedOverElement = button.elementID;
+                mousedOverElement = button->elementID;
             }
 
-            if(!button.uploaded) {
-                bindMenuGeometry(button.vbo, button.displayData.data(), button.displayData.size());
-                button.uploaded = true;
+            if(!button->uploaded) {
+                bindMenuGeometry(button->vbo, button->displayData.data(), button->displayData.size());
+                button->uploaded = true;
             } else {
-                bindMenuGeometryNoUpload(button.vbo);
+                bindMenuGeometryNoUpload(button->vbo);
             }
-            glDrawArrays(GL_TRIANGLES, 0, button.displayData.size() / 5);
+            glDrawArrays(GL_TRIANGLES, 0, button->displayData.size() / 5);
         }
 
         GLuint moeLocation = glGetUniformLocation(menuShader->shaderID, "mousedOverElement");
@@ -1468,9 +1483,9 @@ void Game::stepChunkDraw() {
 }
 
 void Game::displayEscapeMenu() {
-    camera->setFocused(false);
-    static std::vector<GUIButton> buttons = {
-        GUIButton(0.0f, 0.0f, "Save and exit to main menu", 0.0f, 1.0f, [this](){
+
+
+static auto button1 = new GUIButton(0.0f, 0.0f, "Save and exit to main menu", 0.0f, 1.0f, [this](){
             
             inGame = false;
             voxelWorld.runChunkThread.store(false);
@@ -1541,20 +1556,35 @@ voxelWorld.hashadlightMutex.unlock();
             registry.clear();
 
             goToMainMenu();
-        }),
-        GUIButton(0.0f, -0.1f, "Settings", 0.0f, 3.0f, [this](){
+        });
+      static auto  button2 = new  GUIButton(0.0f, -0.1f, "Settings", 0.0f, 3.0f, [this](){
             goToSettingsMenu();
-        }),
-        GUIButton(0.0f, -0.2f, "Back to game", 0.0f, 2.0f, [this](){
+        });
+      static auto button3 = new  GUIButton(0.0f, -0.2f, "Back to game", 0.0f, 2.0f, [this](){
             camera->firstMouse = true;
             camera->setFocused(true);
+            std::lock_guard<std::mutex> guard(GUIMutex);
+            updateThese.clear();
             currentGuiButtons = nullptr;
-        }),
+        });
+
+
+
+    camera->setFocused(false);
+
+    static std::vector<GUIElement*> buttons = {
+        button1,
+        button2,
+        button3
     };
-    for(GUIButton &button : buttons) {
-        button.rebuildDisplayData();
-        button.uploaded = false;
+
+
+    for(GUIElement* button : buttons) {
+        rebuildGUILDisplayData(button);
+        button->uploaded = false;
     }
+    std::lock_guard<std::mutex> guard(GUIMutex);
+    updateThese.clear();
     currentGuiButtons = &buttons;
 }
 
@@ -1566,98 +1596,168 @@ void Game::goToSettingsMenu() {
     static std::function<void()> updateNum = [this](){
 
         rendDist = std::string("Render Distance: ") + std::to_string(viewDistance);
-        currentGuiButtons->at(0).label = rendDist.c_str(); 
-        for(GUIButton &button : *currentGuiButtons) {
-            button.rebuildDisplayData();
-            button.uploaded = false;
+        currentGuiButtons->at(0)->label = rendDist; 
+        for(GUIElement* button : *currentGuiButtons) {
+           rebuildGUILDisplayData(button);
+            button->uploaded = false;
         }
     };  
-    static std::vector<GUIButton> buttons = {
-        GUIButton(0.0f, 0.0f, (std::string("Render Distance: ") + std::to_string(viewDistance)).c_str(), 0.0f, -1.0f, [this](){
+
+    static auto button1 =new  GUIButton(0.0f, 0.0f, (std::string("Render Distance: ") + std::to_string(viewDistance)).c_str(), 0.0f, -1.0f, [this](){
             
-        }),
-        GUIButton(-0.2f, -0.1f, "<", 0.0f, 3.0f, [this](){
+        });
+     static auto button2 = new    GUIButton(-0.2f, -0.1f, "<", 0.0f, 3.0f, [this](){
             changeViewDistance(std::max(viewDistance-1, 2));
             updateNum();
             
-        }),
-        GUIButton(0.2f, -0.1f, ">", 0.0f, 4.0f, [this](){
+        });
+    static auto button3 =  new    GUIButton(0.2f, -0.1f, ">", 0.0f, 4.0f, [this](){
             changeViewDistance(std::min(viewDistance+1, 24));
             updateNum();
-        }),
-        GUIButton(0.0f, -0.2f, "Back", 0.0f, 5.0f, [this](){
+        });
+    static auto button4 =  new  GUIButton(0.0f, -0.2f, "Back", 0.0f, 5.0f, [this](){
             displayEscapeMenu();
-        }),
+        });
+    static std::vector<GUIElement*> buttons = {
+        button1,
+        button2,
+        button3,
+        button4
     };
 
 
-    for(GUIButton &button : buttons) {
-        button.rebuildDisplayData();
-        button.uploaded = false;
+    for(GUIElement* button : buttons) {
+     rebuildGUILDisplayData(button);
+        button->uploaded = false;
     }
+    std::lock_guard<std::mutex> guard(GUIMutex);
+    updateThese.clear();
     currentGuiButtons = &buttons;
 }
 
 void Game::goToMainMenu() {
     mainMenu = true;
-    static std::vector<GUIButton> buttons = {
-        GUIButton(0.0f, 0.0f, "Multiplayer / Online", 0.0f, 1.0f, [this](){
+
+    static auto b1 = new GUIButton(0.0f, 0.0f, "Multiplayer / Online", 0.0f, 1.0f, [this](){
             this->goToMultiplayerWorldsMenu();
             mainMenu = false;
-        }),
-        GUIButton(0.0f, -0.1f, "Singleplayer", 0.0f, 2.0f, [this](){
+        });
+      static auto b2 = new GUIButton(0.0f, -0.1f, "Singleplayer", 0.0f, 2.0f, [this](){
             this->goToSingleplayerWorldsMenu();
             mainMenu = false;
-        }),
-        GUIButton(0.0f, -0.2f, "Quit Game", 0.0f, 3.0f, [this](){
+        });
+     static auto b3 = new GUIButton(0.0f, -0.2f, "Quit Game", 0.0f, 3.0f, [this](){
             glfwSetWindowShouldClose(this->window, GLFW_TRUE);
             mainMenu = false;
-        }),
+        });
+
+        static auto b4 = new GUIButton(0.0f, -0.3f, "Username screen", 0.0f, 4.0f, [this](){
+            goToUsernameScreen();
+            mainMenu = false;
+        });
+
+
+
+    static std::vector<GUIElement*> buttons = {
+        b1,
+        b2,
+        b3,
+        b4
     };
-    for(GUIButton &button : buttons) {
-        button.rebuildDisplayData();
-        button.uploaded = false;
+    for(GUIElement* button : buttons) {
+        rebuildGUILDisplayData(button);
+        button->uploaded = false;
     }
+    updateThese.clear();
+    std::lock_guard<std::mutex> guard(GUIMutex);
     currentGuiButtons = &buttons;
 }
 
+
+void Game::goToUsernameScreen() {
+
+    static bool textClicked = true;
+
+    static auto b1 = new GUIButton(0.0f, 0.0f, "Please enter a username:", 0.0f, -1.0f, [](){});
+    
+    static auto b2 = new GUITextInput(0.0f, -0.1f, "", 0.7f, 2.0, [this](){
+        std::lock_guard<std::mutex> guard(GUIMutex);
+        updateThese.clear();
+        updateThese.insert({std::string("username"), (*currentGuiButtons).at(1)});
+    });
+
+    static auto b3 = new GUIButton(0.0f, -0.2f, "Accept", 0.0f, 3.0f, [this](){
+        goToMainMenu();
+    });
+
+
+    static std::vector<GUIElement*> buttons = {
+        b1,
+        b2,
+        b3
+    };
+    for(GUIElement* button : buttons) {
+        rebuildGUILDisplayData(button);
+        button->uploaded = false;
+    }
+    std::lock_guard<std::mutex> guard(GUIMutex);
+    updateThese.clear();
+    currentGuiButtons = &buttons;
+}
+
+
+
+
 void Game::goToMultiplayerWorldsMenu() {
-    static std::vector<GUIButton> buttons = {
-        GUIButton(0.0f, 0.0f, "Connect to the one server there is", 0.0f, 1.0f, [this](){
+
+    static auto b1 = new GUIButton(0.0f, 0.0f, "Connect to the one server there is", 0.0f, 1.0f, [this](){
             goToMultiplayerWorld();
-        }),
-        GUIButton(0.0f, -0.1f, "Back to main menu", 0.0f, 2.0f, [this](){
+        });
+    static auto b2 =  new  GUIButton(0.0f, -0.1f, "Back to main menu", 0.0f, 2.0f, [this](){
             this->goToMainMenu();
-        }),
+        });
+    static std::vector<GUIElement*> buttons = {
+        b1,
+        b2
     };
 
-    for(GUIButton &button : buttons) {
-        button.rebuildDisplayData();
-        button.uploaded = false;
+    for(GUIElement* button : buttons) {
+        rebuildGUILDisplayData(button);
+        button->uploaded = false;
     }
+    std::lock_guard<std::mutex> guard(GUIMutex);
+    updateThese.clear();
     currentGuiButtons = &buttons;
 }
 
 void Game::goToSingleplayerWorldsMenu() {
-    static std::vector<GUIButton> buttons = {
-        GUIButton(0.0f, 0.2f, "World 1", 0.55f, 1.0f, [this](){
+
+    static auto button1 = new GUIButton(0.0f, 0.2f, "World 1", 0.55f, 1.0f, [this](){
             goToSingleplayerWorld("world1");
-        }),
-        GUIButton(0.0f, 0.1f, "World 2", 0.55f, 2.0f, [this](){
+        });
+     static auto button2=  new  GUIButton(0.0f, 0.1f, "World 2", 0.55f, 2.0f, [this](){
             goToSingleplayerWorld("world2");
-        }),
-        GUIButton(0.0f, 0.0f, "World 3", 0.55f, 3.0f, [this](){
+        });
+     static auto button3=  new  GUIButton(0.0f, 0.0f, "World 3", 0.55f, 3.0f, [this](){
             goToSingleplayerWorld("world3");
-        }),
-        GUIButton(0.0f, -0.1f, "World 4", 0.55f, 4.0f, [this](){
+        });
+     static auto button4=  new  GUIButton(0.0f, -0.1f, "World 4", 0.55f, 4.0f, [this](){
             goToSingleplayerWorld("world4");
-        }),
-        GUIButton(0.0f, -0.2f, "World 5", 0.55f, 5.0f, [this](){
+        });
+     static auto button5=  new  GUIButton(0.0f, -0.2f, "World 5", 0.55f, 5.0f, [this](){
             goToSingleplayerWorld("world5");
-        }),
-        GUIButton(0.0f, -0.4f, "Back to main menu", 0.0f, 6.0f, [this](){
+        });
+      static auto button6= new  GUIButton(0.0f, -0.4f, "Back to main menu", 0.0f, 6.0f, [this](){
             this->goToMainMenu();
-        }),
+        });
+
+    static std::vector<GUIElement*> buttons = {
+        button1,
+        button2,
+        button3,
+        button4,
+        button5,
+        button6
     };
 
     static std::vector<std::string> labels = {
@@ -1673,10 +1773,10 @@ void Game::goToSingleplayerWorldsMenu() {
         thisPath += std::to_string(i+1);
         if(voxelWorld.checkVersionOfSave(thisPath.c_str()) == 1) {
             labels[i] = (std::string("World ") + std::to_string(i+1)) + " (Classic)";
-            buttons[i].label = labels[i].c_str();
+            buttons[i]->label = labels[i].c_str();
         } else {
             labels[i] = (std::string("World ") + std::to_string(i+1));
-            buttons[i].label = labels[i].c_str();
+            buttons[i]->label = labels[i].c_str();
         }
     }
 
@@ -1684,29 +1784,32 @@ void Game::goToSingleplayerWorldsMenu() {
         std::string thisPath = "saves/world";
         thisPath += std::to_string(i);
         if(voxelWorld.saveExists(thisPath.c_str())) {
-            auto buttonIt = std::find_if(buttons.begin(), buttons.end(), [i](GUIButton& button){
-                return button.elementID == i + 6;
+            auto buttonIt = std::find_if(buttons.begin(), buttons.end(), [i](GUIElement * button){
+                return button->elementID == i + 6;
             });
+            static auto button = GUIButton(0.7f, 0.2f + (-0.1f * (i-1)), "X", 0.0f, static_cast<float>(i + 6), [this, i](){
+                        goToConfirmDeleteWorld(i);
+                    });
             if(buttonIt == buttons.end()) {
                 buttons.push_back(
-                    GUIButton(0.7f, 0.2f + (-0.1f * (i-1)), "X", 0.0f, static_cast<float>(i + 6), [this, i](){
-                        goToConfirmDeleteWorld(i);
-                    })
+                    &button
                 );
             }
         } else {
-            auto buttonIt = std::find_if(buttons.begin(), buttons.end(), [i](GUIButton& button){
-                return button.elementID == i + 6;
+            auto buttonIt = std::find_if(buttons.begin(), buttons.end(), [i](GUIElement * button){
+                return button->elementID == i + 6;
             });
             if(buttonIt != buttons.end()) {
                 buttons.erase(buttonIt);
             }
         }
     } 
-    for(GUIButton &button : buttons) {
-        button.rebuildDisplayData();
-        button.uploaded = false;
+    for(GUIElement* button : buttons) {
+       rebuildGUILDisplayData(button);
+        button->uploaded = false;
     }
+    std::lock_guard<std::mutex> guard(GUIMutex);
+    updateThese.clear();
     currentGuiButtons = &buttons;
 }
 
@@ -1719,30 +1822,37 @@ void Game::goToConfirmDeleteWorld(int num) {
         //std::cout << "Would delete " << std::string("saves/world") + std::to_string(num) << "\n";
     };
 
-    static std::vector<GUIButton> buttons = {
-        GUIButton(0.0f, 0.2f, "Are you sure you want to delete ", 0.55f, -97.0f, [](){}),
-        GUIButton(0.0f, 0.1f, "There is NO UNDO for this action.", 0.55f, -97.0f, [](){}),
-        GUIButton(0.0f, -0.1f, "Delete this world", 0.55f, 1.0f, [this](){
+    static auto button1 =new  GUIButton(0.0f, 0.2f, "Are you sure you want to delete ", 0.55f, -97.0f, [](){});
+    static auto  button2 = new    GUIButton(0.0f, 0.1f, "There is NO UNDO for this action.", 0.55f, -97.0f, [](){});
+    static auto button3  =   new   GUIButton(0.0f, -0.1f, "Delete this world", 0.55f, 1.0f, [this](){
             
-        }),
-        GUIButton(0.0f, -0.2f, "Cancel", 0.55f, 2.0f, [this](){
+        });
+    static auto button4 = new     GUIButton(0.0f, -0.2f, "Cancel", 0.55f, 2.0f, [this](){
             goToSingleplayerWorldsMenu();
-        }),
+        });
+
+    static std::vector<GUIElement*> buttons = {
+        button1,
+        button2,
+        button3,
+        button4
     };
 
-    buttons.at(2).myFunction = deleteFunc;
+    buttons.at(2)->myFunction = deleteFunc;
 
     static std::vector<std::string> labels = {
         std::string("Are you sure you want to delete ")
     };
 
     labels.at(0) = std::string("Are you sure you want to delete World ") + std::to_string(num) + " forever?";
-    buttons.at(0).label = labels.at(0).c_str();
+    buttons.at(0)->label = labels.at(0).c_str();
 
-    for(GUIButton &button : buttons) {
-        button.rebuildDisplayData();
-        button.uploaded = false;
+    for(GUIElement* button : buttons) {
+        rebuildGUILDisplayData(button);
+        button->uploaded = false;
     }
+    std::lock_guard<std::mutex> guard(GUIMutex);
+    updateThese.clear();
     currentGuiButtons = &buttons;
 }
 
@@ -2025,7 +2135,8 @@ void Game::goToSingleplayerWorld(const char *worldname) {
     loadRendering = true;
 
     voxelWorld.populateChunksAndGeometryStores(registry, viewDistance);
-
+    std::lock_guard<std::mutex> guard(GUIMutex);
+    updateThese.clear();
     currentGuiButtons = nullptr;
 
     currentSingleplayerWorldPath = std::string("saves/") + std::string(worldname);
@@ -2107,6 +2218,8 @@ void Game::goToMultiplayerWorld() {
         //Now the world is received
         inMultiplayer = true;
         voxelWorld.populateChunksAndGeometryStores(registry, viewDistance);
+        std::lock_guard<std::mutex> guard(GUIMutex);
+        updateThese.clear();
         currentGuiButtons = nullptr;
         loadOrCreateSaveGame("multiplayer");
 
@@ -2135,10 +2248,10 @@ void Game::goToMultiplayerWorld() {
         headCoveredLoop.detach();
     } else {
         static std::string offlinemsg("Server is offline. Click to retry.");
-        (*currentGuiButtons)[0].label = offlinemsg.c_str();
-        for(GUIButton& button : *currentGuiButtons) {
-            button.rebuildDisplayData();
-            button.uploaded = false;
+        (*currentGuiButtons)[0]->label = offlinemsg;
+        for(GUIElement * button : *currentGuiButtons) {
+           rebuildGUILDisplayData(button);
+            button->uploaded = false;
         }
         inMultiplayer = false;
     }
@@ -2238,6 +2351,89 @@ if(!inMainLoop) {
     }
 }
 
+
+void Game::displayTextInputScreen(const char* message, float progress, bool inMainLoop) {
+
+if(!inMainLoop) {
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glClearColor(0.639, 0.71, 1.0, 0.5);
+}
+
+    glBindVertexArray(VAO);
+
+
+
+        glUseProgram(menuShader->shaderID);
+        glBindTexture(GL_TEXTURE_2D, menuTexture);
+
+        static GLuint lsvbo = 0;
+            glDeleteBuffers(1, &lsvbo);
+            glGenBuffers(1, &lsvbo);
+
+
+        float width = (500.0f/windowWidth);
+        float height = (40.0f/windowHeight);
+
+        glm::vec2 leftStart(-width/2.0f, -height/2.0f);
+
+        TextureFace blank(0,1);
+        TextureFace full(1,1);
+
+        std::vector<float> displayData = {
+            leftStart.x,                leftStart.y,        full.bl.x,  full.bl.y,  -1.0f,
+            leftStart.x,                leftStart.y+height, full.tl.x,  full.tl.y,  -1.0f,
+            leftStart.x+width*progress, leftStart.y+height, full.tr.x,  full.tr.y,  -1.0f,
+
+            leftStart.x+width*progress, leftStart.y+height, full.tr.x,  full.tr.y,  -1.0f,
+            leftStart.x+width*progress, leftStart.y,        full.br.x,  full.br.y,  -1.0f,
+            leftStart.x,                leftStart.y,        full.bl.x,  full.bl.y,  -1.0f,
+
+            leftStart.x,                leftStart.y,        blank.bl.x, blank.bl.y, -1.0f,
+            leftStart.x,                leftStart.y+height, blank.tl.x, blank.tl.y, -1.0f,
+            leftStart.x+width,          leftStart.y+height, blank.tr.x, blank.tr.y, -1.0f,
+
+            leftStart.x+width,          leftStart.y+height, blank.tr.x, blank.tr.y, -1.0f,
+            leftStart.x+width,          leftStart.y,        blank.br.x, blank.br.y, -1.0f,
+            leftStart.x,                leftStart.y,        blank.bl.x, blank.bl.y, -1.0f
+        };
+
+        float letHeight = (32.0f/windowHeight);
+        float letWidth = (32.0f/windowWidth);
+        float lettersCount = std::strlen(message);
+        float totletwid = letWidth * lettersCount;
+        glm::vec2 letterStart(-totletwid/2, -letHeight/2 + 0.2f);
+
+        GlyphFace glyph;
+
+        for(int i = 0; i < lettersCount; i++) {
+            glyph.setCharCode(static_cast<int>(message[i]));
+            glm::vec2 thisLetterStart(letterStart.x + i*letWidth, letterStart.y);
+            displayData.insert(displayData.end(), {
+                thisLetterStart.x, thisLetterStart.y,                     glyph.bl.x, glyph.bl.y, -1.0f,
+                thisLetterStart.x, thisLetterStart.y+letHeight,           glyph.tl.x, glyph.tl.y, -1.0f,
+                thisLetterStart.x+letWidth, thisLetterStart.y+letHeight, glyph.tr.x, glyph.tr.y, -1.0f,
+
+                thisLetterStart.x+letWidth, thisLetterStart.y+letHeight, glyph.tr.x, glyph.tr.y, -1.0f,
+                thisLetterStart.x+letWidth, thisLetterStart.y,           glyph.br.x, glyph.br.y, -1.0f,
+                thisLetterStart.x, thisLetterStart.y,                     glyph.bl.x, glyph.bl.y, -1.0f
+            });
+        }
+        
+        bindMenuGeometry(lsvbo, displayData.data(), displayData.size());
+
+        glDrawArrays(GL_TRIANGLES, 0, displayData.size() / 5);
+
+        drawBackgroundImage();
+
+    glBindVertexArray(0);
+    if(!inMainLoop) {
+        glfwSwapBuffers(window);
+    }
+}
+
+
+
+
 void Game::updateTime() {
     double currentFrame = glfwGetTime();
     deltaTime = currentFrame - lastFrame;
@@ -2246,8 +2442,24 @@ void Game::updateTime() {
 }
 
 void Game::runStep() {
+    static float guiTimer = 0.0f;
+    static float guiTick = 0.5f;
+    if(guiTimer > guiTick) {
+        guiTimer = 0.0f;
+        std::lock_guard<std::mutex> guard(GUIMutex);
+        if(updateThese.size() > 0) {
+            for(auto [key, guiElement] : updateThese) {
+                updateGUIL(guiElement, KeyInput{true, '.', false});
+            }
+            //std::cout << "UT size: " << std::to_string(updateThese.size()) << "\n";
+        }
+    } else {
+        guiTimer += deltaTime;
+    }
     IN_GAME = inGame;
+    updateTime();
     (*loopFunc)();
+    
 }
 
 void Game::frameBufferSizeCallback(GLFWwindow *window, int width, int height) {
@@ -2256,13 +2468,13 @@ void Game::frameBufferSizeCallback(GLFWwindow *window, int width, int height) {
     glViewport(0, 0, windowWidth, windowHeight);
     camera->frameBufferSizeCallback(window, windowWidth, windowHeight);
 
-    GUIButton::windowWidth = windowWidth;
-    GUIButton::windowHeight = windowHeight;
+    GUILwindowWidth = windowWidth;
+    GUILwindowHeight = windowHeight;
     
     if(currentGuiButtons != nullptr) {
-        for(GUIButton &button : *currentGuiButtons) {
-            button.rebuildDisplayData();
-            button.uploaded = false;
+        for(GUIElement* button : *currentGuiButtons) {
+           rebuildGUILDisplayData(button);
+            button->uploaded = false;
         }
     }
     hud->rebuildDisplayData();
@@ -2304,9 +2516,9 @@ void Game::mouseButtonCallback(GLFWwindow *window, int button, int action, int m
         }
 
         if(currentGuiButtons != nullptr) {
-            for(auto &button : *currentGuiButtons) {
-                if(button.elementID == clickedOnElement) {
-                    button.myFunction();
+            for(auto button : *currentGuiButtons) {
+                if(button->elementID == clickedOnElement) {
+                    button->myFunction();
                 }
             }
         }
@@ -2943,6 +3155,17 @@ void Game::keyCallback(GLFWwindow *window, int key, int scancode, int action, in
             displayEscapeMenu();
         }
 
+    }
+
+    if(key == GLFW_KEY_BACKSPACE ) {
+        if(action == GLFW_PRESS || action == GLFW_REPEAT) {
+            std::lock_guard<std::mutex> guard(GUIMutex);
+            if(updateThese.size() > 0) {
+                for(auto [key, guiElement] : updateThese) {
+                    updateGUIL(guiElement, KeyInput{false, '.', true});
+                }
+            }
+        }
     }
 
     if(key == GLFW_KEY_LEFT_SHIFT) 

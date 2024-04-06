@@ -45,6 +45,7 @@ class Camera3D;
 class Game {
 public:
 
+    std::map<std::string, GUIElement*> updateThese;
     std::atomic<float> camRot;
 
     void updateCamRot();
@@ -113,7 +114,7 @@ public:
 
     inline static float initialTimer = 0.0f;
 
-    inline static std::vector<GUIButton> *currentGuiButtons = nullptr;
+    inline static std::vector<GUIElement*> *currentGuiButtons = nullptr;
 
     std::string currentSingleplayerWorldPath;
 
@@ -241,8 +242,11 @@ public:
     void runPeriodicTick();
     
     void displayLoadScreen(const char *message, float progress, bool inMainLoop);
+    void displayTextInputScreen(const char *message, float progress, bool inMainLoop);
 
     void drawBackgroundImage();
+
+    void goToUsernameScreen();
 
     inline static int initialChunksRendered = 0;
     inline static bool loadRendering = true;

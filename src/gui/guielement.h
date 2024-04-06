@@ -6,31 +6,81 @@
 #include <gl/glew.h>
 #include <GLFW/glfw3.h>
 #include <functional>
+#include <string>
+#include <mutex>
 
-class GUIButton {
+extern int GUILwindowWidth;
+extern int GUILwindowHeight;
+
+
+
+struct KeyInput {
+    bool empty;
+    char character;
+    bool backspace;
+};
+
+extern std::mutex GUIMutex;
+
+
+class GUIElement {
 public:
-    glm::vec2 screenPos;
-    float screenWidth;
-    float screenHeight;
+    GUIElement() = default;
+    ~GUIElement() = default;
+
+    virtual void rebuildDisplayData() = 0;
+    virtual void update(KeyInput in) = 0;
+glm::vec2 screenPos;
+        float screenHeight;
+        float screenWidth;
     std::vector<float> displayData;
     float elementID;
     GLuint vbo;
     bool uploaded;
-    inline static int windowWidth = 1280;
-    inline static int windowHeight = 720;
-
-    GUIButton(float xOffset, float yOffset, const char *label, float manualWidth, float elementID,
-    std::function<void()> function);
+    bool textThingFlickering;
 
     std::function<void()> myFunction;
-    
-    void rebuildDisplayData();
+    std::string label;
 
-    const char *label;
-private:
+protected:
     float xOffset;
     float yOffset;
     float manualWidth;
 };
 
+class GUIButton : public GUIElement {
+public:
+    GUIButton(float xOffset, float yOffset, const char *label, float manualWidth, float elementID,
+              std::function<void()> function);
+
+    void rebuildDisplayData() override;
+    void update(KeyInput in) override;
+
+
+
+
+protected:
+    float xOffset;
+    float yOffset;
+    float manualWidth;
+};
+
+class GUITextInput : public GUIElement {
+public:
+    GUITextInput(float xOffset, float yOffset, const char *label, float manualWidth, float elementID,
+                 std::function<void()> function);
+
+    void rebuildDisplayData() override;
+    void update(KeyInput in) override;
+
+
+
+protected:
+    float xOffset;
+    float yOffset;
+    float manualWidth;
+};
+
+void rebuildGUILDisplayData(GUIElement* guil);
+void updateGUIL(GUIElement* guil, KeyInput in);
 #endif
