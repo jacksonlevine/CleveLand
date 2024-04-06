@@ -3380,7 +3380,6 @@ void Game::initializeShaders() {
             out vec2 tcoord;
 
             out float tpas;
-
             uniform mat4 mvp;
             uniform float time;
 
