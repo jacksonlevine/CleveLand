@@ -45,6 +45,7 @@ struct Message {
     float y;
     float z;
     uint32_t info;
+    float rot;
 };
 
 struct BlockChange {
@@ -88,7 +89,7 @@ struct NameMessage {
 };
 
 
-Message createMessage(MessageType type, float x, float y, float z, uint32_t info) {
+Message createMessage(MessageType type, float x, float y, float z, uint32_t info, float r = 0.0f) {
     Message msg;
     boost::uuids::random_generator generator;
     msg.goose = generator();
@@ -97,6 +98,7 @@ Message createMessage(MessageType type, float x, float y, float z, uint32_t info
     msg.y = y;
     msg.z = z;
     msg.info = info;
+    msg.rot = r;
     return msg;
 }
 
@@ -360,7 +362,7 @@ private:
                             if(moved) {
                                 for (const auto&[key, value] : CLIENTS) {
                                     if(key != id) {
-                                        Message m = createMessage(MessageType::PlayerMove, cli.x, cli.y, cli.z, id);
+                                        Message m = createMessage(MessageType::PlayerMove, cli.x, cli.y, cli.z, id, message.rot);
                                         boost::asio::write(*(value.socket), boost::asio::buffer(&m, sizeof(Message)));
                                         auto inactive_duration = std::chrono::duration_cast<std::chrono::seconds>(now - value.last_active);
                                         if (inactive_duration.count() > 50) {

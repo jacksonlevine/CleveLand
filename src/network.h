@@ -46,12 +46,11 @@ struct Message {
     float y;
     float z;
     uint32_t info;
+    float rot;
 };
 
 
-Message createMessage(MessageType type, float x, float y, float z, uint32_t info);
-
-Message createMessageWithID(UUID goose, MessageType type, float x, float y, float z, uint32_t info);
+Message createMessage(MessageType type, float x, float y, float z, uint32_t info, float r = 0.0f);
 
 struct OtherPlayer {
     int id;
@@ -62,6 +61,7 @@ struct OtherPlayer {
     float ly;
     float lz;
     float t;
+    float rot;
     std::string name;
 };
 
@@ -87,7 +87,7 @@ class Camera3D;
 
 class TCPClient {
 public:
-    TCPClient(boost::asio::io_context& io_context, VoxelWorld *voxworld, std::function<void(float)> *gameTimeSet, glm::vec3 *cameraPos);
+    TCPClient(boost::asio::io_context& io_context, VoxelWorld *voxworld, std::function<void(float)> *gameTimeSet, glm::vec3 *cameraPos, std::atomic<float> * camRot);
 
     void send(const Message& message);
 
@@ -116,6 +116,7 @@ private:
     VoxelWorld* voxelWorld;
     std::function<void(float)>* setGameTime;
     glm::vec3 *cameraPos;
+    std::atomic<float> *camRot;
 };
 
 #endif

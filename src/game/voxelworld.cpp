@@ -815,7 +815,9 @@ void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool im
                             uint32_t neighblockcombined = blockAtMemo(coord + neigh, memo);
                             uint32_t neighblock = neighblockcombined & BlockInfo::BLOCK_ID_BITS;
                             bool neighSemiTrans = std::find(BlockInfo::semiTransparents.begin(), BlockInfo::semiTransparents.end(), neighblock) != BlockInfo::semiTransparents.end();
-                            bool waterBorderingTransparent = (block == 2 && neighblock != 2);
+
+                            bool waterBorderingTransparent = (block == 2 && std::find(BlockInfo::transparents.begin(), BlockInfo::transparents.end(), neighblock) != BlockInfo::transparents.end() && neighblock != 2);
+
                             if(neighblock == 0 || neighSemiTrans || waterBorderingTransparent) {
 
                                 BlockCoord lightCubeHere = coord + neigh;
@@ -859,8 +861,9 @@ void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool im
                                 std::vector<TextureFace> &thisTex = BlockInfo::texs[block];
 
                                 if(neighborIndex == TOP) {
-
+                                    
                                     tverts.insert(tverts.end(), {
+
                                     thisFace[0] + coord.x, thisFace[1] + coord.y + blockShift, thisFace[2] + coord.z, thisFace[3]+blockLightVal,
                                     thisFace[4]+ (skyBlocked ? -4.0f : 0.0f), 
                                     thisFace[5] + coord.x, thisFace[6] + coord.y + blockShift, thisFace[7] + coord.z, thisFace[8]+blockLightVal,
@@ -871,13 +874,16 @@ void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool im
 
 
 
-                                    // thisFace[15] + coord.x, thisFace[16] + coord.y + blockShift, thisFace[17] + coord.z, thisFace[18]+blockLightVal,
-                                    // thisFace[19]+ (skyBlocked ? -4.0f : 0.0f), 
-                                    // thisFace[20] + coord.x, thisFace[21] + coord.y + blockShift, thisFace[22] + coord.z, thisFace[23]+blockLightVal,
-                                    // thisFace[24]+ (skyBlocked ? -4.0f : 0.0f), 
-                                    // thisFace[25] + coord.x, thisFace[26] + coord.y + blockShift, thisFace[27] + coord.z, thisFace[28]+blockLightVal,
-                                    // thisFace[29]+ (skyBlocked ? -4.0f : 0.0f)
-                                });
+                                        // thisFace[15] + coord.x, thisFace[16] + coord.y + blockShift, thisFace[17] + coord.z, thisFace[18]+blockLightVal,
+                                        // thisFace[19]+ (skyBlocked ? -4.0f : 0.0f), 
+                                        // thisFace[20] + coord.x, thisFace[21] + coord.y + blockShift, thisFace[22] + coord.z, thisFace[23]+blockLightVal,
+                                        // thisFace[24]+ (skyBlocked ? -4.0f : 0.0f), 
+                                        // thisFace[25] + coord.x, thisFace[26] + coord.y + blockShift, thisFace[27] + coord.z, thisFace[28]+blockLightVal,
+                                        // thisFace[29]+ (skyBlocked ? -4.0f : 0.0f)
+                                    }
+                                    
+                                
+                                    );
 
                                     tuvs.insert(tuvs.end() , {
                                         thisTex[0].bl.x - textureWidth, thisTex[0].bl.y,  thisTex[0].br.x, thisTex[0].br.y,
@@ -888,6 +894,54 @@ void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool im
                                         // thisTex[0].tl.x, thisTex[0].tl.y,
                                         // thisTex[0].bl.x, thisTex[0].bl.y
                                     });
+
+                                    if(block == 2) {
+
+
+                                            tverts.insert(tverts.end(), {
+
+                                                thisFace[10] + coord.x, thisFace[11] + coord.y + blockShift, thisFace[12] + coord.z, thisFace[13]+blockLightVal,
+                                            thisFace[14]+ (skyBlocked ? -4.0f : 0.0f), 
+
+                                            thisFace[5] + coord.x, thisFace[6] + coord.y + blockShift, thisFace[7] + coord.z, thisFace[8]+blockLightVal,
+                                            thisFace[9]+ (skyBlocked ? -4.0f : 0.0f), 
+
+                                            thisFace[0] + coord.x, thisFace[1] + coord.y + blockShift, thisFace[2] + coord.z, thisFace[3]+blockLightVal,
+                                            thisFace[4]+ (skyBlocked ? -4.0f : 0.0f), 
+
+                                            
+
+                                            
+
+
+
+
+                                                // thisFace[15] + coord.x, thisFace[16] + coord.y + blockShift, thisFace[17] + coord.z, thisFace[18]+blockLightVal,
+                                                // thisFace[19]+ (skyBlocked ? -4.0f : 0.0f), 
+                                                // thisFace[20] + coord.x, thisFace[21] + coord.y + blockShift, thisFace[22] + coord.z, thisFace[23]+blockLightVal,
+                                                // thisFace[24]+ (skyBlocked ? -4.0f : 0.0f), 
+                                                // thisFace[25] + coord.x, thisFace[26] + coord.y + blockShift, thisFace[27] + coord.z, thisFace[28]+blockLightVal,
+                                                // thisFace[29]+ (skyBlocked ? -4.0f : 0.0f)
+                                            }
+                                            
+                                        
+                                            );
+
+                                            tuvs.insert(tuvs.end() , {
+
+                                                thisTex[0].tr.x, thisTex[0].tr.y - textureWidth,  thisTex[0].br.x, thisTex[0].br.y,
+                                                thisTex[0].br.x, thisTex[0].br.y,              thisTex[0].br.x, thisTex[0].br.y,
+                                                thisTex[0].bl.x - textureWidth, thisTex[0].bl.y,  thisTex[0].br.x, thisTex[0].br.y,
+                                                
+                                                
+
+                                                // thisTex[0].tr.x, thisTex[0].tr.y,
+                                                // thisTex[0].tl.x, thisTex[0].tl.y,
+                                                // thisTex[0].bl.x, thisTex[0].bl.y
+                                            });
+
+                                    }
+
                                 } else if(neighborIndex == BOTTOM) {
 
                                     tverts.insert(tverts.end(), {

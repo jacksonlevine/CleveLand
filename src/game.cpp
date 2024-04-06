@@ -394,7 +394,7 @@ grounded(true), io_context()
     camera = new Camera3D(this);
 
 
-    client = new TCPClient(io_context, &voxelWorld, &setTimeFunc, &(camera->position));
+    client = new TCPClient(io_context, &voxelWorld, &setTimeFunc, &(camera->position), &camRot);
 
 
     int opusErr;
@@ -444,8 +444,8 @@ grounded(true), io_context()
     glewInit();
     glViewport(0, 0, windowWidth, windowHeight);
     glEnable(GL_DEPTH_TEST);
-    // glEnable(GL_CULL_FACE);
-    // glCullFace(GL_BACK);
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_BACK);
     glFrontFace(GL_CW);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -475,6 +475,7 @@ grounded(true), io_context()
             
             glfwPollEvents();
             updateTime();
+            updateCamRot();
             runPeriodicTick();
 
             static std::function<float(float, float, float)> gaussian = [](float x, float peak, float radius) {
@@ -549,6 +550,12 @@ grounded(true), io_context()
 
 
 
+}
+
+void Game::updateCamRot() {
+    glm::vec3 camDirNormalized = glm::normalize(camera->direction);
+    float rotationAngle = atan2(camera->direction.z, camera->direction.x);
+    camRot.store(rotationAngle);
 }
 
 
@@ -3331,6 +3338,33 @@ void Game::initializeShaders() {
             layout(location = 2) in vec3 lastPosition;
             layout(location = 3) in vec3 instancePosition; 
             layout(location = 4) in float timePosted;
+            layout(location = 5) in float rotation;
+
+            mat4 rotationMatrix(vec3 axis, float angle) {
+                vec3 normalizedAxis = normalize(axis);
+                float s = sin(angle);
+                float c = cos(angle);
+                float oc = 1.0 - c;
+
+                return mat4(
+                    oc * normalizedAxis.x * normalizedAxis.x + c,
+                    oc * normalizedAxis.x * normalizedAxis.y - normalizedAxis.z * s,
+                    oc * normalizedAxis.z * normalizedAxis.x + normalizedAxis.y * s,
+                    0.0,
+                    oc * normalizedAxis.x * normalizedAxis.y + normalizedAxis.z * s,
+                    oc * normalizedAxis.y * normalizedAxis.y + c,
+                    oc * normalizedAxis.y * normalizedAxis.z - normalizedAxis.x * s,
+                    0.0,
+                    oc * normalizedAxis.z * normalizedAxis.x - normalizedAxis.y * s,
+                    oc * normalizedAxis.y * normalizedAxis.z + normalizedAxis.x * s,
+                    oc * normalizedAxis.z * normalizedAxis.z + c,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0
+                );
+            }
             
 
             out vec2 tcoord;
@@ -3347,8 +3381,9 @@ void Game::initializeShaders() {
 
                 vec3 mixPosition = mix(lastPosition, instancePosition, timePassed);
 
-                // Transform position to clip space
-                gl_Position = mvp * vec4(mixPosition + vertexPosition, 1.0);
+                mat4 rotMat = rotationMatrix(vec3(0.0, 1.0, 0.0), rotation);
+                vec3 rotatedPosition = (rotMat * vec4(vertexPosition, 1.0)).xyz;
+                gl_Position = mvp * vec4(mixPosition + rotatedPosition, 1.0);
 
 
 
@@ -4022,11 +4057,11 @@ void Game::bindPlayerGeometry(GLuint playerposvbo, std::vector<PlayerGeo> &billi
     
 
 
-    // GLint rot_attrib = glGetAttribLocation(playerShader->shaderID, "rotation");
+    GLint rot_attrib = glGetAttribLocation(playerShader->shaderID, "rotation");
 
-    // glEnableVertexAttribArray(rot_attrib);
-    // glVertexAttribPointer(rot_attrib, 1, GL_FLOAT, GL_FALSE, sizeof(PlayerGeo), (void*)(3*sizeof(float)));
-    // glVertexAttribDivisor(rot_attrib, 1); // Instanced attribute
+    glEnableVertexAttribArray(rot_attrib);
+    glVertexAttribPointer(rot_attrib, 1, GL_FLOAT, GL_FALSE, sizeof(PlayerGeo), (void*)(7*sizeof(float)));
+    glVertexAttribDivisor(rot_attrib, 1); // Instanced attribute
 
     error = glGetError();
     if (error != GL_NO_ERROR)
@@ -4189,10 +4224,10 @@ void Game::drawPlayers() {
         for(OtherPlayer & player : PLAYERS) {
             //std::cout << "Player at: " << std::to_string(player.x) << ", " << std::to_string(player.y) << ", " << std::to_string(player.z) << "\n";
             disp.push_back(PlayerGeo{
-            glm::vec3(player.lx, player.ly, player.lz),
+                glm::vec3(player.lx, player.ly, player.lz),
                 glm::vec3(player.x, player.y, player.z) ,
                 static_cast<float>(glfwGetTime()),
-                0.0f
+                player.rot
             });
             //std::cout << "timePosted: " << static_cast<float>(glfwGetTime()) << std::endl;
 

@@ -45,6 +45,9 @@ class Camera3D;
 class Game {
 public:
 
+    std::atomic<float> camRot;
+
+    void updateCamRot();
 
     boost::asio::io_context io_context;
     TCPClient *client;

@@ -16,7 +16,7 @@ std::mutex WRITE_MUTEX;
 std::atomic<bool> PLAYERSCHANGED = false;
 
 
-Message createMessage(MessageType type, float x, float y, float z, uint32_t info) {
+Message createMessage(MessageType type, float x, float y, float z, uint32_t info, float r) {
     Message msg;
     boost::uuids::random_generator generator;
     msg.goose = generator();
@@ -25,19 +25,10 @@ Message createMessage(MessageType type, float x, float y, float z, uint32_t info
     msg.y = y;
     msg.z = z;
     msg.info = info;
+    msg.rot = r;
     return msg;
 }
 
-Message createMessageWithID(UUID goose, MessageType type, float x, float y, float z, uint32_t info) {
-    Message msg;
-    msg.goose = goose;
-    msg.type = type;
-    msg.x = x;
-    msg.y = y;
-    msg.z = z;
-    msg.info = info;
-    return msg;
-}
 
 
 NameMessage createNameMessage(int id, std::string name, size_t length) {
@@ -82,7 +73,7 @@ void TCPClient::start() {
 
             while (shouldRunSendLoop.load()) {
 
-                Message heartbeat = createMessage(MessageType::Heartbeat, cameraPos->x, cameraPos->y, cameraPos->z, 0);
+                Message heartbeat = createMessage(MessageType::Heartbeat, cameraPos->x, cameraPos->y, cameraPos->z, 0, (*camRot).load());
 
                 try {
                     send(heartbeat);
@@ -183,8 +174,8 @@ std::string getMessageTypeString(Message& m) {
     }
 }
 
-TCPClient::TCPClient(boost::asio::io_context& io_context, VoxelWorld *voxworld, std::function<void(float)> *gameTimeSet, glm::vec3 *cameraPos)
-    : io_context_(io_context), socket_(io_context), voxelWorld(voxworld), setGameTime(gameTimeSet), cameraPos(cameraPos) {
+TCPClient::TCPClient(boost::asio::io_context& io_context, VoxelWorld *voxworld, std::function<void(float)> *gameTimeSet, glm::vec3 *cameraPos, std::atomic<float> * camRot)
+    : io_context_(io_context), socket_(io_context), voxelWorld(voxworld), setGameTime(gameTimeSet), cameraPos(cameraPos), camRot(camRot) {
 
     
 
@@ -311,7 +302,10 @@ void TCPClient::processMessage(Message* message) {
                         message->y,
                         message->z,
 
-                        0.0f
+                        0.0f,
+
+                        message->rot,
+                        std::string("Brewhaha")
 
                         });
                     
@@ -326,6 +320,8 @@ void TCPClient::processMessage(Message* message) {
                     playerIt->z = message->z;
 
                     playerIt->t = 0.0f;
+
+                    playerIt->rot = message->rot;
                 }
                 PLAYERSCHANGED.store(true);
                 //printf("Player %i moved to %f %f %f", message->info, message->x, message->y, message->z);
