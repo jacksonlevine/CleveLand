@@ -8,6 +8,7 @@ struct PlayerGeo {
     glm::vec3 position;
     float timePosted;
     float rotation;
+    float lastRotation;
 };
 
 #endif

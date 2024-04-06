@@ -305,6 +305,7 @@ void TCPClient::processMessage(Message* message) {
                         0.0f,
 
                         message->rot,
+                        message->rot,
                         std::string("Brewhaha")
 
                         });
@@ -321,6 +322,7 @@ void TCPClient::processMessage(Message* message) {
 
                     playerIt->t = 0.0f;
 
+                    playerIt->lrot = playerIt->rot;
                     playerIt->rot = message->rot;
                 }
                 PLAYERSCHANGED.store(true);

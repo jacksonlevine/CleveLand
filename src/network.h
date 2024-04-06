@@ -62,6 +62,7 @@ struct OtherPlayer {
     float lz;
     float t;
     float rot;
+    float lrot;
     std::string name;
 };
 

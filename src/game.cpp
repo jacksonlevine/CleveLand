@@ -3339,6 +3339,16 @@ void Game::initializeShaders() {
             layout(location = 3) in vec3 instancePosition; 
             layout(location = 4) in float timePosted;
             layout(location = 5) in float rotation;
+            layout(location = 6) in float lastRotation;
+
+            mat4 mixMat4(mat4 a, mat4 b, float t) {
+                mat4 result;
+                result[0] = mix(a[0], b[0], t);
+                result[1] = mix(a[1], b[1], t);
+                result[2] = mix(a[2], b[2], t);
+                result[3] = mix(a[3], b[3], t);
+                return result;
+            }
 
             mat4 rotationMatrix(vec3 axis, float angle) {
                 vec3 normalizedAxis = normalize(axis);
@@ -3381,8 +3391,11 @@ void Game::initializeShaders() {
 
                 vec3 mixPosition = mix(lastPosition, instancePosition, timePassed);
 
+                mat4 lastRotMat = rotationMatrix(vec3(0.0, 1.0, 0.0), lastRotation);
                 mat4 rotMat = rotationMatrix(vec3(0.0, 1.0, 0.0), rotation);
-                vec3 rotatedPosition = (rotMat * vec4(vertexPosition, 1.0)).xyz;
+
+                vec3 rotatedPosition = ( mixMat4(lastRotMat, rotMat, timePassed) * vec4(vertexPosition, 1.0)).xyz;
+
                 gl_Position = mvp * vec4(mixPosition + rotatedPosition, 1.0);
 
 
@@ -3943,60 +3956,60 @@ void Game::bindPlayerGeometry(GLuint playerposvbo, std::vector<PlayerGeo> &billi
     if(basePlayerVBO == 0) {
         glGenBuffers(1, &basePlayerVBO);
         static float quadVertices[] = {
-            // Positions         // Corner IDs
+    // Positions        // Corner IDs
     // Front face
-    -0.4f, -0.4f,  0.4f, 0.0f,  // Corner 0
-     0.4f, -0.4f,  0.4f, 1.0f,  // Corner 1
-     0.4f,  0.4f,  0.4f, 2.0f,  // Corner 2
+    -0.4f, -0.4f,  0.4f, 0.0f,  // Bottom-left
+     0.4f,  0.4f,  0.4f, 2.0f,  // Top-right
+     0.4f, -0.4f,  0.4f, 1.0f,  // Bottom-right
 
-    -0.4f, -0.4f,  0.4f, 0.0f,  // Corner 0
-     0.4f,  0.4f,  0.4f, 2.0f,  // Corner 2
-    -0.4f,  0.4f,  0.4f, 3.0f,  // Corner 3
+    -0.4f, -0.4f,  0.4f, 0.0f,  // Bottom-left
+    -0.4f,  0.4f,  0.4f, 3.0f,  // Top-left
+     0.4f,  0.4f,  0.4f, 2.0f,  // Top-right
 
     // Back face
-    -0.4f, -0.4f, -0.4f, 0.0f,  // Corner 4
-     0.4f, -0.4f, -0.4f, 1.0f,  // Corner 5
-     0.4f,  0.4f, -0.4f, 2.0f,  // Corner 6
+    -0.4f, -0.4f, -0.4f, 0.0f,  // Bottom-left
+     0.4f, -0.4f, -0.4f, 1.0f,  // Bottom-right
+     0.4f,  0.4f, -0.4f, 2.0f,  // Top-right
 
-    -0.4f, -0.4f, -0.4f, 0.0f,  // Corner 4
-     0.4f,  0.4f, -0.4f, 2.0f,  // Corner 6
-    -0.4f,  0.4f, -0.4f, 3.0f,  // Corner 7
+    -0.4f, -0.4f, -0.4f, 0.0f,  // Bottom-left
+     0.4f,  0.4f, -0.4f, 2.0f,  // Top-right
+    -0.4f,  0.4f, -0.4f, 3.0f,  // Top-left
 
     // Top face
-    -0.4f,  0.4f,  0.4f, 0.0f,  // Corner 3
-     0.4f,  0.4f,  0.4f, 1.0f,  // Corner 2
-     0.4f,  0.4f, -0.4f, 2.0f,  // Corner 6
+    -0.4f,  0.4f,  0.4f, 3.0f,  // Front-left
+     0.4f,  0.4f, -0.4f, 2.0f,  // Back-right
+     0.4f,  0.4f,  0.4f, 1.0f,  // Front-right
 
-    -0.4f,  0.4f,  0.4f, 0.0f,  // Corner 3
-     0.4f,  0.4f, -0.4f, 2.0f,  // Corner 6
-    -0.4f,  0.4f, -0.4f, 3.0f,  // Corner 7
+    -0.4f,  0.4f,  0.4f, 3.0f,  // Front-left
+    -0.4f,  0.4f, -0.4f, 0.0f,  // Back-left
+     0.4f,  0.4f, -0.4f, 2.0f,  // Back-right
 
     // Bottom face
-    -0.4f, -0.4f,  0.4f, 0.0f,  // Corner 0
-     0.4f, -0.4f,  0.4f, 1.0f,  // Corner 1
-     0.4f, -0.4f, -0.4f, 2.0f,  // Corner 5
+    -0.4f, -0.4f,  0.4f, 0.0f,  // Front-left
+     0.4f, -0.4f,  0.4f, 1.0f,  // Front-right
+     0.4f, -0.4f, -0.4f, 2.0f,  // Back-right
 
-    -0.4f, -0.4f,  0.4f, 0.0f,  // Corner 0
-     0.4f, -0.4f, -0.4f, 2.0f,  // Corner 5
-    -0.4f, -0.4f, -0.4f, 3.0f,  // Corner 4
+    -0.4f, -0.4f,  0.4f, 0.0f,  // Front-left
+     0.4f, -0.4f, -0.4f, 2.0f,  // Back-right
+    -0.4f, -0.4f, -0.4f, 3.0f,  // Back-left
 
     // Right face
-     0.4f, -0.4f,  0.4f,0.0f,  // Corner 1
-     0.4f, -0.4f, -0.4f, 1.0f,  // Corner 5
-     0.4f,  0.4f, -0.4f, 2.0f,  // Corner 6
+     0.4f, -0.4f,  0.4f, 0.0f,  // Bottom-front
+     0.4f,  0.4f, -0.4f, 2.0f,  // Top-back
+     0.4f, -0.4f, -0.4f, 1.0f,  // Bottom-back
 
-     0.4f, -0.4f,  0.4f, 0.0f,  // Corner 1
-     0.4f,  0.4f, -0.4f, 2.0f,  // Corner 6
-     0.4f,  0.4f,  0.4f, 3.0f,  // Corner 2
+     0.4f, -0.4f,  0.4f, 0.0f,  // Bottom-front
+     0.4f,  0.4f,  0.4f, 3.0f,  // Top-front
+     0.4f,  0.4f, -0.4f, 2.0f,  // Top-back
 
     // Left face
-    -0.4f, -0.4f,  0.4f, 0.0f,  // Corner 0
-    -0.4f, -0.4f, -0.4f, 1.0f,  // Corner 4
-    -0.4f,  0.4f, -0.4f, 2.0f,  // Corner 7
+    -0.4f, -0.4f,  0.4f, 0.0f,  // Bottom-front
+    -0.4f, -0.4f, -0.4f, 1.0f,  // Bottom-back
+    -0.4f,  0.4f, -0.4f, 2.0f,  // Top-back
 
-    -0.4f, -0.4f,  0.4f, 0.0f,  // Corner 0
-    -0.4f,  0.4f, -0.4f, 2.0f,  // Corner 7
-    -0.4f,  0.4f,  0.4f, 3.0f   // Corner 3
+    -0.4f, -0.4f,  0.4f, 0.0f,  // Bottom-front
+    -0.4f,  0.4f, -0.4f, 2.0f,  // Top-back
+    -0.4f,  0.4f,  0.4f, 3.0f   // Top-front
 };
             // Quad vertices
         glBindBuffer(GL_ARRAY_BUFFER, basePlayerVBO);
@@ -4062,6 +4075,13 @@ void Game::bindPlayerGeometry(GLuint playerposvbo, std::vector<PlayerGeo> &billi
     glEnableVertexAttribArray(rot_attrib);
     glVertexAttribPointer(rot_attrib, 1, GL_FLOAT, GL_FALSE, sizeof(PlayerGeo), (void*)(7*sizeof(float)));
     glVertexAttribDivisor(rot_attrib, 1); // Instanced attribute
+
+    GLint lrot_attrib = glGetAttribLocation(playerShader->shaderID, "lastRotation");
+
+    glEnableVertexAttribArray(lrot_attrib);
+    glVertexAttribPointer(lrot_attrib, 1, GL_FLOAT, GL_FALSE, sizeof(PlayerGeo), (void*)(8*sizeof(float)));
+    glVertexAttribDivisor(lrot_attrib, 1); // Instanced attribute
+
 
     error = glGetError();
     if (error != GL_NO_ERROR)
@@ -4227,7 +4247,8 @@ void Game::drawPlayers() {
                 glm::vec3(player.lx, player.ly, player.lz),
                 glm::vec3(player.x, player.y, player.z) ,
                 static_cast<float>(glfwGetTime()),
-                player.rot
+                player.rot,
+                player.lrot
             });
             //std::cout << "timePosted: " << static_cast<float>(glfwGetTime()) << std::endl;
 

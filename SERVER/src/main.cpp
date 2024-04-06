@@ -361,14 +361,14 @@ private:
 
                             if(moved) {
                                 for (const auto&[key, value] : CLIENTS) {
-                                    if(key != id) {
+                                    //if(key != id) {
                                         Message m = createMessage(MessageType::PlayerMove, cli.x, cli.y, cli.z, id, message.rot);
                                         boost::asio::write(*(value.socket), boost::asio::buffer(&m, sizeof(Message)));
                                         auto inactive_duration = std::chrono::duration_cast<std::chrono::seconds>(now - value.last_active);
                                         if (inactive_duration.count() > 50) {
                                             keysToRemove.push_back(key);
                                         }
-                                    }
+                                    //}
                                     
                                 }
                             }    
