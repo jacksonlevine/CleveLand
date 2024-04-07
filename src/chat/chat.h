@@ -115,6 +115,7 @@ static int sendingAudioCallback(const void *inputBuffer, void *outputBuffer,
          AudioPacket packet;
         packet.sequenceNumber = mySequenceNumber;
         packet.id = myID;
+        packet.servId = MY_ID;
 
         opus_int32 encodedLength = opus_encode_float(
             theFuckinEncoderDude,
@@ -293,6 +294,8 @@ void handle_receive(const boost::system::error_code& error, std::size_t bytes_tr
             newPerson.endpoint = remote_endpoint;
             allPeople.push_back(newPerson);
             personIt = std::prev(allPeople.end());
+        } else {
+            personIt->servId = recvPacket.servId;
         }
 
         float newBuf[480];
