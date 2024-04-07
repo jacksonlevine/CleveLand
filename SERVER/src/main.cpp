@@ -36,6 +36,7 @@ enum MessageType {
     Heartbeat,
     Disconnect,
     TimeUpdate,
+    TellYouYourID
 };
 
 struct Message {
@@ -147,6 +148,8 @@ std::string getMessageTypeString(Message& m) {
             return std::string("Disconnect");
         case MessageType::TimeUpdate:
             return std::string("TimeUpdate");
+        case MessageType::TellYouYourID:
+            return std::string("TellYouYourID");
     }
 }
 
@@ -212,6 +215,10 @@ private:
         {
             std::lock_guard<std::mutex> lock(CLIENTS_LOCK);
             CLIENTS[client.id] = std::move(client);
+
+            Message tellId = createMessage(MessageType::TellYouYourID, 0, 0, 0, client.id);
+            boost::asio::write(*socket, boost::asio::buffer(&tellId, sizeof(Message)));
+
         }
 
         // Create a new thread to handle the connection
@@ -222,11 +229,15 @@ private:
 
                     Message message;
 
+
+                    
                     std::shared_ptr<tcp::socket> client_socket;
                     {
                         std::lock_guard<std::mutex> lock(CLIENTS_LOCK);
                         client_socket = CLIENTS[id].socket;
                     }
+
+
 
                     boost::asio::read(*client_socket, boost::asio::buffer(&message, sizeof(Message)));
                     

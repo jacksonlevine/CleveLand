@@ -17,6 +17,8 @@ std::atomic<bool> PLAYERSCHANGED = false;
 
 std::string TYPED_IN_SERVER_IP("");
 
+uint32_t MY_ID = 0;
+
 
 Message createMessage(MessageType type, float x, float y, float z, uint32_t info, float r) {
     Message msg;
@@ -173,6 +175,8 @@ std::string getMessageTypeString(Message& m) {
             return std::string("Disconnect");
         case MessageType::TimeUpdate:
             return std::string("TimeUpdate");
+        case MessageType::TellYouYourID:
+            return std::string("TellYouYourID");
     }
 }
 
@@ -227,7 +231,9 @@ void TCPClient::send(const Message& message) {
 
 void TCPClient::processMessage(Message* message) {
     
-            
+            if(message->type == MessageType::TellYouYourID) {
+                MY_ID = message->info;
+            }
 
             if (message->type == MessageType::WorldString) {
                 std::cout << "Expecting " << std::to_string(message->info) << " bytes\n";

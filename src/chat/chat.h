@@ -11,14 +11,20 @@
 #include <opus/opus.h>
 #include <atomic>
 
+
 #include "ringbuffer.h"
 
 #include "uuid.h"
+
+#include "chatstuff.h"
 
 
 
 using boost::asio::ip::udp;
 using boost::asio::io_context;
+
+
+
 
 
 
@@ -28,12 +34,12 @@ const int SAMPLERATE = 48000;
 
 //Network settings
 std::string SERVER_PORT = "6969";
-std::string SERVER_IP = "192.168.1.131";
 
 int PREFERRED_INPUT_DEVICE = 0;
 int PREFERRED_OUTPUT_DEVICE = 0;
 
 struct AudioPacket {
+    uint32_t servId;
     uint8_t sequenceNumber;
     uint8_t incomingBytes;
     std::string id;
@@ -42,6 +48,7 @@ struct AudioPacket {
 
 struct Person {
     std::string id;
+    uint32_t servId;
     OpusDecoder *decoder;
     RingBuffer rbuf;
     int opusErr;
@@ -88,6 +95,11 @@ void handle_send(const boost::system::error_code& error, std::size_t bytes_trans
 uint8_t mySequenceNumber = 0;
 std::string myID = get_uuid();
 
+
+
+ 
+std::atomic<bool> runChatThread = false;
+
 static int sendingAudioCallback(const void *inputBuffer, void *outputBuffer,
                          unsigned long framesPerBuffer,
                          const PaStreamCallbackTimeInfo* timeInfo,
@@ -99,27 +111,29 @@ static int sendingAudioCallback(const void *inputBuffer, void *outputBuffer,
     // for (unsigned long i = 0; i < framesPerBuffer; ++i) { 
     //     *out++ = *in++;  // Simple pass-through
     // }
+    if(runChatThread.load()) {
+         AudioPacket packet;
+        packet.sequenceNumber = mySequenceNumber;
+        packet.id = myID;
 
-    AudioPacket packet;
-    packet.sequenceNumber = mySequenceNumber;
-    packet.id = myID;
+        opus_int32 encodedLength = opus_encode_float(
+            theFuckinEncoderDude,
+            in,
+            FRAMESPERBUFFER,
+            packet.buffer,
+            128
+        );
 
-    opus_int32 encodedLength = opus_encode_float(
-        theFuckinEncoderDude,
-        in,
-        FRAMESPERBUFFER,
-        packet.buffer,
-        128
-    );
+        packet.incomingBytes = static_cast<uint8_t>(encodedLength);
 
-    packet.incomingBytes = static_cast<uint8_t>(encodedLength);
+        auto sendBuf = boost::asio::buffer(&packet, sizeof(packet));
 
-    auto sendBuf = boost::asio::buffer(&packet, sizeof(packet));
+        client_socket->async_send_to(sendBuf, *server_endpoints.begin(), handle_send);
 
-    client_socket->async_send_to(sendBuf, *server_endpoints.begin(), handle_send);
+        mySequenceNumber = (mySequenceNumber + 1) % 255;
 
-    mySequenceNumber = (mySequenceNumber + 1) % 255;
-
+    }
+   
     return paContinue;
 }
 
@@ -134,12 +148,21 @@ static int receivingAudioCallback(const void *inputBuffer, void *outputBuffer,
     float mixdown[480] = {};
 
     for (Person& person : allPeople) {
+
+        float volume = 0.0f;
+
+        auto voiceIt = knownVoices.find(person.id);
+
+        volume = volumeByProximity(person.servId);
+
+        
+
         int bufCount = person.rbuf.count.load();
         float thisPersonsBuf[480];
         if(bufCount > 1) {
             person.rbuf.readOneBuffer(thisPersonsBuf);
             for(int i = 0; i < 480; ++i) {
-                mixdown[i] = std::min(std::max(mixdown[i] + thisPersonsBuf[i], -1.0f), 1.0f);
+                mixdown[i] = std::min(std::max(mixdown[i] + thisPersonsBuf[i] * volume, -1.0f), 1.0f);
             }
             person.deleteTimer = 0;
         } else {
@@ -241,7 +264,7 @@ void promptForChoices() {
 
     std::cout << "Enter the server IP without the port:" << '\n';
 
-    std::cin >> SERVER_IP;
+    //std::cin >> SERVER_IP;
 
     std::cout << "Enter the port:" << '\n';
 
@@ -250,9 +273,6 @@ void promptForChoices() {
     std::cout << "Connecting..." << '\n';
 }
 
-
- 
-std::atomic<bool> runChatThread = false;
 
 void handle_receive(const boost::system::error_code& error, std::size_t bytes_transferred) {
     if (!error && bytes_transferred == sizeof(AudioPacket)) {
@@ -268,6 +288,7 @@ void handle_receive(const boost::system::error_code& error, std::size_t bytes_tr
         if(personIt == allPeople.end()) {
             Person newPerson;
             newPerson.id = recvPacket.id;
+            newPerson.servId = recvPacket.servId;
             newPerson.endpoint = remote_endpoint;
             allPeople.push_back(newPerson);
             personIt = std::prev(allPeople.end());
@@ -327,12 +348,22 @@ PaError startupPortAudio(PaStream *stream, PaStreamCallback *streamCallback, boo
 
 PaError stopChatStreams(PaStream *stream) {
     PaError err;
-    err = Pa_StopStream(stream);
+    err = Pa_StopStream(sendingStream);
     if (err != paNoError) {
         return err;
     }
 
-    err = Pa_CloseStream(stream);
+    err = Pa_CloseStream(sendingStream);
+    if (err != paNoError) {
+        return err;
+    }
+
+    err = Pa_StopStream(receivingStream);
+    if (err != paNoError) {
+        return err;
+    }
+
+    err = Pa_CloseStream(receivingStream);
     if (err != paNoError) {
         return err;
     }
@@ -367,8 +398,13 @@ void connectToChat() {
 
             client_socket = &socket;
 
-            udp::resolver resolver(context);
-            server_endpoints = resolver.resolve(udp::v4(), "192.168.1.131", "6969");
+            udp::resolver resolver(context);\
+
+            size_t colonPos = TYPED_IN_SERVER_IP.find(":");
+            std::string server_ip = TYPED_IN_SERVER_IP.substr(0, colonPos);
+
+
+            server_endpoints = resolver.resolve(udp::v4(), server_ip, "6969");
             std::cout << "Connected." << std::endl;
             startupPortAudio(sendingStream, sendingAudioCallback, true);
             startupPortAudio(receivingStream, receivingAudioCallback, false);
@@ -386,11 +422,15 @@ void connectToChat() {
 
 
 void disconnectFromChat() {
+
     runChatThread.store(false);
+
+
+    stopChatStreams(sendingStream);
+
     if(networkThread.joinable()) {
         networkThread.join();
     }
-    stopChatStreams(sendingStream);
 }
 
 

@@ -36,6 +36,8 @@
 #include <boost/asio.hpp>
 #include "soundfxsystem.h"
 #include "util/playergeo.h"
+#include "chat/chatstuff.h"
+#include "util/cameraposition.h"
 
 extern SoundFXSystem sfs;
 

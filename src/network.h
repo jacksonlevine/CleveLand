@@ -19,6 +19,8 @@
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/uuid/uuid_io.hpp>
 
+#include "chat/chatstuff.h"
+
 using UUID = boost::uuids::uuid;
 
 using boost::asio::ip::tcp;
@@ -28,6 +30,10 @@ extern bool rcvtpromisesat;
 extern std::mutex WRITE_MUTEX;
 
 extern std::string TYPED_IN_SERVER_IP;
+
+extern uint32_t MY_ID;
+
+extern 
 
 enum MessageType {
     PlayerMove,
@@ -39,6 +45,7 @@ enum MessageType {
     Heartbeat,
     Disconnect,
     TimeUpdate,
+    TellYouYourID
 };
 
 struct Message {

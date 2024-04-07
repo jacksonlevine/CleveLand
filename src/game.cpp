@@ -554,6 +554,7 @@ grounded(true), io_context()
         Setting{std::string("viewDistance"), std::to_string(viewDistance)},
         Setting{std::string("serverIp"), TYPED_IN_SERVER_IP}
     };
+
     settings.loadOrSaveSettings(sets);
 
     for(Setting &set : sets) {
@@ -1219,6 +1220,7 @@ void Game::stepChunkDraw() {
     GLuint uwLoc = glGetUniformLocation(worldShader->shaderID, "underWater");
     glUniform1f(uwLoc, underWaterView);
 
+    CAMERA_POSITION = camera->position;
     voxelWorld.cameraPosition = camera->position;
     voxelWorld.cameraDirection = camera->direction;
 
