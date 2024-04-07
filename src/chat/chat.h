@@ -145,43 +145,44 @@ static int receivingAudioCallback(const void *inputBuffer, void *outputBuffer,
                          void *userData) {
     float *out = (float*) outputBuffer;
 
-    float mixdown[480] = {};
+    if(runChatThread.load()) {
 
-    for (Person& person : allPeople) {
+        float mixdown[480] = {};
 
-        float volume = 0.0f;
+        for (Person& person : allPeople) {
 
-        auto voiceIt = knownVoices.find(person.id);
+            float volume = 0.0f;
 
-        volume = volumeByProximity(person.servId);
+            volume = volumeByProximity(person.servId);
 
-        
+            
 
-        int bufCount = person.rbuf.count.load();
-        float thisPersonsBuf[480];
-        if(bufCount > 1) {
-            person.rbuf.readOneBuffer(thisPersonsBuf);
-            for(int i = 0; i < 480; ++i) {
-                mixdown[i] = std::min(std::max(mixdown[i] + thisPersonsBuf[i] * volume, -1.0f), 1.0f);
+            int bufCount = person.rbuf.count.load();
+            float thisPersonsBuf[480];
+            if(bufCount > 1) {
+                person.rbuf.readOneBuffer(thisPersonsBuf);
+                for(int i = 0; i < 480; ++i) {
+                    mixdown[i] = std::min(std::max(mixdown[i] + thisPersonsBuf[i] * volume, -1.0f), 1.0f);
+                }
+                person.deleteTimer = 0;
+            } else {
+                person.deleteTimer++;
             }
-            person.deleteTimer = 0;
-        } else {
-            person.deleteTimer++;
         }
+
+        allPeople.erase(
+            std::remove_if(
+                allPeople.begin(),
+                allPeople.end(),
+                [](const Person& person) {
+                    return person.deleteTimer > 50;  // Condition to remove the person
+                }
+            ), 
+            allPeople.end()
+        );
+
+        std::copy(std::begin(mixdown), std::end(mixdown), out);
     }
-
-    allPeople.erase(
-        std::remove_if(
-            allPeople.begin(), 
-            allPeople.end(),
-            [](const Person& person) {
-                return person.deleteTimer > 50;  // Condition to remove the person
-            }
-        ), 
-        allPeople.end()
-    );
-
-    std::copy(std::begin(mixdown), std::end(mixdown), out);
 
     return paContinue;
 }
