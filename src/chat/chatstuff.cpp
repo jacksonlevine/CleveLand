@@ -7,7 +7,7 @@ std::unordered_map<std::string, uint32_t> knownVoices;
 
 
 float volumeByProximity(uint32_t id) {
-    static float furthest = 20.0f;
+    static float furthest = 35.0f;
 
     auto playerIt = std::find_if(PLAYERS.begin(), PLAYERS.end(), [id](OtherPlayer& player){
         return player.id == id;
