@@ -38,6 +38,7 @@
 #include "util/playergeo.h"
 #include "chat/chatstuff.h"
 #include "util/cameraposition.h"
+#include "mobtype.h"
 
 extern SoundFXSystem sfs;
 
@@ -102,6 +103,8 @@ public:
     GLuint splashTexture2;
     GLuint logoTexture;
 
+    GLuint mobsTexture;
+
     unsigned char *worldTexturePixels;
 
     GLuint worldTexture;
@@ -128,7 +131,6 @@ public:
     inline static GLuint playersVAO = 0;
 
     inline static GLuint basePlayerVBO = 0;
-    inline static GLuint playerPosVBO = 0;
 
 
     std::vector<PlayerGeo> playerDisplayData;
@@ -166,10 +168,10 @@ public:
     void bindBillBoardGeometry(GLuint billposvbo, std::vector<Particle> &billinstances);
     void bindBillBoardGeometryNoUpload(GLuint billposvbo);
 
-    void bindPlayerGeometry(GLuint billposvbo, std::vector<PlayerGeo> &billinstances);
+    void bindPlayerGeometry(GLuint billposvbo, std::vector<PlayerGeo> &billinstances, MobType type);
     void bindPlayerGeometryNoUpload(GLuint billposvbo);
 
-    void drawPlayers();
+    void drawPlayers(MobType mt);
 
     void checkAboveHeadThreadFunction();
     inline static glm::vec3 blockOverlayCoord = glm::vec3(0,0,0);

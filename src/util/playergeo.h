@@ -2,6 +2,7 @@
 #define PLAYERGEO_H
 
 #include "glm/glm.hpp"
+#include "../mobtype.h"
 
 struct PlayerGeo {
     glm::vec3 lastPosition;
@@ -9,6 +10,7 @@ struct PlayerGeo {
     float timePosted;
     float rotation;
     float lastRotation;
+    float type;
 };
 
 #endif

@@ -5,13 +5,26 @@
 #include <filesystem>
 #include <iostream>
 #include <glm/glm.hpp>
+#include <entt/entt.hpp>
 
 extern std::string worldString;
+
+
+
+
+
+
+
+
 
 class VoxelWorld {
 
 
     public:
+
+
+
+    inline static entt::registry registry;
 
 
     inline static unsigned int seed = 0;

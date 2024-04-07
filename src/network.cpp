@@ -19,6 +19,9 @@ std::string TYPED_IN_SERVER_IP("");
 
 uint32_t MY_ID = 0;
 
+std::mutex MOBS_MUTEX;
+std::unordered_map<int, MobComponent> MOBS;
+
 
 Message createMessage(MessageType type, float x, float y, float z, uint32_t info, float r) {
     Message msg;
@@ -177,6 +180,10 @@ std::string getMessageTypeString(Message& m) {
             return std::string("TimeUpdate");
         case MessageType::TellYouYourID:
             return std::string("TellYouYourID");
+        case MessageType::MobUpdate:
+            return std::string("MobUpdate");
+        case MessageType::MobUpdateBatch:
+            return std::string("MobUpdateBatch");
     }
 }
 
@@ -285,6 +292,63 @@ void TCPClient::processMessage(Message* message) {
                 (*setGameTime)(message->x);
                 //std::cout << "Updated time to " << std::to_string(message->x) << "\n";
             }
+
+
+            auto updateMob = [](MobMsg& mm) {
+                std::lock_guard<std::mutex> guard(MOBS_MUTEX);
+                auto mobIt = MOBS.find(mm.id);
+                if(mobIt == MOBS.end()) {
+                    MOBS.insert_or_assign(mm.id, MobComponent{
+                        mm.type,
+                        mm.id,
+                        mm.pos,
+                        mm.pos,
+                        mm.rot,
+                        mm.rot,
+                        mm.health
+                    });
+                } else {
+                    auto it = MOBS.at(mm.id);
+
+                    it.type = mm.type;
+                    it.id = mm.id;
+                    it.lpos = it.pos;
+                    it.pos = mm.pos;
+                    it.lrot = it.rot;
+                    it.rot = mm.rot;
+                    it.health = mm.health;
+                }
+                std::ofstream outputFile("multiplayer/mobs.save", std::ios::trunc);
+                for(auto &[id, mob] : MOBS) {
+                    outputFile << "Mob: " << std::to_string(id) << 
+                    " " << std::to_string(mob.health) <<
+                    " " << std::to_string(mob.pos.x) << " " << std::to_string(mob.pos.y) <<  " " << std::to_string(mob.pos.z) <<
+                    " " << std::to_string(mob.rot) <<
+                    " " << std::to_string(mob.type) << "\n";
+                }
+                outputFile.close();
+
+
+            };
+
+            if (message->type == MessageType::MobUpdate) {
+                MobMsg mm;
+
+                boost::asio::read(socket_, boost::asio::buffer(&mm, sizeof(MobMsg)));
+
+                updateMob(mm);
+            }
+
+            if (message->type == MessageType::MobUpdateBatch) {
+                MobMsgBatch mm;
+
+                boost::asio::read(socket_, boost::asio::buffer(&mm, sizeof(MobMsgBatch)));
+
+                for(MobMsg& m : mm.msgs) {
+                    updateMob(m);
+                }
+            }
+            
             
             if (message->type == MessageType::Disconnect) {
                 int idToRemove = message->info;

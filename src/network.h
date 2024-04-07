@@ -20,6 +20,7 @@
 #include <boost/uuid/uuid_io.hpp>
 
 #include "chat/chatstuff.h"
+#include "mobtype.h"
 
 using UUID = boost::uuids::uuid;
 
@@ -33,7 +34,6 @@ extern std::string TYPED_IN_SERVER_IP;
 
 extern uint32_t MY_ID;
 
-extern 
 
 enum MessageType {
     PlayerMove,
@@ -45,8 +45,46 @@ enum MessageType {
     Heartbeat,
     Disconnect,
     TimeUpdate,
-    TellYouYourID
+    TellYouYourID,
+    MobUpdate,
+    MobUpdateBatch
 };
+
+
+struct MobComponent {
+    MobType type;
+    uint32_t id;
+    glm::vec3 lpos;
+    glm::vec3 pos;
+    float rot;
+    float lrot;
+    uint8_t health;
+};
+
+
+
+
+struct MobMsg {
+    uint32_t id;
+    glm::vec3 pos;
+    float rot;
+    uint8_t flags;
+    MobType type;
+    uint8_t health;
+};
+
+#define MOBBATCHSIZE 8
+
+struct MobMsgBatch {
+    MobMsg msgs[MOBBATCHSIZE];
+};
+
+
+extern std::mutex MOBS_MUTEX;
+extern std::unordered_map<int, MobComponent> MOBS;
+
+
+
 
 struct Message {
     UUID goose;

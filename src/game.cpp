@@ -893,7 +893,8 @@ void Game::draw() {
     
     drawParticles();
     if(inMultiplayer) {
-        drawPlayers();
+        drawPlayers(MobType::Player);
+        drawPlayers(MobType::Normal);
     }
 
     footstepTimer();
@@ -3508,6 +3509,8 @@ void Game::initializeShaders() {
             layout(location = 4) in float timePosted;
             layout(location = 5) in float rotation;
             layout(location = 6) in float lastRotation;
+            
+            layout(location = 7) in float type;
 
             mat4 mixMat4(mat4 a, mat4 b, float t) {
                 mat4 result;
@@ -3567,17 +3570,17 @@ void Game::initializeShaders() {
 
 
 
-                vec2 baseUV = vec2(mod(1.0f, 16.0f)/16.0f, 1.0f - floor(1.0f/16.0f));
+                vec2 baseUV = vec2(mod(type, 4.0f)/4.0f, 1.0f - floor(type/4.0f));
 
                 // Selecting UV based on cornerID
                 if (cornerID == 0.0) {
                     tcoord = baseUV;
                 } else if (cornerID == 1.0) {
-                    tcoord = vec2(baseUV.x + (1.0f/64.0f), baseUV.y);
+                    tcoord = vec2(baseUV.x + (1.0f/4.0f), baseUV.y);
                 } else if (cornerID == 2.0) {
-                    tcoord = vec2(baseUV.x + (1.0f/64.0f), baseUV.y - (1.0f/64.0f));
+                    tcoord = vec2(baseUV.x + (1.0f/4.0f), baseUV.y - (1.0f/4.0f));
                 } else if (cornerID == 3.0) {
-                    tcoord = vec2(baseUV.x, baseUV.y - (1.0f/64.0f));
+                    tcoord = vec2(baseUV.x, baseUV.y - (1.0f/4.0f));
                 }
             }
         )glsl",
@@ -4116,71 +4119,16 @@ void Game::bindBillBoardGeometryNoUpload(GLuint billposvbo) {
 
 
 
-void Game::bindPlayerGeometry(GLuint playerposvbo, std::vector<PlayerGeo> &billinstances) {
+void Game::bindPlayerGeometry(GLuint playerposvbo, std::vector<PlayerGeo> &billinstances, MobType type) {
 
 
 
-    if(basePlayerVBO == 0) {
-        glGenBuffers(1, &basePlayerVBO);
-        static float quadVertices[] = {
-    // Positions        // Corner IDs
-    // Front face
-    -0.4f, -0.4f,  0.4f, 0.0f,  // Bottom-left
-     0.4f,  0.4f,  0.4f, 2.0f,  // Top-right
-     0.4f, -0.4f,  0.4f, 1.0f,  // Bottom-right
-
-    -0.4f, -0.4f,  0.4f, 0.0f,  // Bottom-left
-    -0.4f,  0.4f,  0.4f, 3.0f,  // Top-left
-     0.4f,  0.4f,  0.4f, 2.0f,  // Top-right
-
-    // Back face
-    -0.4f, -0.4f, -0.4f, 0.0f,  // Bottom-left
-     0.4f, -0.4f, -0.4f, 1.0f,  // Bottom-right
-     0.4f,  0.4f, -0.4f, 2.0f,  // Top-right
-
-    -0.4f, -0.4f, -0.4f, 0.0f,  // Bottom-left
-     0.4f,  0.4f, -0.4f, 2.0f,  // Top-right
-    -0.4f,  0.4f, -0.4f, 3.0f,  // Top-left
-
-    // Top face
-    -0.4f,  0.4f,  0.4f, 3.0f,  // Front-left
-     0.4f,  0.4f, -0.4f, 2.0f,  // Back-right
-     0.4f,  0.4f,  0.4f, 1.0f,  // Front-right
-
-    -0.4f,  0.4f,  0.4f, 3.0f,  // Front-left
-    -0.4f,  0.4f, -0.4f, 0.0f,  // Back-left
-     0.4f,  0.4f, -0.4f, 2.0f,  // Back-right
-
-    // Bottom face
-    -0.4f, -0.4f,  0.4f, 0.0f,  // Front-left
-     0.4f, -0.4f,  0.4f, 1.0f,  // Front-right
-     0.4f, -0.4f, -0.4f, 2.0f,  // Back-right
-
-    -0.4f, -0.4f,  0.4f, 0.0f,  // Front-left
-     0.4f, -0.4f, -0.4f, 2.0f,  // Back-right
-    -0.4f, -0.4f, -0.4f, 3.0f,  // Back-left
-
-    // Right face
-     0.4f, -0.4f,  0.4f, 0.0f,  // Bottom-front
-     0.4f,  0.4f, -0.4f, 2.0f,  // Top-back
-     0.4f, -0.4f, -0.4f, 1.0f,  // Bottom-back
-
-     0.4f, -0.4f,  0.4f, 0.0f,  // Bottom-front
-     0.4f,  0.4f,  0.4f, 3.0f,  // Top-front
-     0.4f,  0.4f, -0.4f, 2.0f,  // Top-back
-
-    // Left face
-    -0.4f, -0.4f,  0.4f, 0.0f,  // Bottom-front
-    -0.4f, -0.4f, -0.4f, 1.0f,  // Bottom-back
-    -0.4f,  0.4f, -0.4f, 2.0f,  // Top-back
-
-    -0.4f, -0.4f,  0.4f, 0.0f,  // Bottom-front
-    -0.4f,  0.4f, -0.4f, 2.0f,  // Top-back
-    -0.4f,  0.4f,  0.4f, 3.0f   // Top-front
-};
+    if(mobVBOs[type] == 0) {
+        glGenBuffers(1, &mobVBOs[type]);
+        
             // Quad vertices
-        glBindBuffer(GL_ARRAY_BUFFER, basePlayerVBO);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), quadVertices, GL_STATIC_DRAW);
+        glBindBuffer(GL_ARRAY_BUFFER, mobVBOs[type]);
+        glBufferData(GL_ARRAY_BUFFER, mobVerts[type].size() * sizeof(float), mobVerts[type].data(), GL_STATIC_DRAW);
 
         // Vertex position attribute
         GLint posAttrib = glGetAttribLocation(playerShader->shaderID, "vertexPosition");
@@ -4192,7 +4140,7 @@ void Game::bindPlayerGeometry(GLuint playerposvbo, std::vector<PlayerGeo> &billi
         glEnableVertexAttribArray(cornerAttrib);
         glVertexAttribPointer(cornerAttrib, 1, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(3 * sizeof(float)));
     } else {
-        glBindBuffer(GL_ARRAY_BUFFER, basePlayerVBO);
+        glBindBuffer(GL_ARRAY_BUFFER, mobVBOs[type]);
 
         // Vertex position attribute
         GLint posAttrib = glGetAttribLocation(playerShader->shaderID, "vertexPosition");
@@ -4248,6 +4196,12 @@ void Game::bindPlayerGeometry(GLuint playerposvbo, std::vector<PlayerGeo> &billi
     glEnableVertexAttribArray(lrot_attrib);
     glVertexAttribPointer(lrot_attrib, 1, GL_FLOAT, GL_FALSE, sizeof(PlayerGeo), (void*)(8*sizeof(float)));
     glVertexAttribDivisor(lrot_attrib, 1); // Instanced attribute
+
+    GLint type_attrib = glGetAttribLocation(playerShader->shaderID, "type");
+
+    glEnableVertexAttribArray(type_attrib);
+    glVertexAttribPointer(type_attrib, 1, GL_FLOAT, GL_FALSE, sizeof(PlayerGeo), (void*)(9*sizeof(float)));
+    glVertexAttribDivisor(type_attrib, 1); // Instanced attribute
 
 
     error = glGetError();
@@ -4378,12 +4332,12 @@ void Game::bindPlayerGeometryNoUpload(GLuint playerposvbo) {
 }
 
 
-void Game::drawPlayers() {
+void Game::drawPlayers(MobType mt) {
     if(playersVAO == 0) {
         glGenVertexArrays(1, &playersVAO);
     }
-    if(playerPosVBO == 0) {
-        glGenBuffers(1, &playerPosVBO);
+    if(mobVBOs[mt] == 0) {
+        glGenBuffers(1, &(mobVBOs[mt]));
     }
     glBindVertexArray(playersVAO);
     glUseProgram(playerShader->shaderID);
@@ -4405,26 +4359,51 @@ void Game::drawPlayers() {
     //std::cout << "sending time: " << static_cast<float>(glfwGetTime()) << std::endl;
 
     static std::vector<PlayerGeo> disp;
-    if(PLAYERSCHANGED.load()) {
-        disp.clear();
-        //std::cout << "Other players size: " << std::to_string(PLAYERS.size()) << "\n";
-        for(OtherPlayer & player : PLAYERS) {
-            //std::cout << "Player at: " << std::to_string(player.x) << ", " << std::to_string(player.y) << ", " << std::to_string(player.z) << "\n";
-            disp.push_back(PlayerGeo{
-                glm::vec3(player.lx, player.ly, player.lz),
-                glm::vec3(player.x, player.y, player.z) ,
-                static_cast<float>(glfwGetTime()),
-                player.rot,
-                player.lrot
-            });
-            //std::cout << "timePosted: " << static_cast<float>(glfwGetTime()) << std::endl;
+    if(mt == MobType::Player) {
+    
+        if(PLAYERSCHANGED.load()) {
 
+            //std::cout << "Other players size: " << std::to_string(PLAYERS.size()) << "\n";
+            for(OtherPlayer & player : PLAYERS) {
+                std::cout << "Player at: " << std::to_string(player.x) << ", " << std::to_string(player.y) << ", " << std::to_string(player.z) << "\n";
+                disp.push_back(PlayerGeo{
+                    glm::vec3(player.lx, player.ly, player.lz),
+                    glm::vec3(player.x, player.y, player.z) ,
+                    static_cast<float>(glfwGetTime()),
+                    player.rot,
+                    player.lrot,
+                    static_cast<float>(MobType::Player)
+                });
+                //std::cout << "timePosted: " << static_cast<float>(glfwGetTime()) << std::endl;
+
+            }
+            PLAYERSCHANGED.store(false);
         }
-        PLAYERSCHANGED.store(false);
+    } else {
+        std::lock_guard<std::mutex> mobLock(MOBS_MUTEX);
+
+            for(auto &[id, mob] : MOBS) {
+                if(mob.type == mt) {
+                    disp.push_back(PlayerGeo{
+                        mob.lpos,
+                        mob.pos,
+                        static_cast<float>(glfwGetTime()),
+                        mob.rot,
+                        mob.lrot,
+                        static_cast<float>(mt)
+                    });
+                }
+
+            }
+
     }
-    glBindTexture(GL_TEXTURE_2D, worldTexture);
-    bindPlayerGeometry(playerPosVBO, disp);
-    glDrawArraysInstanced(GL_TRIANGLES, 0, 6*6, disp.size());
+        
+    glBindTexture(GL_TEXTURE_2D, mobsTexture);
+    if(mobPosVBOs[mt] == 0) {
+        glGenBuffers(1, &(mobPosVBOs[mt]));
+    }
+    bindPlayerGeometry(mobPosVBOs[mt], disp, mt);
+    glDrawArraysInstanced(GL_TRIANGLES, 0, mobVerts[mt].size() / 4.0f, disp.size());
     glBindVertexArray(0);
 }
 
@@ -4876,6 +4855,29 @@ void Game::initializeTextures() {
     else
     {
         std::cout << "Failed to load texture splashtexture2" << std::endl;
+    }
+    stbi_image_free(data);
+
+
+
+
+
+    glGenTextures(1, &mobsTexture);
+    glBindTexture(GL_TEXTURE_2D, mobsTexture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+    data = stbi_load("assets/mobs.png", &width, &height, &nrChannels, 0);
+    if (data)
+    {
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+        glGenerateMipmap(GL_TEXTURE_2D);
+    }
+    else
+    {
+        std::cout << "Failed to load texture mobs" << std::endl;
     }
     stbi_image_free(data);
 }

@@ -17,14 +17,25 @@
 #include <memory>
 #include <functional>
 // #include "acks.h"
+#include <glm/glm.hpp>
+#include <stdlib.h>
+#include <time.h>
 
 using namespace boost::asio;
 using namespace boost::asio::ip;
 using UUID = boost::uuids::uuid;
 
+#include "uuid.h"
+
 const char* worldPath = "world";
 
 void * sendTimeFunc;
+
+
+
+
+
+
 
 enum MessageType {
     PlayerMove,
@@ -36,8 +47,68 @@ enum MessageType {
     Heartbeat,
     Disconnect,
     TimeUpdate,
-    TellYouYourID
+    TellYouYourID,
+    MobUpdate,
+    MobUpdateBatch
 };
+
+
+
+
+enum MobType {
+    Player,
+    Normal
+};
+
+
+struct MobComponent {
+    MobType type;
+    uint32_t id;
+    glm::vec3 lpos;
+    glm::vec3 pos;
+    float rot;
+    uint8_t health;
+};
+
+
+
+
+struct MobMsg {
+    uint32_t id;
+    glm::vec3 pos;
+    float rot;
+    uint8_t flags;
+    MobType type;
+    uint8_t health;
+};
+
+#define MOBBATCHSIZE 8
+
+struct MobMsgBatch {
+    MobMsg msgs[MOBBATCHSIZE];
+};
+
+uint32_t currentMobId = 0;
+std::vector<entt::entity> MOBLIST;
+
+
+
+VoxelWorld world;
+
+void newMob(MobType type, glm::vec3 pos) {
+    entt::entity e = world.registry.create();
+
+    world.registry.emplace<MobComponent>(e, MobComponent {
+        type,
+        currentMobId++,
+        pos,
+        pos,
+        0.0f,
+        100
+    });
+    MOBLIST.push_back(e);
+}   
+
 
 struct Message {
     UUID goose;
@@ -150,12 +221,14 @@ std::string getMessageTypeString(Message& m) {
             return std::string("TimeUpdate");
         case MessageType::TellYouYourID:
             return std::string("TellYouYourID");
+        case MessageType::MobUpdate:
+            return std::string("MobUpdate");
+        case MessageType::MobUpdateBatch:
+            return std::string("MobUpdateBatch");
     }
 }
 
 
-
-VoxelWorld world;
 
 std::chrono::steady_clock::time_point lastTimeCheckedForOldUsers = std::chrono::steady_clock::now();
 
@@ -372,14 +445,14 @@ private:
 
                             if(moved) {
                                 for (const auto&[key, value] : CLIENTS) {
-                                    if(key != id) {
+                                    //if(key != id) {
                                         Message m = createMessage(MessageType::PlayerMove, cli.x, cli.y, cli.z, id, message.rot);
                                         boost::asio::write(*(value.socket), boost::asio::buffer(&m, sizeof(Message)));
                                         auto inactive_duration = std::chrono::duration_cast<std::chrono::seconds>(now - value.last_active);
                                         if (inactive_duration.count() > 50) {
                                             keysToRemove.push_back(key);
                                         }
-                                    }
+                                    //}
                                     
                                 }
                             }    
@@ -486,39 +559,119 @@ TCPServer* servo;
 std::atomic<bool> runTimeFunc = true;
 
 float lastFrame = 0.0f;
-float deltaTime = 0.0f;
+float deltaDayTime = 0.0f;
 
-void updateTime() {
+void updateDayTime() {
     double currentFrame = glfwGetTime();
-    deltaTime = currentFrame - lastFrame;
+    deltaDayTime = currentFrame - lastFrame;
     lastFrame = currentFrame;
 }
 
 float lastFrame2 = 0.0f;
-float deltaTime2 = 0.0f;
+float deltaTickTime = 0.0f;
 
-void updateTime2() {
+void updateTickTime() {
     double currentFrame2 = glfwGetTime();
-    deltaTime2 = currentFrame2 - lastFrame2;
+    deltaTickTime = currentFrame2 - lastFrame2;
     lastFrame2 = currentFrame2;
 }
 
 
+
 float timeTickTimer = 0.0f;
 float timeTickInterval = 10.0f;
+
+float mobTickTimer = 0.0f;
+float mobTickInterval = 0.5f;
+
+
 void timeOfDayThreadFunction() {
 
-    updateTime2();
+    updateTickTime();
     if(timeTickTimer > timeTickInterval) {
         float time = timeOfDay->getTime();
-        updateTime();
-        time += deltaTime;
+        updateDayTime();
+        time += deltaDayTime;
         std::cout << "Updated time to " << std::to_string(time) << '\n';
         timeOfDay->setTime(time);
         timeOfDay->sendTimeOut();
         timeTickTimer = 0.0f;
     } else {
-        timeTickTimer += deltaTime2;
+        timeTickTimer += deltaTickTime;
+    }
+    if(mobTickTimer > mobTickInterval) {
+        std::vector<MobMsg> queue;
+        auto mobView = world.registry.view<MobComponent>();
+        for(const entt::entity e : mobView) {
+            MobComponent &m = world.registry.get<MobComponent>(e);
+            if(static_cast<float>(rand()) / RAND_MAX > 0.9f) {
+                float changedX = static_cast<float>(rand()) / RAND_MAX;
+                float changedY = static_cast<float>(rand()) / RAND_MAX;
+                float changedZ = static_cast<float>(rand()) / RAND_MAX;
+                float changedRot = static_cast<float>(rand()) / RAND_MAX;
+                glm::vec3 change(changedX, changedY, changedZ);
+                m.lpos = m.pos;
+                m.pos += change;
+                m.rot += changedRot;
+
+                MobMsg mm;
+                mm.flags = 0;
+                mm.health = m.health;
+                mm.id = m.id;
+                mm.pos = m.pos;
+                mm.rot = m.rot;
+                mm.type = m.type;
+                queue.push_back(mm);
+            }
+        }
+
+        while(queue.size() > 0) {
+            if(queue.size() >= MOBBATCHSIZE) {
+                MobMsgBatch mmb = MobMsgBatch{
+                    {
+                        queue[queue.size()-1],
+                        queue[queue.size()-2],
+                        queue[queue.size()-3],
+                        queue[queue.size()-4],
+                        queue[queue.size()-5],
+                        queue[queue.size()-6],
+                        queue[queue.size()-7],
+                        queue[queue.size()-8],
+                    }
+                };
+                for(int i = 0; i < MOBBATCHSIZE; i++) {
+                    queue.pop_back();
+                }
+                CLIENTS_LOCK.lock();
+                for(auto &[key, val] : CLIENTS) {
+                    Message m = createMessage(MessageType::MobUpdateBatch, 0, 0, 0, 0);
+                    boost::asio::write(*(val.socket), boost::asio::buffer(&m, sizeof(Message)));
+
+                    boost::asio::write(*(val.socket), boost::asio::buffer(&mmb, sizeof(MobMsgBatch)));
+                }
+                CLIENTS_LOCK.unlock();
+            } else {
+                MobMsg mm = queue[queue.size()-1];
+                
+
+                CLIENTS_LOCK.lock();
+                for(auto &[key, val] : CLIENTS) {
+                    Message m = createMessage(MessageType::MobUpdate, 0, 0, 0, 0);
+                    boost::asio::write(*(val.socket), boost::asio::buffer(&m, sizeof(Message)));
+
+                    boost::asio::write(*(val.socket), boost::asio::buffer(&mm, sizeof(MobMsg)));
+                }
+
+                queue.pop_back();
+                CLIENTS_LOCK.unlock();
+            }
+        }
+
+        mobTickTimer = 0.0f;
+    } else {
+        //auto mobView = world.registry.view<MobComponent>();
+
+        mobTickTimer += deltaTickTime;
     }
     // while(runTimeFunc.load()) {
         
@@ -534,6 +687,17 @@ int main() {
     glfwInit();
 
     world.loadOrCreateSaveGame(worldPath);
+
+    newMob(MobType::Normal, glm::vec3(0,60,0));
+    newMob(MobType::Normal, glm::vec3(8,50,0));
+    newMob(MobType::Normal, glm::vec3(12,53,10));
+    newMob(MobType::Normal, glm::vec3(0,50,0));
+    newMob(MobType::Normal, glm::vec3(0,40,0));
+    newMob(MobType::Normal, glm::vec3(53,60,5));
+    newMob(MobType::Normal, glm::vec3(10,50,10));
+    newMob(MobType::Normal, glm::vec3(6,50,20));
+    newMob(MobType::Normal, glm::vec3(9,45,9));
+    newMob(MobType::Normal, glm::vec3(10,60,15));
 
     try {
         io_context io_context;
