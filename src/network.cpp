@@ -15,6 +15,8 @@ std::mutex WRITE_MUTEX;
 
 std::atomic<bool> PLAYERSCHANGED = false;
 
+std::atomic<bool> MOBSCHANGED = false;
+
 std::string TYPED_IN_SERVER_IP("");
 
 uint32_t MY_ID = 0;
@@ -305,10 +307,17 @@ void TCPClient::processMessage(Message* message) {
                         mm.pos,
                         mm.rot,
                         mm.rot,
-                        mm.health
+                        mm.health,
+                        static_cast<float>(glfwGetTime())
                     });
+
+
                 } else {
-                    auto it = MOBS.at(mm.id);
+                    auto &it = MOBS.at(mm.id);
+
+                        std::cout << "Moving mob " << std::to_string(mm.id) <<
+                    "From: " << std::to_string(it.lpos.x) << " " << std::to_string(it.lpos.y) <<  " " << std::to_string(it.lpos.z) << "\n" <<
+                    "To: " << std::to_string(mm.pos.x) << " " << std::to_string(mm.pos.y) <<  " " << std::to_string(mm.pos.z) << "\n";
 
                     it.type = mm.type;
                     it.id = mm.id;
@@ -317,18 +326,26 @@ void TCPClient::processMessage(Message* message) {
                     it.lrot = it.rot;
                     it.rot = mm.rot;
                     it.health = mm.health;
+                    it.timePosted = static_cast<float>(glfwGetTime());
+
+
+                
+
                 }
+
+
                 std::ofstream outputFile("multiplayer/mobs.save", std::ios::trunc);
                 for(auto &[id, mob] : MOBS) {
                     outputFile << "Mob: " << std::to_string(id) << 
-                    " " << std::to_string(mob.health) <<
-                    " " << std::to_string(mob.pos.x) << " " << std::to_string(mob.pos.y) <<  " " << std::to_string(mob.pos.z) <<
+                    " " << std::to_string(mob.health) << "\n" <<
+                    "From: " << std::to_string(mob.lpos.x) << " " << std::to_string(mob.lpos.y) <<  " " << std::to_string(mob.lpos.z) << "\n" <<
+                    "To: " << std::to_string(mob.pos.x) << " " << std::to_string(mob.pos.y) <<  " " << std::to_string(mob.pos.z) << "\n" <<
                     " " << std::to_string(mob.rot) <<
                     " " << std::to_string(mob.type) << "\n";
                 }
                 outputFile.close();
 
-
+                MOBSCHANGED.store(true);
             };
 
             if (message->type == MessageType::MobUpdate) {

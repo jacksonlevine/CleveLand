@@ -59,6 +59,7 @@ struct MobComponent {
     float rot;
     float lrot;
     uint8_t health;
+    float timePosted;
 };
 
 
@@ -127,6 +128,10 @@ void clientStringToPlayerList(std::vector<OtherPlayer> &out, std::string in);
 
 extern std::vector<OtherPlayer> PLAYERS;
 extern std::atomic<bool> PLAYERSCHANGED;
+
+extern std::atomic<bool> MOBSCHANGED;
+
+
 extern std::promise<void> receive_thread_promise;
 
 std::string getMessageTypeString(Message& m);

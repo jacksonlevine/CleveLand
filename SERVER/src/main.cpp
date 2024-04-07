@@ -445,14 +445,14 @@ private:
 
                             if(moved) {
                                 for (const auto&[key, value] : CLIENTS) {
-                                    //if(key != id) {
+                                    if(key != id) {
                                         Message m = createMessage(MessageType::PlayerMove, cli.x, cli.y, cli.z, id, message.rot);
                                         boost::asio::write(*(value.socket), boost::asio::buffer(&m, sizeof(Message)));
                                         auto inactive_duration = std::chrono::duration_cast<std::chrono::seconds>(now - value.last_active);
                                         if (inactive_duration.count() > 50) {
                                             keysToRemove.push_back(key);
                                         }
-                                    //}
+                                    }
                                     
                                 }
                             }    
@@ -582,7 +582,7 @@ float timeTickTimer = 0.0f;
 float timeTickInterval = 10.0f;
 
 float mobTickTimer = 0.0f;
-float mobTickInterval = 0.5f;
+float mobTickInterval = 0.25f;
 
 
 void timeOfDayThreadFunction() {
@@ -604,11 +604,11 @@ void timeOfDayThreadFunction() {
         auto mobView = world.registry.view<MobComponent>();
         for(const entt::entity e : mobView) {
             MobComponent &m = world.registry.get<MobComponent>(e);
-            if(static_cast<float>(rand()) / RAND_MAX > 0.9f) {
-                float changedX = static_cast<float>(rand()) / RAND_MAX;
-                float changedY = static_cast<float>(rand()) / RAND_MAX;
-                float changedZ = static_cast<float>(rand()) / RAND_MAX;
-                float changedRot = static_cast<float>(rand()) / RAND_MAX;
+            if(static_cast<float>(rand()) / RAND_MAX > 0.5f) {
+                float changedX =  (static_cast<float>(rand()) / static_cast<float>(RAND_MAX) -0.5f);
+                float changedY = (static_cast<float>(rand()) / static_cast<float>(RAND_MAX)-0.5f);
+                float changedZ = (static_cast<float>(rand()) / static_cast<float>(RAND_MAX)-0.5f);
+                float changedRot = (static_cast<float>(rand()) / static_cast<float>(RAND_MAX)) -0.5f;
                 glm::vec3 change(changedX, changedY, changedZ);
                 m.lpos = m.pos;
                 m.pos += change;

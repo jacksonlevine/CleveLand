@@ -10,6 +10,10 @@ GLuint mobPosVBOs[2] = {
   0
 };
 
+std::vector<std::vector<PlayerGeo>> mobDisps ={
+  {},
+  {}
+};
 
 std::vector<std::vector<float>> mobVerts = {
   {    // Positions        // Corner IDs
