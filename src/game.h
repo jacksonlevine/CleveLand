@@ -242,8 +242,7 @@ public:
     void runPeriodicTick();
     
     void displayLoadScreen(const char *message, float progress, bool inMainLoop);
-    void displayTextInputScreen(const char *message, float progress, bool inMainLoop);
-
+  
     void drawBackgroundImage();
 
     void goToUsernameScreen();
@@ -265,7 +264,8 @@ public:
 
     inline static void saveSettings() {
         std::vector<Setting> sets = {
-            Setting{std::string("viewDistance"), std::to_string(viewDistance)}
+            Setting{std::string("viewDistance"), std::to_string(viewDistance)},
+            Setting{std::string("serverIp"), TYPED_IN_SERVER_IP}
         };
         settings.saveSettings(sets);
     }

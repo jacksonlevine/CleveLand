@@ -15,6 +15,8 @@ std::mutex WRITE_MUTEX;
 
 std::atomic<bool> PLAYERSCHANGED = false;
 
+std::string TYPED_IN_SERVER_IP("");
+
 
 Message createMessage(MessageType type, float x, float y, float z, uint32_t info, float r) {
     Message msg;
@@ -184,9 +186,12 @@ TCPClient::TCPClient(boost::asio::io_context& io_context, VoxelWorld *voxworld, 
 void TCPClient::connect() {
     try {
 
-    // Hardcode the server's IP address and port
-    std::string server_ip = "192.168.1.131"; // Change this to your server's IP address
-    std::string server_port = "12345"; // Change this to your server's port
+    
+    std::cout << "Connecting to: " << TYPED_IN_SERVER_IP << "\n";
+    size_t colonPos = TYPED_IN_SERVER_IP.find(":");
+    std::string server_ip = TYPED_IN_SERVER_IP.substr(0, colonPos);
+    std::string server_port = TYPED_IN_SERVER_IP.substr(colonPos + 1);
+
 
     tcp::resolver resolver(io_context_);
     auto endpoints = resolver.resolve(server_ip, server_port);

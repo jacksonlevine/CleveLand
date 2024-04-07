@@ -68,7 +68,7 @@ protected:
 class GUITextInput : public GUIElement {
 public:
     GUITextInput(float xOffset, float yOffset, const char *label, float manualWidth, float elementID,
-                 std::function<void()> function);
+                 std::function<void()> function, std::string& storage);
 
     void rebuildDisplayData() override;
     void update(KeyInput in) override;
@@ -76,6 +76,7 @@ public:
 
 
 protected:
+    std::string& storage;
     float xOffset;
     float yOffset;
     float manualWidth;

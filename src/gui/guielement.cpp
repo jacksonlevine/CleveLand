@@ -58,13 +58,13 @@ void GUIButton::update(KeyInput in) {
 }
 
 GUITextInput::GUITextInput(float xOffset, float yOffset, const char *label, float manualWidth, float elementID,
-    std::function<void()> function) :
+    std::function<void()> function, std::string& storage) :
     GUIElement(),
 
     xOffset(xOffset),
     yOffset(yOffset),
-    manualWidth(manualWidth)
-
+    manualWidth(manualWidth),
+    storage(storage)
 {
     this->textThingFlickering = false;
     this->screenWidth = 0;//TEMPORARY, FIX THESE
@@ -72,9 +72,11 @@ GUITextInput::GUITextInput(float xOffset, float yOffset, const char *label, floa
     this->screenPos=glm::vec2(0,0); //TEMPORARY, FIX THESE
     this->uploaded=false;
     this->vbo=0;
-    this->label = label;
+    this->label = std::string(storage);
     this->elementID = elementID;
     this->myFunction = function;
+
+    
     rebuildDisplayData();
 }
 
@@ -183,6 +185,9 @@ void GUITextInput::update(KeyInput in) {
         } else if(!in.backspace && label.size() < 128){
             label += std::string(1, in.character);
         }
+
+        this->storage.clear();
+        this->storage.insert(this->storage.begin(), label.begin(), label.end());
         
         rebuildDisplayData();
         this->uploaded = false;

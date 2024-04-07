@@ -27,6 +27,8 @@ extern bool rcvtpromisesat;
 
 extern std::mutex WRITE_MUTEX;
 
+extern std::string TYPED_IN_SERVER_IP;
+
 enum MessageType {
     PlayerMove,
     BlockSet,

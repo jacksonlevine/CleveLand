@@ -551,7 +551,8 @@ grounded(true), io_context()
     loopFunc = &splashFunc;
 
     std::vector<Setting> sets = {
-        Setting{std::string("viewDistance"), std::to_string(viewDistance)}
+        Setting{std::string("viewDistance"), std::to_string(viewDistance)},
+        Setting{std::string("serverIp"), TYPED_IN_SERVER_IP}
     };
     settings.loadOrSaveSettings(sets);
 
@@ -560,6 +561,11 @@ grounded(true), io_context()
         if(set.name == std::string("viewDistance")) {
             viewDistance = std::stoi(set.value);
         }
+
+        if(set.name == std::string("serverIp")) {
+            TYPED_IN_SERVER_IP = set.value;
+        }
+
 
     }
 
@@ -1651,18 +1657,13 @@ void Game::goToMainMenu() {
             mainMenu = false;
         });
 
-        static auto b4 = new GUIButton(0.0f, -0.3f, "Username screen", 0.0f, 4.0f, [this](){
-            goToUsernameScreen();
-            mainMenu = false;
-        });
 
 
 
     static std::vector<GUIElement*> buttons = {
         b1,
         b2,
-        b3,
-        b4
+        b3
     };
     for(GUIElement* button : buttons) {
         rebuildGUILDisplayData(button);
@@ -1678,13 +1679,17 @@ void Game::goToUsernameScreen() {
 
     static bool textClicked = true;
 
-    static auto b1 = new GUIButton(0.0f, 0.0f, "Please enter a username:", 0.0f, -1.0f, [](){});
+    static std::string typedInUsername("");
+
+    std::cout << "Stored username: " << typedInUsername << "\n";
+
+    static auto b1 = new GUIButton(0.0f, 0.0f, "Please enter a username:", 0.0f, 1.0f, [](){});
     
     static auto b2 = new GUITextInput(0.0f, -0.1f, "", 0.7f, 2.0, [this](){
         std::lock_guard<std::mutex> guard(GUIMutex);
         updateThese.clear();
         updateThese.insert({std::string("username"), (*currentGuiButtons).at(1)});
-    });
+    }, typedInUsername);
 
     static auto b3 = new GUIButton(0.0f, -0.2f, "Accept", 0.0f, 3.0f, [this](){
         goToMainMenu();
@@ -1708,17 +1713,34 @@ void Game::goToUsernameScreen() {
 
 
 
+
 void Game::goToMultiplayerWorldsMenu() {
 
-    static auto b1 = new GUIButton(0.0f, 0.0f, "Connect to the one server there is", 0.0f, 1.0f, [this](){
-            goToMultiplayerWorld();
+    static auto b1 = new GUIButton(0.0f, 0.0f, "Enter Server IP:", 0.0f, 1.0f, [](){
+            
         });
-    static auto b2 =  new  GUIButton(0.0f, -0.1f, "Back to main menu", 0.0f, 2.0f, [this](){
+
+    static auto b2 = new GUITextInput(0.0f, -0.1f, "", 0.7f, 2.0, [this](){
+        std::lock_guard<std::mutex> guard(GUIMutex);
+        updateThese.clear();
+        updateThese.insert({std::string("serverip"), (*currentGuiButtons).at(1)});
+    }, TYPED_IN_SERVER_IP);
+
+
+    static auto b3 = new GUIButton(0.0f, -0.2f, "Connect", 0.0f, 3.0f, [this](){
+        saveSettings();
+        goToMultiplayerWorld();
+    });
+
+
+    static auto b4 =  new  GUIButton(0.0f, -0.4f, "Back to main menu", 0.0f, 4.0f, [this](){
             this->goToMainMenu();
         });
     static std::vector<GUIElement*> buttons = {
         b1,
-        b2
+        b2,
+        b3,
+        b4
     };
 
     for(GUIElement* button : buttons) {
@@ -2351,85 +2373,6 @@ if(!inMainLoop) {
     }
 }
 
-
-void Game::displayTextInputScreen(const char* message, float progress, bool inMainLoop) {
-
-if(!inMainLoop) {
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    glClearColor(0.639, 0.71, 1.0, 0.5);
-}
-
-    glBindVertexArray(VAO);
-
-
-
-        glUseProgram(menuShader->shaderID);
-        glBindTexture(GL_TEXTURE_2D, menuTexture);
-
-        static GLuint lsvbo = 0;
-            glDeleteBuffers(1, &lsvbo);
-            glGenBuffers(1, &lsvbo);
-
-
-        float width = (500.0f/windowWidth);
-        float height = (40.0f/windowHeight);
-
-        glm::vec2 leftStart(-width/2.0f, -height/2.0f);
-
-        TextureFace blank(0,1);
-        TextureFace full(1,1);
-
-        std::vector<float> displayData = {
-            leftStart.x,                leftStart.y,        full.bl.x,  full.bl.y,  -1.0f,
-            leftStart.x,                leftStart.y+height, full.tl.x,  full.tl.y,  -1.0f,
-            leftStart.x+width*progress, leftStart.y+height, full.tr.x,  full.tr.y,  -1.0f,
-
-            leftStart.x+width*progress, leftStart.y+height, full.tr.x,  full.tr.y,  -1.0f,
-            leftStart.x+width*progress, leftStart.y,        full.br.x,  full.br.y,  -1.0f,
-            leftStart.x,                leftStart.y,        full.bl.x,  full.bl.y,  -1.0f,
-
-            leftStart.x,                leftStart.y,        blank.bl.x, blank.bl.y, -1.0f,
-            leftStart.x,                leftStart.y+height, blank.tl.x, blank.tl.y, -1.0f,
-            leftStart.x+width,          leftStart.y+height, blank.tr.x, blank.tr.y, -1.0f,
-
-            leftStart.x+width,          leftStart.y+height, blank.tr.x, blank.tr.y, -1.0f,
-            leftStart.x+width,          leftStart.y,        blank.br.x, blank.br.y, -1.0f,
-            leftStart.x,                leftStart.y,        blank.bl.x, blank.bl.y, -1.0f
-        };
-
-        float letHeight = (32.0f/windowHeight);
-        float letWidth = (32.0f/windowWidth);
-        float lettersCount = std::strlen(message);
-        float totletwid = letWidth * lettersCount;
-        glm::vec2 letterStart(-totletwid/2, -letHeight/2 + 0.2f);
-
-        GlyphFace glyph;
-
-        for(int i = 0; i < lettersCount; i++) {
-            glyph.setCharCode(static_cast<int>(message[i]));
-            glm::vec2 thisLetterStart(letterStart.x + i*letWidth, letterStart.y);
-            displayData.insert(displayData.end(), {
-                thisLetterStart.x, thisLetterStart.y,                     glyph.bl.x, glyph.bl.y, -1.0f,
-                thisLetterStart.x, thisLetterStart.y+letHeight,           glyph.tl.x, glyph.tl.y, -1.0f,
-                thisLetterStart.x+letWidth, thisLetterStart.y+letHeight, glyph.tr.x, glyph.tr.y, -1.0f,
-
-                thisLetterStart.x+letWidth, thisLetterStart.y+letHeight, glyph.tr.x, glyph.tr.y, -1.0f,
-                thisLetterStart.x+letWidth, thisLetterStart.y,           glyph.br.x, glyph.br.y, -1.0f,
-                thisLetterStart.x, thisLetterStart.y,                     glyph.bl.x, glyph.bl.y, -1.0f
-            });
-        }
-        
-        bindMenuGeometry(lsvbo, displayData.data(), displayData.size());
-
-        glDrawArrays(GL_TRIANGLES, 0, displayData.size() / 5);
-
-        drawBackgroundImage();
-
-    glBindVertexArray(0);
-    if(!inMainLoop) {
-        glfwSwapBuffers(window);
-    }
-}
 
 
 
