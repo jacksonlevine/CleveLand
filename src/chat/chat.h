@@ -33,7 +33,7 @@ const int FRAMESPERBUFFER = 480;
 const int SAMPLERATE = 48000;
 
 //Network settings
-std::string SERVER_PORT = "6969";
+std::string SERVER_PORT = "6970";
 
 int PREFERRED_INPUT_DEVICE = 0;
 int PREFERRED_OUTPUT_DEVICE = 0;
@@ -408,7 +408,7 @@ void connectToChat() {
             std::string server_ip = TYPED_IN_SERVER_IP.substr(0, colonPos);
 
 
-            server_endpoints = resolver.resolve(udp::v4(), server_ip, "6969");
+            server_endpoints = resolver.resolve(udp::v4(), server_ip, "6970");
             std::cout << "Connected." << std::endl;
             startupPortAudio(sendingStream, sendingAudioCallback, true);
             startupPortAudio(receivingStream, receivingAudioCallback, false);

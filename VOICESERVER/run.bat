@@ -1,0 +1,2 @@
+HungaryServer.exe
+pause

@@ -537,7 +537,7 @@ int main() {
 
     try {
         io_context io_context;
-        TCPServer server(&io_context, 12345);
+        TCPServer server(&io_context, 6969);
 
         servo = &server;
         TimeOfDay tod(0.0f, std::string("time"), &server);
