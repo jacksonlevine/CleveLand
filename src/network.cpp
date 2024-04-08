@@ -3,6 +3,8 @@
 
 #include "network.h"
 
+//#define PRINT_YOUR_STUFF
+
 
 std::vector<OtherPlayer> PLAYERS;
 
@@ -233,7 +235,9 @@ void TCPClient::disconnect() {
 }
 
 void TCPClient::send(const Message& message) {
+    #ifdef PRINT_YOUR_STUFF
     std::cout << "Sending " << getMessageTypeString(static_cast<Message>(message)) << "\n";
+    #endif
     std::lock_guard<std::mutex> lock(WRITE_MUTEX);
     boost::asio::write(socket_, boost::asio::buffer(&message, sizeof(Message)));
 }
@@ -282,7 +286,9 @@ void TCPClient::processMessage(Message* message) {
 
             if (message->type == MessageType::BlockSet) {
                 //LOCK AND AFFECT THE VOXELWORLD
+                #ifdef PRINT_YOUR_STUFF
                 std::cout << "Block set at " << std::to_string(message->x) << " " << std::to_string(message->y) << " " << std::to_string(message->z) << " of type " << std::to_string(message->info) << "\n";
+                #endif
                 voxelWorld->setBlockAndQueueRerender(BlockCoord{
                     static_cast<int>(message->x),
                     static_cast<int>(message->y),
@@ -315,9 +321,9 @@ void TCPClient::processMessage(Message* message) {
                 } else {
                     auto &it = MOBS.at(mm.id);
 
-                        std::cout << "Moving mob " << std::to_string(mm.id) <<
-                    "From: " << std::to_string(it.lpos.x) << " " << std::to_string(it.lpos.y) <<  " " << std::to_string(it.lpos.z) << "\n" <<
-                    "To: " << std::to_string(mm.pos.x) << " " << std::to_string(mm.pos.y) <<  " " << std::to_string(mm.pos.z) << "\n";
+                    //     std::cout << "Moving mob " << std::to_string(mm.id) <<
+                    // "From: " << std::to_string(it.lpos.x) << " " << std::to_string(it.lpos.y) <<  " " << std::to_string(it.lpos.z) << "\n" <<
+                    // "To: " << std::to_string(mm.pos.x) << " " << std::to_string(mm.pos.y) <<  " " << std::to_string(mm.pos.z) << "\n";
 
                     it.type = mm.type;
                     it.id = mm.id;
@@ -334,16 +340,16 @@ void TCPClient::processMessage(Message* message) {
                 }
 
 
-                std::ofstream outputFile("multiplayer/mobs.save", std::ios::trunc);
-                for(auto &[id, mob] : MOBS) {
-                    outputFile << "Mob: " << std::to_string(id) << 
-                    " " << std::to_string(mob.health) << "\n" <<
-                    "From: " << std::to_string(mob.lpos.x) << " " << std::to_string(mob.lpos.y) <<  " " << std::to_string(mob.lpos.z) << "\n" <<
-                    "To: " << std::to_string(mob.pos.x) << " " << std::to_string(mob.pos.y) <<  " " << std::to_string(mob.pos.z) << "\n" <<
-                    " " << std::to_string(mob.rot) <<
-                    " " << std::to_string(mob.type) << "\n";
-                }
-                outputFile.close();
+                // std::ofstream outputFile("multiplayer/mobs.save", std::ios::trunc);
+                // for(auto &[id, mob] : MOBS) {
+                //     outputFile << "Mob: " << std::to_string(id) << 
+                //     " " << std::to_string(mob.health) << "\n" <<
+                //     "From: " << std::to_string(mob.lpos.x) << " " << std::to_string(mob.lpos.y) <<  " " << std::to_string(mob.lpos.z) << "\n" <<
+                //     "To: " << std::to_string(mob.pos.x) << " " << std::to_string(mob.pos.y) <<  " " << std::to_string(mob.pos.z) << "\n" <<
+                //     " " << std::to_string(mob.rot) <<
+                //     " " << std::to_string(mob.type) << "\n";
+                // }
+                // outputFile.close();
 
                 MOBSCHANGED.store(true);
             };
@@ -441,7 +447,9 @@ void TCPClient::receive() {
             
             
         if(message.type != PlayerMove && message.type != TimeUpdate) {
+            #ifdef PRINT_YOUR_STUFF
             std::cout << "Received: " << getMessageTypeString(message) << std::endl;
+            #endif
         }
 
 
