@@ -19,7 +19,7 @@ std::atomic<bool> PLAYERSCHANGED = false;
 
 std::atomic<bool> MOBSCHANGED = false;
 
-std::string TYPED_IN_SERVER_IP("");
+std::string TYPED_IN_SERVER_IP("Enter server IP...");
 
 uint32_t MY_ID = 0;
 

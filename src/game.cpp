@@ -103,6 +103,11 @@ size_t cricketAudioIndex = 0;
 std::vector<float> waterMoveAudio;
 size_t waterMoveIndex = 0;
 
+std::vector<float> songAudio;
+size_t songIndex = 0;
+float songLevel = 0.0f;
+
+
 std::vector<float> underWaterAudio;
 size_t underWaterIndex = 0;
 
@@ -111,10 +116,11 @@ float waterMoveLevel = 0.0f;
 float CRICKET_VOLUME = 0.0f;
 
 
-#define FADERNUM 2
+#define FADERNUM 3
 Fader audioFaders[FADERNUM] = {
     Fader(&waterMoveLevel, false, 0.1),
-    Fader(&CRICKET_VOLUME, true, 0.1)
+    Fader(&CRICKET_VOLUME, false, 0.1),
+    Fader(&songLevel, false, 0.01),
 };
 
 void tickFaders() {
@@ -139,24 +145,25 @@ static int musicCallback(const void* inputBuffer, void* outputBuffer,
                          void* userData) {
     float* out = (float*)outputBuffer;
 
-        if(IN_GAME) {
+
             for (size_t i = 0; i < framesPerBuffer; ++i) {
 
-                    *out++ = std::min(1.0f, std::max(-1.0f, CRICKET_VOLUME * (((UNDERWATER_VIEW ) ? 0.0f : cricketAudio[cricketAudioIndex * 2])) + waterMoveLevel * (UNDERWATER_VIEW ? underWaterAudio[underWaterIndex * 2] : waterMoveAudio[waterMoveIndex * 2])));     // Left channel
-                    *out++ = std::min(1.0f, std::max(-1.0f, CRICKET_VOLUME * (((UNDERWATER_VIEW ) ? 0.0f : cricketAudio[cricketAudioIndex * 2 + 1])) + waterMoveLevel * (UNDERWATER_VIEW ? underWaterAudio[underWaterIndex * 2 + 1] : waterMoveAudio[waterMoveIndex * 2 + 1]) )); // Right channel
+                    float chan1 = CRICKET_VOLUME * (((UNDERWATER_VIEW ) ? 0.0f : cricketAudio[cricketAudioIndex * 2])) + waterMoveLevel * (UNDERWATER_VIEW ? underWaterAudio[underWaterIndex * 2] : waterMoveAudio[waterMoveIndex * 2]);     // Left channel
+                    float chan2 = CRICKET_VOLUME * (((UNDERWATER_VIEW ) ? 0.0f : cricketAudio[cricketAudioIndex * 2 + 1])) + waterMoveLevel * (UNDERWATER_VIEW ? underWaterAudio[underWaterIndex * 2 + 1] : waterMoveAudio[waterMoveIndex * 2 + 1]) ; // Right channel
+
+                    chan1 += songLevel * songAudio[songIndex * 2];
+                    chan2 += songLevel * songAudio[songIndex * 2 + 1];
+
+                    *out++ = std::max(-1.0f, std::min(1.0f, chan1));
+                    *out++ = std::max(-1.0f, std::min(1.0f, chan2));
+
                     cricketAudioIndex = (cricketAudioIndex + 1) % (cricketAudio.size() / 2);
                     waterMoveIndex = (waterMoveIndex + 1) % (waterMoveAudio.size() / 2);
                     underWaterIndex = (underWaterIndex + 1) % (underWaterAudio.size() / 2);
+                    songIndex = (songIndex + 1) % (songAudio.size() / 2);
 
             }
-        } else {
-            for (size_t i = 0; i < framesPerBuffer; ++i) {
 
-                    *out++ = 0;     // Left channel
-                    *out++ = 0; // Right channel
-
-            }
-        }
             
     return paContinue;
 }
@@ -342,6 +349,9 @@ grounded(true), io_context()
     cricketAudio = loadAudioFile("assets/sfx/crickets.mp3");
     waterMoveAudio = loadAudioFile("assets/sfx/watermove.mp3");
     underWaterAudio = loadAudioFile("assets/sfx/underwater.mp3");
+
+
+    songAudio = loadAudioFile("assets/music/clevelandmusic.mp3");
     
     PaError err;
 
@@ -417,7 +427,7 @@ grounded(true), io_context()
 
     //promptForChoices();
 
-
+    std::cout << "Creating mp block set func \n";
     static std::function<void(int,int,int,uint32_t)> mpBlockSetFunc = [this](int x,int y,int z,uint32_t b) {
         if(inMultiplayer) {
 
@@ -437,11 +447,33 @@ grounded(true), io_context()
     mouseSensitivity = 0.1;
     averageDeltaTime = 0.0f;
 
-    glfwInit();
+
+    std::cout << "Gonna try to init glfw \n";
+    int gi = glfwInit();
+
+    if(gi == GLFW_FALSE) {
+        std::cout << "Error initializing GLFW\n";
+    }
+      std::cout << "Gonna try to init window \n";
+    // glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    // glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    // glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+
+    // glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE); // Necessary for macOS
+
     window = glfwCreateWindow(windowWidth, windowHeight, "CleveLand", NULL, NULL);
+    if(window == NULL) {
+        std::cout << "ERROR in create window \n";
+    }
     glfwMakeContextCurrent(window);
     this->setFocused(true);
-    glewInit();
+    GLenum er = glewInit();
+    if (GLEW_OK != er)
+    {
+    /* Problem: glewInit failed, something is seriously wrong. */
+    fprintf(stderr, "Error: %s\n", glewGetErrorString(err));
+
+    }
     glViewport(0, 0, windowWidth, windowHeight);
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
@@ -505,9 +537,11 @@ grounded(true), io_context()
                 float peakHeight = exp(-pow(peak - peak, 2.0) / (2.0 * variance));
                 return b / peakHeight;
             };
-
+            
+            tickFaders();    
+            
             if(inGame) {
-                tickFaders();
+                
                 
                 voxelWorld.runStep(deltaTime);
                 timeOfDay = std::fmod(timeOfDay + deltaTime, dayLength);
@@ -984,7 +1018,7 @@ void Game::draw() {
             glDrawArrays(GL_TRIANGLES, 0, logoDisplayData.size()/5);
 
 
-            const char* message = "Version 0.0.3b";
+            const char* message = "Version 0.1.5multiplayertest2";
 
             std::vector<float> displayData;
 
@@ -1646,6 +1680,8 @@ void Game::goToSettingsMenu() {
 
 void Game::goToMainMenu() {
     mainMenu = true;
+    songIndex = 0;
+    audioFaders[2].up();
 
     static auto b1 = new GUIButton(0.0f, 0.0f, "Multiplayer / Online", 0.0f, 1.0f, [this](){
             this->goToMultiplayerWorldsMenu();
@@ -2182,6 +2218,8 @@ void Game::goToSingleplayerWorld(const char *worldname) {
     camera->setFocused(true);
 
     inGame = true;
+    audioFaders[0].up();
+    audioFaders[2].down();
 }
 
 void Game::goToMultiplayerWorld() {
@@ -2261,6 +2299,8 @@ void Game::goToMultiplayerWorld() {
         camera->setFocused(true);
 
         inGame = true;
+        audioFaders[0].up();
+        audioFaders[2].down();
 
         shouldRunHeadCoveredLoop.store(true);
 
