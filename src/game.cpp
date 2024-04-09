@@ -9,6 +9,8 @@
 
 #include "chat/chat.h"
 
+std::string VERSIONSTRING;
+
 PaStream* sfxStream;
 PaStream* musicStream;
 
@@ -1018,7 +1020,7 @@ void Game::draw() {
             glDrawArrays(GL_TRIANGLES, 0, logoDisplayData.size()/5);
 
 
-            const char* message = "Version 0.1.5multiplayertest2";
+            const char* message = VERSIONSTRING.c_str();
 
             std::vector<float> displayData;
 
@@ -2218,7 +2220,6 @@ void Game::goToSingleplayerWorld(const char *worldname) {
     camera->setFocused(true);
 
     inGame = true;
-    audioFaders[0].up();
     audioFaders[2].down();
 }
 
@@ -2299,7 +2300,6 @@ void Game::goToMultiplayerWorld() {
         camera->setFocused(true);
 
         inGame = true;
-        audioFaders[0].up();
         audioFaders[2].down();
 
         shouldRunHeadCoveredLoop.store(true);

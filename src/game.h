@@ -40,6 +40,8 @@
 #include "util/cameraposition.h"
 #include "mobtype.h"
 
+extern std::string VERSIONSTRING;
+
 extern SoundFXSystem sfs;
 
 
