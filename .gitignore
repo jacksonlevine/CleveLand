@@ -1,3 +1,7 @@
 /build
 /.vscode
 *.exe
+credentials.json
+token.json
+tumblr_email.txt
+tumblr_password.txt
