@@ -24,7 +24,12 @@ public:
         0.5f,//door bottom
         0.5f,//light
         1.0f,//chest
-        0.5f //ladder
+        0.5f, //ladder
+
+        0.3f,//red
+        1.3f,//brick
+        1.3f,//moss
+        1.3f //cool stone
 
     };
     inline static std::vector<std::vector<TextureFace>> texs = {
@@ -87,6 +92,30 @@ public:
         {TextureFace(0,1),//ladder
         TextureFace(0,1),
         TextureFace(0,1),
+        },
+
+        
+        {TextureFace(0,2),//red block
+        TextureFace(0,2),
+        TextureFace(0,2),
+        },
+
+        
+        {TextureFace(1,2),//brick block
+        TextureFace(1,2),
+        TextureFace(1,2),
+        },
+
+        
+        {TextureFace(2,2),//lmossy stone
+        TextureFace(2,2),
+        TextureFace(2,2),
+        },
+
+        
+        {TextureFace(3,2),//cool stone
+        TextureFace(3,2),
+        TextureFace(3,2),
         }
     };
 
