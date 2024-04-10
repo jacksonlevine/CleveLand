@@ -1,5 +1,6 @@
 #include "voxelworld.h"
 
+
 void VoxelWorld::locallySetBlock(BlockCoord coord, uint32_t block) {
     ChunkCoord cc(
         std::floor(static_cast<float>(coord.x) / chunkWidth),
@@ -74,7 +75,7 @@ void VoxelWorld::setBlockAndQueueRerender(BlockCoord coord, uint32_t block) {
             udmMutex.unlock();   
             
             
-            if ((block & BlockInfo::BLOCK_ID_BITS) == 12){
+            if (std::find(BlockInfo::lights.begin(), BlockInfo::lights.end(), (block & BlockInfo::BLOCK_ID_BITS)) != BlockInfo::lights.end()){
 //                 udmMutex.lock();  
               
 //                 userDataMap.at(chunkToReb).insert_or_assign(placePoint, selectedBlockID);
@@ -188,7 +189,7 @@ takenCareOfChunkMutex.lock();
                 }
                 takenCareOfChunkMutex.unlock();
         }else
-        if(blockIDHere == 12) {
+        if(((std::find(BlockInfo::lights.begin(), BlockInfo::lights.end(), blockIDHere) != BlockInfo::lights.end()))) {
             //     udmMutex.lock();  
             
             // if(userDataMap.find(rayResult.chunksToRebuild.front()) == userDataMap.end()) {
@@ -769,6 +770,82 @@ void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool im
                         }
 
                         tuvs.insert(tuvs.end(), ladderUVs.begin(), ladderUVs.end());
+                    } else
+                    if(block == 19) {
+
+                        static std::vector<float> postUVs = PostInfo::getPostUVs();
+                        int direction = BlockInfo::getDirectionBits(flags);
+
+                        int modelIndex = direction;
+
+                        float blockLightVal = 0.0f;
+                        auto segIt = lightMap.find(coord);
+                        if(segIt != lightMap.end()) {
+                            for(LightRay& ray : segIt->second.rays) {
+                                blockLightVal = std::min(blockLightVal + ray.value, 16.0f);
+                            }
+                        }
+                        
+                        int index = 0;
+                        for(float vert : PostInfo::postModels[modelIndex]) {
+                            float thisvert = 0.0f;
+                            if(index == 0){
+                                thisvert = vert + coord.x;
+                            } else
+                            if(index == 1){
+                                thisvert = vert + coord.y;
+                            } else
+                            if(index == 2){
+                                thisvert = vert + coord.z;
+                            } else 
+                            if(index == 3) {
+                                thisvert = vert + blockLightVal;
+                            } else {
+                                thisvert = vert;
+                            }
+                            tverts.push_back(thisvert);
+                            index = (index + 1) % 5;
+                        }
+
+                        tuvs.insert(tuvs.end(), postUVs.begin(), postUVs.end());
+                    } else
+                    if(block == 20) {
+
+                        static std::vector<float> torchUVs = TorchInfo::getTorchUVs();
+                        int direction = BlockInfo::getDirectionBits(flags);
+
+                        int modelIndex = direction;
+
+                        float blockLightVal = 0.0f;
+                        auto segIt = lightMap.find(coord);
+                        if(segIt != lightMap.end()) {
+                            for(LightRay& ray : segIt->second.rays) {
+                                blockLightVal = std::min(blockLightVal + ray.value, 16.0f);
+                            }
+                        }
+                        
+                        int index = 0;
+                        for(float vert : TorchInfo::torchModels[modelIndex]) {
+                            float thisvert = 0.0f;
+                            if(index == 0){
+                                thisvert = vert + coord.x;
+                            } else
+                            if(index == 1){
+                                thisvert = vert + coord.y;
+                            } else
+                            if(index == 2){
+                                thisvert = vert + coord.z;
+                            } else 
+                            if(index == 3) {
+                                thisvert = vert + blockLightVal;
+                            } else {
+                                thisvert = vert;
+                            }
+                            tverts.push_back(thisvert);
+                            index = (index + 1) % 5;
+                        }
+
+                        tuvs.insert(tuvs.end(), torchUVs.begin(), torchUVs.end());
                     } else
                     if(block == 13) {
 
@@ -1547,7 +1624,7 @@ void VoxelWorld::lightPassOnChunk(ChunkCoord chunkCoord, std::unordered_map<Bloc
                                 BlockCoord originWeRemoving = ray.origin;
 
                                 depropogateLightOriginIteratively(originWeRemoving, &implicatedChunks, lightMap);
-                                if(blockAtMemo(originWeRemoving, memo) == 12) {
+                                if(std::find(BlockInfo::lights.begin(), BlockInfo::lights.end(), blockAtMemo(originWeRemoving, memo) & BlockInfo::BLOCK_ID_BITS) != BlockInfo::lights.end()) {
                                     lightSources.insert(originWeRemoving);
                                 }
                             }
@@ -1559,7 +1636,7 @@ void VoxelWorld::lightPassOnChunk(ChunkCoord chunkCoord, std::unordered_map<Bloc
                     }
                     lightMapMutex.unlock();
 
-                    if(blockAtMemo(coord, memo) == 12) {
+                    if(std::find(BlockInfo::lights.begin(), BlockInfo::lights.end(), blockAtMemo(coord, memo) & BlockInfo::BLOCK_ID_BITS) != BlockInfo::lights.end()) {
                         lightSources.insert(coord);
                     }
                 }

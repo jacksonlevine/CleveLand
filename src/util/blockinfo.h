@@ -29,8 +29,10 @@ public:
         0.3f,//red
         1.3f,//brick
         1.3f,//moss
-        1.3f //cool stone
+        1.3f, //cool stone
 
+        0.7f, //post
+        0.3f,//red
     };
     inline static std::vector<std::vector<TextureFace>> texs = {
         {TextureFace(0,0),//top
@@ -116,6 +118,20 @@ public:
         {TextureFace(3,2),//cool stone
         TextureFace(3,2),
         TextureFace(3,2),
+        },
+
+        
+        {TextureFace(5,1),//post
+        TextureFace(5,1),
+        TextureFace(5,1),
+        }
+
+        ,
+
+        
+        {TextureFace(5,2),//post
+        TextureFace(5,2),
+        TextureFace(5,2),
         }
     };
 
@@ -124,11 +140,15 @@ public:
     };
 
     inline static std::vector<int> semiTransparents = {
-        7, 11, 14
+        7, 11, 14, 19, 20
     };
 
     inline static std::vector<int> lights = {
-        12
+        12, 20
+    };
+
+    inline static std::vector<int> placeInside = {
+        0, 2
     };
 
     inline static uint32_t BLOCK_ID_BITS = 0b0000'0000'0000'0000'1111'1111'1111'1111;

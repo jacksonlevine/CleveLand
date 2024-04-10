@@ -20,13 +20,14 @@ class VoxelWorld;
 #include "../util/random.h"
 #include "../util/blockinfo.h"
 #include "../game/specialblocks/door.h"
+#include "../game/specialblocks/post.h"
 #include <atomic>
 #include "../util/lightinfo.h"
 #include <GLFW/glfw3.h>
 #include <stack>
 #include "specialblocks/chest.h"
 #include "specialblocks/ladder.h"
-
+#include "specialblocks/torch.h"
 #include "../soundfxsystem.h"
 
 

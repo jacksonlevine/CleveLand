@@ -2563,7 +2563,7 @@ void Game::castBreakRay() {
 
            
         }else
-        if(blockIDHere == 12) {
+        if((std::find(BlockInfo::lights.begin(), BlockInfo::lights.end(), blockIDHere) != BlockInfo::lights.end())) {
             if(rayResult.chunksToRebuild.size() > 0) {
             //     voxelWorld.udmMutex.lock();  
             
@@ -2775,7 +2775,7 @@ void Game::castPlaceRay() {
 
 
             BlockCoord placePoint(rayResult.blockHit.x+hitNormal.x, rayResult.blockHit.y+hitNormal.y, rayResult.blockHit.z+hitNormal.z);
-            if(voxelWorld.blockAt(placePoint) != 0) {
+            if(std::find(BlockInfo::placeInside.begin(), BlockInfo::placeInside.end(), (voxelWorld.blockAt(placePoint) & BlockInfo::BLOCK_ID_BITS)) == BlockInfo::placeInside.end()) {
                 return;
             }
             if(placePoint == BlockCoord(std::round(camera->position.x), std::round(camera->position.y-1), std::round(camera->position.z)) ||
@@ -2882,6 +2882,57 @@ if(inMultiplayer)  {
     (*mpBlockSetFunc)(placePoint.x, placePoint.y, placePoint.z, chestID);  
 } else {
      voxelWorld.setBlock(placePoint, chestID);
+     auto chunkIt = voxelWorld.takenCareOfChunkSpots.find(chunkToReb);
+                    if(chunkIt != voxelWorld.takenCareOfChunkSpots.end()) {
+                        
+                        BlockChunk *chunk = chunkIt->second;
+
+
+                        while(!voxelWorld.deferredChunkQueue.push(chunk)) {
+
+                        }
+
+                    }
+}
+                   
+                    
+                
+            } else
+            if(selectedBlockID == 20) { //lantern torch
+                static std::vector<BlockCoord> neighborAxes = {
+                    BlockCoord(1,0,0),
+                    BlockCoord(0,0,1),
+                    BlockCoord(1,0,0),
+                    BlockCoord(0,0,1),
+                };
+
+                
+                    uint32_t torchID = 20;
+
+                    float diffX = camera->position.x - placePoint.x;
+                    float diffZ = camera->position.z - placePoint.z;
+
+                    int direction = 0;
+
+                    if (std::abs(diffX) > std::abs(diffZ)) {
+                        // The player is primarily aligned with the X-axis
+                        direction = diffX > 0 ? /*Plus X*/1 : /*Minus X*/3;
+                    } else {
+                        // The player is primarily aligned with the Z-axis
+                        direction = diffZ > 0 ? /*Plus Z*/2 : /*Minus Z*/0;
+                    }
+
+                    BlockInfo::setDirectionBits(torchID, direction);
+
+
+// voxelWorld.udmMutex.lock();  
+              
+//                     voxelWorld.userDataMap.at(chunkToReb).insert_or_assign(placePoint, chestID);
+// voxelWorld.udmMutex.unlock();   
+if(inMultiplayer)  {
+    (*mpBlockSetFunc)(placePoint.x, placePoint.y, placePoint.z, torchID);  
+} else {
+     voxelWorld.setBlock(placePoint, torchID);
      auto chunkIt = voxelWorld.takenCareOfChunkSpots.find(chunkToReb);
                     if(chunkIt != voxelWorld.takenCareOfChunkSpots.end()) {
                         
@@ -3041,7 +3092,7 @@ if(inMultiplayer) {
                     
                 }
             } else 
-            if (selectedBlockID == 12){
+            if (((std::find(BlockInfo::lights.begin(), BlockInfo::lights.end(), selectedBlockID) != BlockInfo::lights.end()))){
 //                 voxelWorld.udmMutex.lock();  
               
 //                 voxelWorld.userDataMap.at(chunkToReb).insert_or_assign(placePoint, selectedBlockID);
