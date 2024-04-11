@@ -17,7 +17,6 @@ void saveSignWordsToFile(){
 
 void loadSignWordsFromFile(){
     signWords.clear();
-    if(std::filesystem::exists("signwords")) {
         std::ifstream file("signwords");
         std::string line;
         int lineIndex = 0;
@@ -54,9 +53,7 @@ void loadSignWordsFromFile(){
             
             lineIndex++;
         }
-    } else {
-        saveSignWordsToFile();
-    }
+
 }
 
 
@@ -64,7 +61,6 @@ void loadSignWordsFromFile(){
 
 void loadSignWordsFromString(std::string& signString){
     signWords.clear();
-    if(std::filesystem::exists("signwords")) {
         std::istringstream file(signString);
         std::string line;
         int lineIndex = 0;
@@ -101,7 +97,5 @@ void loadSignWordsFromString(std::string& signString){
             
             lineIndex++;
         }
-    } else {
-        saveSignWordsToFile();
-    }
+
 }

@@ -1,1 +1,2 @@
 python updatescript.py
+pause
