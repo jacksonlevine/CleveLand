@@ -21,6 +21,7 @@
 
 #include "chat/chatstuff.h"
 #include "mobtype.h"
+#include "game/signwords.h"
 
 using UUID = boost::uuids::uuid;
 
@@ -47,8 +48,26 @@ enum MessageType {
     TimeUpdate,
     TellYouYourID,
     MobUpdate,
-    MobUpdateBatch
+    MobUpdateBatch,
+    StringMessage,
+    RequestSignsString,
+    SignsString
 };
+
+enum StringMessageType {
+    SignPlace,
+    Check
+};
+
+struct StringMsg {
+    StringMessageType type;
+    int x;
+    int y;
+    int z;
+    char word[256];
+    uint32_t id;
+};
+
 
 
 struct MobComponent {
@@ -123,6 +142,8 @@ struct NameMessage {
 
 NameMessage createNameMessage(int id, std::string name, size_t length);
 
+StringMsg createStringMessage(StringMessageType type, int x, int y, int z, std::string word, uint32_t id);
+
 
 void clientStringToPlayerList(std::vector<OtherPlayer> &out, std::string in);
 
@@ -152,14 +173,18 @@ public:
     void connect();
     void disconnect();
     void processMessage(Message* message);
-
+ void sendString(const StringMsg& message);
 
     inline static std::atomic<bool> shouldRunReceiveLoop = false;
     inline static std::atomic<bool> shouldRunSendLoop = false;
 
     inline static std::atomic<bool> receivedWorld = false;
+    inline static std::atomic<bool> receivedPlayers = false;
+    inline static std::atomic<bool> receivedSigns = false;
 
     tcp::socket socket_;
+    tcp::socket string_socket_; // Second socket for StringMsg messages
+    boost::asio::io_context::strand strand_;
 
 private:
     boost::asio::io_context& io_context_;

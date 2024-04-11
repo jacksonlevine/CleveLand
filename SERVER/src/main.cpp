@@ -20,6 +20,7 @@
 #include <glm/glm.hpp>
 #include <stdlib.h>
 #include <time.h>
+#include "signwords.h"
 
 using namespace boost::asio;
 using namespace boost::asio::ip;
@@ -50,14 +51,23 @@ enum MessageType {
     TellYouYourID,
     MobUpdate,
     MobUpdateBatch,
-    SignUpdate
+    StringMessage,
+    RequestSignsString,
+    SignsString
 };
 
-struct SignMsg {
+enum StringMessageType {
+    SignPlace,
+    Check
+};
+
+struct StringMsg {
+    StringMessageType type;
     int x;
     int y;
     int z;
-    char word[128];
+    char word[256];
+    uint32_t id;
 };
 
 
@@ -141,6 +151,24 @@ void printHex(const std::string& str) {
         std::printf("%02x ", static_cast<unsigned char>(c));
     }
     std::cout << std::endl;
+}
+StringMsg createStringMessage(StringMessageType type, int x, int y, int z, std::string word, uint32_t id) {
+    StringMsg msg;
+    msg.x = x;
+    msg.y = y;
+    msg.z = z;
+    msg.id = id;
+
+    if(word.size() < sizeof(char) * 250) {
+            std::copy(word.begin(), word.end(), msg.word);
+            msg.word[word.size()] = '\0';
+    } else {
+            std::copy(word.begin(), word.begin() + sizeof(char) * 250, msg.word);
+            msg.word[250] = '\0';
+    }
+
+    return msg;
+    
 }
 
 
@@ -233,6 +261,12 @@ std::string getMessageTypeString(Message& m) {
             return std::string("MobUpdate");
         case MessageType::MobUpdateBatch:
             return std::string("MobUpdateBatch");
+        case MessageType::StringMessage:
+            return std::string("StringMessage");
+        case MessageType::RequestSignsString:
+            return std::string("RequestSignsString");
+        case MessageType::SignsString:
+            return std::string("SignsString");
     }
 }
 
@@ -242,9 +276,16 @@ std::chrono::steady_clock::time_point lastTimeCheckedForOldUsers = std::chrono::
 
 class TCPServer {
 public:
-    TCPServer(io_context* io_context, unsigned short port)
-        : acceptor_(*io_context, tcp::endpoint(tcp::v4(), port)), io_context(io_context) {
+    TCPServer(io_context* io_context, unsigned short port, unsigned short string_port)
+        : acceptor_(*io_context, tcp::endpoint(tcp::v4(), port)), io_context(io_context),
+        string_acceptor_(*io_context, tcp::endpoint(tcp::v4(), string_port)) {
+        
+        // Log the endpoints
+        std::cout << "Main acceptor listening on: " << acceptor_.local_endpoint() << std::endl;
+        std::cout << "String acceptor listening on: " << string_acceptor_.local_endpoint() << std::endl;
+
         start_accept();
+        start_string_accept();
     }
 
 private:
@@ -268,6 +309,26 @@ private:
         });
     }
 
+    void start_string_accept() {
+    auto socket = std::make_shared<tcp::socket>(*io_context);
+
+    string_acceptor_.async_accept(*socket, [this, socket](const boost::system::error_code& error) {
+        if (!error) {
+            // Handle the connection for string messages
+            std::cout << "String socket is a go\n";
+            handle_string_connection(socket);
+        } else {
+            // Log the error
+            std::cerr << "Error accepting string connection: " << error.message() << "\n";
+        }
+
+        // Continue accepting new connections
+        start_string_accept();
+    });
+}
+
+
+
     void handle_connection2(std::shared_ptr<tcp::socket> socket) {
         std::thread([socket]() {
             try {
@@ -284,6 +345,81 @@ private:
             }
         }).detach();
     }
+
+
+    void handle_string_connection(std::shared_ptr<tcp::socket> socket) {
+
+         std::cout << "Reading string fuckig socket \n";
+
+
+        // Create a new thread to handle the connection
+        std::thread([this, client_socket = socket]() mutable {
+            try {
+                bool run = true;
+                while(run) {
+
+
+                    StringMsg message;
+
+
+           
+
+                    boost::asio::read(*client_socket, boost::asio::buffer(&message, sizeof(StringMsg)));
+                    
+                        auto now = std::chrono::steady_clock::now();
+                        
+                        std::cout << "Received: string message from " << std::to_string(message.id) << "\n";
+
+
+
+                        if(message.type == StringMessageType::SignPlace) {
+                            //ADD SIGN STRING
+                            BlockCoord coord(message.x, message.y, message.z);
+                            signWords.insert_or_assign(coord, std::string(message.word));
+                            saveSignWordsToFile();
+
+                        }
+
+
+
+
+
+
+
+
+
+                        {
+
+                            std::lock_guard<std::mutex> lock(CLIENTS_LOCK);
+
+                             for (auto&[key, value] : CLIENTS) {
+                                 
+                                Message m = createMessage(MessageType::StringMessage, 0, 0, 0, 0);
+                                boost::asio::write(*(value.socket), boost::asio::buffer(&m, sizeof(Message)));
+                                boost::asio::write(*(value.socket), boost::asio::buffer(&message, sizeof(StringMsg)));    
+                                
+                            }
+                            
+                        }
+
+
+                }
+                   
+            } catch (const std::exception &e) {
+                std::cerr << "Error in string connection thread: " << e.what() << "\n";
+            }
+
+        }).detach();
+    }
+
+
+
+
+
+
+
+
+    
 
     void handle_connection(std::shared_ptr<tcp::socket> socket) {
 
@@ -395,13 +531,29 @@ private:
                                 static_cast<uint32_t>(message.info));
                             world._saveWorldToFile(worldPath);
                         }
+
+                        if(message.type == MessageType::RequestSignsString) {
+
+                            Message m = createMessage(MessageType::SignsString, 0, 0, 0, signWordsString.size());
+
+                            boost::asio::write(*client_socket, boost::asio::buffer(&m, sizeof(Message)));
+
+                            std::cout << "Sending sign string of size " << std::to_string(signWordsString.size())
+                            << "\n";
+                            std::cout << "Signs string: \n" <<
+                            signWordsString << "\n";
+                            
+                            boost::asio::write(*client_socket, boost::asio::buffer(signWordsString));
+
+                        }
+                        
                         
 
 
                         
                         
                         if(message.type != MessageType::RequestWorldString && message.type != MessageType::RequestPlayerList && 
-                        message.type != MessageType::Heartbeat   && message.type != MessageType::Disconnect) {
+                        message.type != MessageType::Heartbeat   && message.type != MessageType::Disconnect && message.type  != MessageType::RequestSignsString) {
                             if(message.type == MessageType::PlayerMove) {
                                 //If its a player move, set the info field to the id
                                 message.info = currentID;
@@ -492,6 +644,7 @@ private:
 
     inline static int currentID = 0;
     tcp::acceptor acceptor_;
+    tcp::acceptor string_acceptor_;
 };
 
 std::mutex TIME_LOCK;
@@ -709,7 +862,7 @@ int main() {
 
     try {
         io_context io_context;
-        TCPServer server(&io_context, 6969);
+        TCPServer server(&io_context, 6969, 6968);
 
         servo = &server;
         TimeOfDay tod(0.0f, std::string("time"), &server);

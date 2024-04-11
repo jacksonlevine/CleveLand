@@ -436,7 +436,8 @@ grounded(true), io_context()
             Message m = createMessage(MessageType::BlockSet, x, y, z, b);
             
             client->send(m);
-        } 
+
+        }
     };
     this->mpBlockSetFunc = &mpBlockSetFunc;
 
@@ -1796,11 +1797,10 @@ void Game::goToMultiplayerWorldsMenu() {
 
 void Game::goToSignTypeMenu(BlockCoord signPos) {
 
-    static std::string SIGN_BUFFER;
     static BlockCoord sp;
 
     SIGN_BUFFER = std::string("");
-    glfwSetCursorPos(window, 0, 0);
+    
 
     sp = signPos;
 
@@ -1828,6 +1828,9 @@ void Game::goToSignTypeMenu(BlockCoord signPos) {
         camera->setFocused(true);
         currentGuiButtons = nullptr;
         updateThese.clear();
+
+        StringMsg strm = createStringMessage(StringMessageType::SignPlace, sp.x, sp.y, sp.z, SIGN_BUFFER, MY_ID);
+        client->sendString(strm);
     });
 
 
@@ -1838,6 +1841,7 @@ void Game::goToSignTypeMenu(BlockCoord signPos) {
     };
 
     camera->setFocused(false);
+    glfwSetCursorPos(window, 0, 0);
 
     for(GUIElement* button : buttons) {
         rebuildGUILDisplayData(button);
@@ -2290,7 +2294,8 @@ void Game::goToMultiplayerWorld() {
         client->connect();
         
         client->receivedWorld.store(false);
-
+        client->receivedSigns.store(false);
+        client->receivedPlayers.store(false);
         
         client->start();
         inMultiplayer = true;
@@ -2301,8 +2306,8 @@ void Game::goToMultiplayerWorld() {
 
 
 
-        std::this_thread::sleep_for(std::chrono::seconds(1));
-        receive_thread_promise.get_future().get();
+        //std::this_thread::sleep_for(std::chrono::seconds(1));
+        //receive_thread_promise.get_future().get();
     } catch (std::exception& e) {
         std::cout << "Error: " << e.what() << "\n";
         connected = false;
@@ -2325,22 +2330,40 @@ void Game::goToMultiplayerWorld() {
         initialChunksRendered = 0;
         loadRendering = true;
 
-        
+        std::cout << "Got  to here pre 2\n";
 
         while(!client->receivedWorld.load()) {
             std::this_thread::sleep_for(std::chrono::seconds(1));
         }
 
+        //Now the world is received
         Message m = createMessage(MessageType::RequestPlayerList, 0, 0, 0, 0);
         client->send(m);
 
-        //Now the world is received
+        
+        while(!client->receivedPlayers.load()) {
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+        }
+
+        std::cout << "Got  to here2\n";
+
+        // //Now the players are received
+        // Message m2 = createMessage(MessageType::RequestSignsString, 0, 0, 0, 0);
+        // client->send(m2);
+
+        // while(!client->receivedSigns.load()) {
+        //     std::this_thread::sleep_for(std::chrono::seconds(1));
+        // }
+        //Now the signs are received
+        
         inMultiplayer = true;
         voxelWorld.populateChunksAndGeometryStores(registry, viewDistance);
         std::lock_guard<std::mutex> guard(GUIMutex);
         updateThese.clear();
         currentGuiButtons = nullptr;
         loadOrCreateSaveGame("multiplayer");
+
+        std::cout << "Got  to here3\n";
 
         voxelWorld.runChunkThread.store(true);
         voxelWorld.chunkUpdateThread = std::thread([this](){
@@ -2356,6 +2379,8 @@ void Game::goToMultiplayerWorld() {
 
         inGame = true;
         audioFaders[2].down();
+
+        std::cout << "Got  to here4\n";
 
         shouldRunHeadCoveredLoop.store(true);
 
@@ -2386,6 +2411,8 @@ void Game::exitMultiplayer() {
     client->stop();
     client->disconnect();
     client->receivedWorld.store(false);
+    client->receivedPlayers.store(false);
+    client->receivedSigns.store(false);
     shouldRunHeadCoveredLoop.store(false);
     if(headCoveredLoop.joinable()) {
         headCoveredLoop.join();

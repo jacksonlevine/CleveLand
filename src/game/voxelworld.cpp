@@ -306,6 +306,268 @@ takenCareOfChunkMutex.lock();
 
 }
 
+void VoxelWorld::justQueueRerender(BlockCoord coord, uint32_t block) {
+    
+    ChunkCoord cc(
+        std::floor(static_cast<float>(coord.x) / chunkWidth),
+        std::floor(static_cast<float>(coord.z) / chunkWidth)
+    );
+
+
+    if(block != 0) {
+        
+        uint32_t blockBitsHere = blockAt(coord);
+        uint32_t blockIDHere = blockBitsHere & BlockInfo::BLOCK_ID_BITS;
+        
+
+            udmMutex.lock();  
+           
+            if(userDataMap.find(cc) == userDataMap.end()) {
+                userDataMap.insert_or_assign(cc, 
+                std::unordered_map<BlockCoord, unsigned int, IntTupHash>());
+            }
+            udmMutex.unlock();     
+            glm::vec3 blockHit(coord.x, coord.y, coord.z);
+
+            BlockCoord placePoint(coord.x, coord.y, coord.z);
+            
+            ChunkCoord chunkToReb(
+                static_cast<int>(std::floor(static_cast<float>(placePoint.x)/chunkWidth)),
+                static_cast<int>(std::floor(static_cast<float>(placePoint.z)/chunkWidth)));
+            udmMutex.lock();  
+              
+            if(userDataMap.find(chunkToReb) == userDataMap.end()) {
+                userDataMap.insert_or_assign(chunkToReb, std::unordered_map<BlockCoord, unsigned int, IntTupHash>());
+            }
+
+            udmMutex.unlock();   
+            
+            
+            if (std::find(BlockInfo::lights.begin(), BlockInfo::lights.end(), (block & BlockInfo::BLOCK_ID_BITS)) != BlockInfo::lights.end()){
+//                 udmMutex.lock();  
+              
+//                 userDataMap.at(chunkToReb).insert_or_assign(placePoint, selectedBlockID);
+// udmMutex.unlock();   
+
+
+
+                takenCareOfChunkMutex.lock();
+                auto chunkIt = takenCareOfChunkSpots.find(chunkToReb);
+                if(chunkIt != takenCareOfChunkSpots.end()) {
+                    
+                    BlockChunk *chunk = chunkIt->second;
+
+
+                    while(!userPowerQueue.push(chunk)) {
+
+                    }
+
+                }
+                takenCareOfChunkMutex.unlock();
+            }else {
+
+                std::set<BlockChunk *> implicated;
+                lightMapMutex.lock();
+                for(BlockCoord& neigh : BlockInfo::neighbors) {
+                    
+                    auto segIt = lightMap.find(coord + neigh);
+                    if(segIt != lightMap.end()) {
+                        
+                        for(LightRay& ray : segIt->second.rays) {
+                            ChunkCoord chunkOfOrigin(
+                                std::floor(static_cast<float>(ray.origin.x)/chunkWidth),
+                                std::floor(static_cast<float>(ray.origin.z)/chunkWidth)
+                            );
+                            takenCareOfChunkMutex.lock();
+                            auto chunkIt = takenCareOfChunkSpots.find(chunkOfOrigin);
+                            if(chunkIt != takenCareOfChunkSpots.end()){
+                                implicated.insert(chunkIt->second);
+                            }
+                            takenCareOfChunkMutex.unlock();
+                                
+                        }
+                        
+                    }
+                }
+                lightMapMutex.unlock();
+                for(BlockChunk * pointer : implicated) {
+                    while(!lightUpdateQueue.push(pointer)) {
+
+                    }
+                    //std::cout << "Doing this\n";
+                }
+
+// udmMutex.lock();  
+           
+
+//                 userDataMap.at(chunkToReb).insert_or_assign(placePoint, selectedBlockID);
+//  udmMutex.unlock();     
+                takenCareOfChunkMutex.lock();
+                auto chunkIt = takenCareOfChunkSpots.find(chunkToReb);
+                if(chunkIt != takenCareOfChunkSpots.end()) {
+                    
+                    BlockChunk *chunk = chunkIt->second;
+
+
+                    while(!userPowerQueue.push(chunk)) {
+
+                    }
+
+                }
+                takenCareOfChunkMutex.unlock();
+
+                
+
+        }
+    }
+    else
+    if(block == 0) {
+        uint32_t blockBitsHere = blockAt(coord);
+        uint32_t blockIDHere = blockBitsHere & BlockInfo::BLOCK_ID_BITS;
+        if(blockIDHere == 11) {
+            int top = DoorInfo::getDoorTopBit(blockBitsHere);
+            BlockCoord otherHalf;
+            if(top == 1) {
+                otherHalf = coord + BlockCoord(0, -1, 0);
+            } else {
+                otherHalf = coord + BlockCoord(0, 1, 0);
+            }
+
+            // udmMutex.lock();  
+            
+            // userDataMap.at(rayResult.chunksToRebuild.front()).insert_or_assign(otherHalf, 0);    
+            // userDataMap.at(rayResult.chunksToRebuild.front()).insert_or_assign(rayResult.blockHit, 0);
+
+            //  udmMutex.unlock();
+
+takenCareOfChunkMutex.lock();
+            auto chunkIt = takenCareOfChunkSpots.find(cc);
+                if(chunkIt != takenCareOfChunkSpots.end()) {
+                    
+                    BlockChunk *chunk = chunkIt->second;
+
+                    while(!userPowerQueue.push(chunk)) {
+
+                    }
+
+                }
+                takenCareOfChunkMutex.unlock();
+        }else
+        if(((std::find(BlockInfo::lights.begin(), BlockInfo::lights.end(), blockIDHere) != BlockInfo::lights.end()))) {
+            //     udmMutex.lock();  
+            
+            // if(userDataMap.find(rayResult.chunksToRebuild.front()) == userDataMap.end()) {
+            //     userDataMap.insert_or_assign(rayResult.chunksToRebuild.front(), 
+            //     std::unordered_map<BlockCoord, unsigned int, IntTupHash>());
+            // }
+            //        blockBreakParticles(rayResult.blockHit, 25);
+            // userDataMap.at(rayResult.chunksToRebuild.front()).insert_or_assign(rayResult.blockHit, 0);
+
+            //      udmMutex.unlock();   
+
+                // blockBreakParticles(coord, 25);
+
+takenCareOfChunkMutex.lock();
+                    auto chunkIt = takenCareOfChunkSpots.find(cc);
+                    if(chunkIt != takenCareOfChunkSpots.end()) {
+                        //std::cout << "it's here" << "\n";
+                      //  std::cout << "fucking index:" << chunkIt->second.geometryStorePoolIndex << "\n";
+                       // rebuildChunk(chunkIt->second, chunkIt->second.position, true);
+
+
+                       BlockChunk *chunk = chunkIt->second;
+
+
+                       while(!userPowerQueue.push(chunk)) {
+
+                       }
+
+
+                    }
+                    takenCareOfChunkMutex.unlock();
+
+
+        } else
+         {
+    //         udmMutex.lock();  
+        
+    //         if(userDataMap.find(rayResult.chunksToRebuild.front()) == userDataMap.end()) {
+    //             userDataMap.insert_or_assign(rayResult.chunksToRebuild.front(), 
+    //             std::unordered_map<BlockCoord, unsigned int, IntTupHash>());
+    //         }
+    //                blockBreakParticles(rayResult.blockHit, 25);
+    //         userDataMap.at(rayResult.chunksToRebuild.front()).insert_or_assign(rayResult.blockHit, 0);
+            
+    // udmMutex.unlock();    
+                // blockBreakParticles(rayResult.blockHit, 25);
+
+                lightMapMutex.lock();
+                std::set<BlockChunk *> implicated;
+                for(BlockCoord& neigh : BlockInfo::neighbors) {
+                    auto segIt = lightMap.find(coord + neigh);
+                    if(segIt != lightMap.end()) {
+                        
+                        for(LightRay& ray : segIt->second.rays) {
+                            ChunkCoord chunkOfOrigin(
+                                std::floor(static_cast<float>(ray.origin.x)/chunkWidth),
+                                std::floor(static_cast<float>(ray.origin.z)/chunkWidth)
+                            );
+                            takenCareOfChunkMutex.lock();
+                            auto chunkIt = takenCareOfChunkSpots.find(chunkOfOrigin);
+                            if(chunkIt != takenCareOfChunkSpots.end()){
+                                implicated.insert(chunkIt->second);
+                            }
+                                takenCareOfChunkMutex.unlock();
+                        }
+                        
+                    }
+                }
+                lightMapMutex.unlock();
+                for(BlockChunk * pointer : implicated) {
+                    while(!lightUpdateQueue.push(pointer)) {
+
+                    }
+                }
+                
+
+
+
+
+                takenCareOfChunkMutex.lock();
+                    auto chunkIt = takenCareOfChunkSpots.find(cc);
+                    if(chunkIt != takenCareOfChunkSpots.end()) {
+                        //std::cout << "it's here" << "\n";
+                      //  std::cout << "fucking index:" << chunkIt->second.geometryStorePoolIndex << "\n";
+                       // rebuildChunk(chunkIt->second, chunkIt->second.position, true);
+
+
+                       BlockChunk *chunk = chunkIt->second;
+
+
+                       while(!userPowerQueue.push(chunk)) {
+
+                       }
+
+
+                    }
+                    takenCareOfChunkMutex.unlock();
+
+        }
+
+
+
+
+
+
+
+
+
+
+    }
+
+
+}
+
 
 void VoxelWorld::runStep(float deltaTime) {
     static float timer = 0.0f;
