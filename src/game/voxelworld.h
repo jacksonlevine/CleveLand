@@ -28,6 +28,7 @@ class VoxelWorld;
 #include "specialblocks/chest.h"
 #include "specialblocks/ladder.h"
 #include "specialblocks/torch.h"
+#include "specialblocks/sign.h"
 #include "../soundfxsystem.h"
 
 

@@ -49,7 +49,15 @@ enum MessageType {
     TimeUpdate,
     TellYouYourID,
     MobUpdate,
-    MobUpdateBatch
+    MobUpdateBatch,
+    SignUpdate
+};
+
+struct SignMsg {
+    int x;
+    int y;
+    int z;
+    char word[128];
 };
 
 

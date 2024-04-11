@@ -39,6 +39,7 @@
 #include "chat/chatstuff.h"
 #include "util/cameraposition.h"
 #include "mobtype.h"
+#include "game/signwords.h"
 
 extern std::string VERSIONSTRING;
 
@@ -263,6 +264,8 @@ public:
     void goToConfirmDeleteWorld(int worldNum);
 
     void goToSettingsMenu();
+
+    void goToSignTypeMenu(BlockCoord signPos);
 
     inline static bool changingViewDistance = false;
 

@@ -771,6 +771,44 @@ void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool im
 
                         tuvs.insert(tuvs.end(), ladderUVs.begin(), ladderUVs.end());
                     } else
+                    if(block == 21) {
+                        //sign                  
+                        int direction = BlockInfo::getDirectionBits(flags);
+                        std::vector<std::vector<float>> signModel = SignInfo::getSignModel(coord, direction);
+                        
+
+                        float blockLightVal = 0.0f;
+                        auto segIt = lightMap.find(coord);
+                        if(segIt != lightMap.end()) {
+                            for(LightRay& ray : segIt->second.rays) {
+                                blockLightVal = std::min(blockLightVal + ray.value, 16.0f);
+                            }
+                        }
+
+                        
+                        int index = 0;
+                        for(float vert : signModel[0]) {
+                            float thisvert = 0.0f;
+                            if(index == 0){
+                                thisvert = vert + coord.x;
+                            } else
+                            if(index == 1){
+                                thisvert = vert + coord.y;
+                            } else
+                            if(index == 2){
+                                thisvert = vert + coord.z;
+                            } else 
+                            if(index == 3) {
+                                thisvert = vert + blockLightVal;
+                            } else {
+                                thisvert = vert;
+                            }
+                            tverts.push_back(thisvert);
+                            index = (index + 1) % 5;
+                        }
+
+                        tuvs.insert(tuvs.end(), signModel[1].begin(), signModel[1].end());
+                    } else
                     if(block == 19) {
 
                         static std::vector<float> postUVs = PostInfo::getPostUVs();
@@ -928,7 +966,7 @@ void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool im
                                 if(block == 2 && blockAtMemo(coord + BlockCoord(0,1,0), memo) != 2) {
                                     blockShift = -0.125f;
                                     blockBottomShift = 0.125f;
-                                    bottomTextureShift = 2/288.0f;
+                                    bottomTextureShift = 2/544.0f;
                                 }
 
                                 

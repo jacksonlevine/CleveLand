@@ -6,11 +6,12 @@
 #include "../../util/vertexutils.h"
 #include "../../util/chunkcoord.h"
 #include "../signwords.h"
+#include "../../gui/glyphface.h"
 
 class SignInfo {
 public:
 
-    inline static std::vector<float> getSignUVs() {
+    inline static std::vector<float> getSignBaseUVs() {
         static TextureFace face(10,1);
 
         std::vector<float> signUVs = {
@@ -64,19 +65,30 @@ public:
             baseSignModel,
             rotateCoordinatesAroundYNegative90(baseSignModel, 1),
             rotateCoordinatesAroundYNegative90(baseSignModel, 2),
-            rotateCoordinatesAroundYNegative90(baseSignModel, 3),
+            rotateCoordinatesAroundYNegative90(baseSignModel, 3), 
             
     };
 
 
 
 
+    //0 is verts and 1 is uvs
+    inline static std::vector<std::vector<float>> getSignModel(BlockCoord where, int direction) {
+        std::vector<std::vector<float>> model;
 
-    inline static std::vector<float> getSignModel(BlockCoord where, int direction) {
-        std::vector<float>& thisBase = signModels[direction];
+        std::vector<float> verts;
+        std::vector<float> uvs;
 
-        glm::vec3 coord1(thisBase[0],thisBase[1],thisBase[2] );
-        glm::vec3 coord2(thisBase[5],thisBase[6],thisBase[7] );
+
+        std::vector<float> baseUVs = getSignBaseUVs();
+
+
+        verts.insert(verts.end(), baseSignModel.begin(), baseSignModel.end());
+        uvs.insert(uvs.end(), baseUVs.begin(), baseUVs.end());
+
+
+        glm::vec3 coord1(baseSignModel[0],baseSignModel[1],baseSignModel[2] );
+        glm::vec3 coord2(baseSignModel[5],baseSignModel[6],baseSignModel[7] );
 
         glm::vec3 dir = coord2 - coord1;  //The right hand direction of the sign in this orientation
 
@@ -90,24 +102,54 @@ public:
         
 
 
-        glm::vec3 s(-0.5f, 0.5f, 0.36);
+        glm::vec3 s(0.5f, 0.5f, 0.36);
 
         if(signWordIt != signWords.end()) {
             std::string word = signWordIt->second;
 
-
+            GlyphFace g;
             for(int i = 0; i < word.length(); i++) {
                 char letter = word[i];
-                float xpos = s.x + ((i % lettersPerRow) * glyphWidth);
-                
+                float xpos = s.x - ((i % lettersPerRow) * glyphWidth);
+                float ypos = s.y - (std::floor(static_cast<float>(i) / static_cast<float>(lettersPerRow)))*glyphWidth;
+
+                g.setCharCode(static_cast<int>(letter));
+
+                verts.insert(verts.end(), {
+                    xpos, ypos,           s.z, 0.0f, 16.0f,
+                    xpos-glyphWidth, ypos, s.z, 0.0f, 16.0f,
+                    xpos-glyphWidth, ypos-glyphWidth, s.z, 0.0f, 16.0f,
+
+                    xpos-glyphWidth, ypos-glyphWidth, s.z, 0.0f, 16.0f,
+                    xpos, ypos-glyphWidth, s.z, 0.0f, 16.0f,
+                    xpos, ypos,           s.z, 0.0f, 16.0f,
+                });
+
+                uvs.insert(uvs.end(), {
+
+                    g.tl.x, g.tl.y,     g.tl.x, g.tl.y,
+                     g.tr.x, g.tr.y,     g.tl.x, g.tl.y, 
+                     g.br.x, g.br.y,     g.tl.x, g.tl.y,
+
+                     g.br.x, g.br.y,     g.tl.x, g.tl.y, 
+                     g.bl.x, g.bl.y,     g.tl.x, g.tl.y, 
+                     g.tl.x, g.tl.y,     g.tl.x, g.tl.y, 
+                });
             }
 
 
         }
 
+
+        if(direction > 0) {
+            verts = rotateCoordinatesAroundYNegative90(verts, direction);
+        }
         
 
+        model.push_back(verts);
+        model.push_back(uvs);
 
+        return model;
 
     }
 

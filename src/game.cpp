@@ -1793,6 +1793,61 @@ void Game::goToMultiplayerWorldsMenu() {
     currentGuiButtons = &buttons;
 }
 
+
+void Game::goToSignTypeMenu(BlockCoord signPos) {
+
+    static std::string SIGN_BUFFER;
+    static BlockCoord sp;
+
+    SIGN_BUFFER = std::string("");
+    glfwSetCursorPos(window, 0, 0);
+
+    sp = signPos;
+
+    static auto b1 = new GUIButton(0.0f, 0.0f, "What to put on this sign:", 0.0f, 1.0f, [](){
+            
+        });
+
+    static auto b2 = new GUITextInput(0.0f, -0.1f, "", 0.7f, 2.0, [this](){
+        std::lock_guard<std::mutex> guard(GUIMutex);
+        updateThese.clear();
+        updateThese.insert({std::string("signtype"), (*currentGuiButtons).at(1)});
+    }, SIGN_BUFFER);
+
+
+    static auto b3 = new GUIButton(0.0f, -0.4f, "Accept", 0.0f, 3.0f, [this](){
+        signWords.insert_or_assign(sp, std::string(SIGN_BUFFER.c_str()));
+        std::cout << "Putting words " << SIGN_BUFFER << " at " << std::to_string(sp.x) << " " << std::to_string(sp.y) << " " << std::to_string(sp.z) << "\n";
+        uint32_t blockHere = voxelWorld.blockAt(sp);
+        if(inMultiplayer) {
+            (*mpBlockSetFunc)(sp.x, sp.y, sp.z, blockHere);
+        } else {
+            voxelWorld.setBlock(sp, blockHere);
+        }
+        camera->firstMouse = true;
+        camera->setFocused(true);
+        currentGuiButtons = nullptr;
+        updateThese.clear();
+    });
+
+
+    static std::vector<GUIElement*> buttons = {
+        b1,
+        b2,
+        b3,
+    };
+
+    camera->setFocused(false);
+
+    for(GUIElement* button : buttons) {
+        rebuildGUILDisplayData(button);
+        button->uploaded = false;
+    }
+    std::lock_guard<std::mutex> guard(GUIMutex);
+    updateThese.clear();
+    currentGuiButtons = &buttons;
+}
+
 void Game::goToSingleplayerWorldsMenu() {
 
     static auto button1 = new GUIButton(0.0f, 0.2f, "World 1", 0.55f, 1.0f, [this](){
@@ -2361,8 +2416,8 @@ if(!inMainLoop) {
 
         glm::vec2 leftStart(-width/2.0f, -height/2.0f);
 
-        TextureFace blank(0,1);
-        TextureFace full(1,1);
+        GUITextureFace blank(0,1);
+        GUITextureFace full(1,1);
 
         std::vector<float> displayData = {
             leftStart.x,                leftStart.y,        full.bl.x,  full.bl.y,  -1.0f,
@@ -2894,6 +2949,59 @@ if(inMultiplayer)  {
 
                     }
 }
+                   
+                    
+                
+            } else
+            if(selectedBlockID == 21) {
+                static std::vector<BlockCoord> neighborAxes = {
+                    BlockCoord(1,0,0),
+                    BlockCoord(0,0,1),
+                    BlockCoord(1,0,0),
+                    BlockCoord(0,0,1),
+                };
+
+                
+                    uint32_t signID = 21;
+
+                    float diffX = camera->position.x - placePoint.x;
+                    float diffZ = camera->position.z - placePoint.z;
+
+                    int direction = 0;
+
+                    if (std::abs(diffX) > std::abs(diffZ)) {
+                        // The player is primarily aligned with the X-axis
+                        direction = diffX > 0 ? /*Plus X*/1 : /*Minus X*/3;
+                    } else {
+                        // The player is primarily aligned with the Z-axis
+                        direction = diffZ > 0 ? /*Plus Z*/2 : /*Minus Z*/0;
+                    }
+
+                    BlockInfo::setDirectionBits(signID, direction);
+
+
+// voxelWorld.udmMutex.lock();  
+              
+//                     voxelWorld.userDataMap.at(chunkToReb).insert_or_assign(placePoint, chestID);
+// voxelWorld.udmMutex.unlock();   
+if(inMultiplayer)  {
+    (*mpBlockSetFunc)(placePoint.x, placePoint.y, placePoint.z, signID);  
+} else {
+     voxelWorld.setBlock(placePoint, signID);
+     auto chunkIt = voxelWorld.takenCareOfChunkSpots.find(chunkToReb);
+                    if(chunkIt != voxelWorld.takenCareOfChunkSpots.end()) {
+                        
+                        BlockChunk *chunk = chunkIt->second;
+
+
+                        while(!voxelWorld.deferredChunkQueue.push(chunk)) {
+
+                        }
+
+                    }
+}
+
+goToSignTypeMenu(placePoint);
                    
                     
                 
@@ -3520,7 +3628,7 @@ void Game::initializeShaders() {
                 float dy = abs(TexCoord.y - TexBase.y);
 
                 // Check if the fragment is within the bounds of the quad
-                if (dx > 0.05555555555555555555555555555 || dy > 0.05555555555555555555555555555) {
+                if (dx > 0.02941176470588235294117647058824 || dy > 0.02941176470588235294117647058824) {
                     discard; // Discard the fragment if its outside the quad
                 }
 
@@ -3745,17 +3853,17 @@ void Game::initializeShaders() {
 
 
 
-                vec2 baseUV = vec2(mod(blockID, 16.0f)/16.0f, 1.0f - floor(blockID/16.0f));
+                vec2 baseUV = vec2(mod(blockID, 16.0f) * 0.03308823529411764705882352941176f, 1.0f - floor((blockID/16.0f) * 0.52941176470588235294117647058824f));
 
                 // Selecting UV based on cornerID
                 if (cornerID == 0.0) {
                     tcoord = baseUV;
                 } else if (cornerID == 1.0) {
-                    tcoord = vec2(baseUV.x + (1.0f/64.0f), baseUV.y);
+                    tcoord = vec2(baseUV.x + (1.0f/128.0f), baseUV.y);
                 } else if (cornerID == 2.0) {
-                    tcoord = vec2(baseUV.x + (1.0f/64.0f), baseUV.y - (1.0f/64.0f));
+                    tcoord = vec2(baseUV.x + (1.0f/128.0f), baseUV.y - (1.0f/128.0f));
                 } else if (cornerID == 3.0) {
-                    tcoord = vec2(baseUV.x, baseUV.y - (1.0f/64.0f));
+                    tcoord = vec2(baseUV.x, baseUV.y - (1.0f/128.0f));
                 }
             }
         )glsl",
@@ -3803,7 +3911,7 @@ void Game::initializeShaders() {
                 gl_Position = mvp * vec4((position + blockPosition) , 1.0);
 
 
-                TexCoord = uv + vec2(breakPhase/16.0f, 0);
+                TexCoord = uv + vec2(breakPhase * 0.03308823529411764705882352941176f, 0);
 
             }
         )glsl",
@@ -4688,7 +4796,7 @@ void Game::bindWireFrameGeometryNoUpload(GLuint vbov) {
 
 void Game::stepTextureAnim() {
 
-    int width = 288;
+    int width = 544;
     int chans = 4;
 
 
@@ -4702,7 +4810,7 @@ void Game::stepTextureAnim() {
     //Water
     glm::ivec4 baseColor(0, 45, 100, 140);
     glm::ivec2 coord(0,0);
-    int startY = 270, startX = 36, squareSize = 18;
+    int startY = 256+270, startX = 36, squareSize = 18;
     for(int y = startY; y < startY + squareSize; ++y) {
         for(int x = startX; x < startX + squareSize; ++x) {
             int i = (y * width + x) * chans;

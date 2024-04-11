@@ -2,7 +2,7 @@
 #define GUIELEMENT_H
 #include "glyphface.h"
 #include <vector>
-#include "../util/textureface.h"
+#include "../util/guitextureface.h"
 #include <gl/glew.h>
 #include <GLFW/glfw3.h>
 #include <functional>

@@ -32,96 +32,97 @@ public:
         1.3f, //cool stone
 
         0.7f, //post
-        0.3f,//red
+        0.3f,//torch,
+        1.0f, //sign
     };
     inline static std::vector<std::vector<TextureFace>> texs = {
         {TextureFace(0,0),//top
         TextureFace(0,0),//sides
         TextureFace(0,0),//bottom
         }, 
-        {TextureFace(1,0),//sand
+        {TextureFace(1,0),//sand1
         TextureFace(1,0),
         TextureFace(1,0),
         }, 
-        {TextureFace(2,0),//water
+        {TextureFace(2,0),//water2
         TextureFace(2,0),
         TextureFace(2,0),
         }, 
-        {TextureFace(3,1),//grass
+        {TextureFace(3,1),//grass3
         TextureFace(3,0),
         TextureFace(4,0),
         }, 
-        {TextureFace(4,0),//dirt
+        {TextureFace(4,0),//dirt4
         TextureFace(4,0),
         TextureFace(4,0),
         },
-        {TextureFace(5,0),//rock
+        {TextureFace(5,0),//rock5
         TextureFace(5,0),
         TextureFace(5,0),
         },
-        {TextureFace(6,1),//wood
+        {TextureFace(6,1),//wood6
         TextureFace(6,0),
         TextureFace(6,1),
         },
-        {TextureFace(7,0),//leaves
+        {TextureFace(7,0),//leaves7
         TextureFace(7,0),
         TextureFace(7,0),
         },
-        {TextureFace(8,0),//glass
+        {TextureFace(8,0),//glass8
         TextureFace(8,0),
         TextureFace(8,0),
         },
-        {TextureFace(9,0),//smooth stone
+        {TextureFace(9,0),//smooth stone 9
         TextureFace(9,0),
         TextureFace(9,0),
         },
-        {TextureFace(10,0),//planks
+        {TextureFace(10,0),//planks 10
         TextureFace(10,0),
         TextureFace(10,0),
         },
-        {TextureFace(11,0),//door bottom
+        {TextureFace(11,0),//door bottom  11
         TextureFace(11,0),
         TextureFace(11,0),
-        },
-        {TextureFace(12,1),//light
+        }, 
+        {TextureFace(12,1),//light 12
         TextureFace(12,1),
         TextureFace(12,1),
         },
-        {TextureFace(13,0),//chest
+        {TextureFace(13,0),//chest 13
         TextureFace(13,0),
         TextureFace(13,0),
         },
-        {TextureFace(0,1),//ladder
+        {TextureFace(0,1),//ladder 14
         TextureFace(0,1),
         TextureFace(0,1),
         },
 
         
-        {TextureFace(0,2),//red block
+        {TextureFace(0,2),//red block 15
         TextureFace(0,2),
         TextureFace(0,2),
         },
 
         
-        {TextureFace(1,2),//brick block
+        {TextureFace(1,2),//brick block 16
         TextureFace(1,2),
         TextureFace(1,2),
         },
 
         
-        {TextureFace(2,2),//lmossy stone
+        {TextureFace(2,2),//lmossy stone 17
         TextureFace(2,2),
         TextureFace(2,2),
         },
 
         
-        {TextureFace(3,2),//cool stone
+        {TextureFace(3,2),//cool stone 18
         TextureFace(3,2),
         TextureFace(3,2),
         },
 
         
-        {TextureFace(5,1),//post
+        {TextureFace(5,1),//post 19
         TextureFace(5,1),
         TextureFace(5,1),
         }
@@ -129,9 +130,16 @@ public:
         ,
 
         
-        {TextureFace(5,2),//post
+        {TextureFace(5,2),//torch 20
         TextureFace(5,2),
         TextureFace(5,2),
+        }
+        ,
+
+        
+        {TextureFace(10,1),//sign 21
+        TextureFace(10,1),
+        TextureFace(10,1),
         }
     };
 
@@ -140,7 +148,7 @@ public:
     };
 
     inline static std::vector<int> semiTransparents = {
-        7, 11, 14, 19, 20
+        7, 11, 14, 19, 20, 21
     };
 
     inline static std::vector<int> lights = {

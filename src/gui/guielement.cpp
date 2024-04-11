@@ -90,12 +90,12 @@ void GUIButton::rebuildDisplayData() {
     glDeleteBuffers(1, &vbo);
     glGenBuffers(1, &vbo);
 
-    TextureFace leftEnd(0,0);
-    TextureFace rightEnd(1,0);
+    GUITextureFace leftEnd(0,0);
+    GUITextureFace rightEnd(1,0);
 
-    TextureFace middle(0,0);
-    middle.bl.x += textureWidth/2;
-    middle.tl.x += textureWidth/2;
+    GUITextureFace middle(0,0);
+    middle.bl.x += guiTextureWidth/2;
+    middle.tl.x += guiTextureWidth/2;
     
     float lettersCount = std::strlen(label.c_str());
     float unitWidth = (32.0f/GUILwindowWidth)*2;
@@ -220,14 +220,14 @@ void GUITextInput::rebuildDisplayData() {
     glDeleteBuffers(1, &vbo);
     glGenBuffers(1, &vbo);
 
-    TextureFace leftEnd(0,2);
-    TextureFace rightEnd(1,2);
+    GUITextureFace leftEnd(0,2);
+    GUITextureFace rightEnd(1,2);
 
-    TextureFace textThing(2,2);
+    GUITextureFace textThing(2,2);
 
-    TextureFace middle(0,2);
-    middle.bl.x += textureWidth/2;
-    middle.tl.x += textureWidth/2;
+    GUITextureFace middle(0,2);
+    middle.bl.x += guiTextureWidth/2;
+    middle.tl.x += guiTextureWidth/2;
     
     float lettersCount = std::strlen(label.c_str());
     float unitWidth = (32.0f/GUILwindowWidth)*2;

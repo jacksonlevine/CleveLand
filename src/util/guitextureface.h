@@ -1,31 +1,30 @@
-#ifndef TEXTUREFACE_H
-#define TEXTUREFACE_H
-#pragma once
+#ifndef GUITEXTUREFACE_H
+#define GUITEXTUREFACE_H
 
 #include <glm/glm.hpp>
 
-struct TextureFace {
+struct GUITextureFace {
 public:
     glm::vec2 tl;
     glm::vec2 bl;
     glm::vec2 br;
     glm::vec2 tr;
     
-    TextureFace(
+    GUITextureFace(
         glm::vec2 tl,
         glm::vec2 bl,
         glm::vec2 br,
         glm::vec2 tr
     );
-    TextureFace(
+    GUITextureFace(
         int x,
         int y
     );
 };
 
-extern const float onePixel;
-extern const float textureWidth;
-extern const float texSlotWidth;
+extern const float oneGuiPixel;
+extern const float guiTextureWidth;
+extern const float oneOver16;
 
 
 #endif
