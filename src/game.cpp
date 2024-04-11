@@ -1814,6 +1814,8 @@ void Game::goToSignTypeMenu(BlockCoord signPos) {
         updateThese.insert({std::string("signtype"), (*currentGuiButtons).at(1)});
     }, SIGN_BUFFER);
 
+    b2->label = std::string("");
+
 
     static auto b3 = new GUIButton(0.0f, -0.4f, "Accept", 0.0f, 3.0f, [this](){
         signWords.insert_or_assign(sp, std::string(SIGN_BUFFER.c_str()));
@@ -1854,6 +1856,12 @@ void Game::goToSignTypeMenu(BlockCoord signPos) {
     std::lock_guard<std::mutex> guard(GUIMutex);
     updateThese.clear();
     currentGuiButtons = &buttons;
+
+    {
+        
+        updateThese.clear();
+        updateThese.insert({std::string("signtype"), (*currentGuiButtons).at(1)});
+    }
 }
 
 void Game::goToSingleplayerWorldsMenu() {
@@ -3032,6 +3040,8 @@ if(inMultiplayer)  {
                     }
 }
 
+clickedOnElement = 0.0f;
+mousedOverElement = 0.0f;
 goToSignTypeMenu(placePoint);
                    
                     
