@@ -49,7 +49,7 @@ enum MessageType {
     TellYouYourID,
     MobUpdate,
     MobUpdateBatch,
-    StringMessage,
+    SignUpdate,
     RequestSignsString,
     SignsString
 };
@@ -142,9 +142,6 @@ struct NameMessage {
 
 NameMessage createNameMessage(int id, std::string name, size_t length);
 
-StringMsg createStringMessage(StringMessageType type, int x, int y, int z, std::string word, uint32_t id);
-
-
 void clientStringToPlayerList(std::vector<OtherPlayer> &out, std::string in);
 
 extern std::vector<OtherPlayer> PLAYERS;
@@ -173,7 +170,6 @@ public:
     void connect();
     void disconnect();
     void processMessage(Message* message);
- void sendString(const StringMsg& message);
 
     inline static std::atomic<bool> shouldRunReceiveLoop = false;
     inline static std::atomic<bool> shouldRunSendLoop = false;
@@ -183,8 +179,6 @@ public:
     inline static std::atomic<bool> receivedSigns = false;
 
     tcp::socket socket_;
-    tcp::socket string_socket_; // Second socket for StringMsg messages
-    boost::asio::io_context::strand strand_;
 
 private:
     boost::asio::io_context& io_context_;

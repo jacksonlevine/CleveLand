@@ -1829,8 +1829,12 @@ void Game::goToSignTypeMenu(BlockCoord signPos) {
         currentGuiButtons = nullptr;
         updateThese.clear();
 
-        StringMsg strm = createStringMessage(StringMessageType::SignPlace, sp.x, sp.y, sp.z, SIGN_BUFFER, MY_ID);
-        client->sendString(strm);
+
+
+        Message m = createMessage(MessageType::SignUpdate, sp.x, sp.y, sp.z, SIGN_BUFFER.size());
+        client->send(m);
+        boost::asio::write(client->socket_, boost::asio::buffer(SIGN_BUFFER));
+
     });
 
 
@@ -2347,13 +2351,13 @@ void Game::goToMultiplayerWorld() {
 
         std::cout << "Got  to here2\n";
 
-        // //Now the players are received
-        // Message m2 = createMessage(MessageType::RequestSignsString, 0, 0, 0, 0);
-        // client->send(m2);
+        //Now the players are received
+        Message m2 = createMessage(MessageType::RequestSignsString, 0, 0, 0, 0);
+        client->send(m2);
 
-        // while(!client->receivedSigns.load()) {
-        //     std::this_thread::sleep_for(std::chrono::seconds(1));
-        // }
+        while(!client->receivedSigns.load()) {
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+        }
         //Now the signs are received
         
         inMultiplayer = true;
@@ -2980,7 +2984,7 @@ if(inMultiplayer)  {
                     
                 
             } else
-            if(selectedBlockID == 21) {
+            if(selectedBlockID == 21 || selectedBlockID == 22) {
                 static std::vector<BlockCoord> neighborAxes = {
                     BlockCoord(1,0,0),
                     BlockCoord(0,0,1),
@@ -2989,7 +2993,7 @@ if(inMultiplayer)  {
                 };
 
                 
-                    uint32_t signID = 21;
+                    uint32_t signID = selectedBlockID;
 
                     float diffX = camera->position.x - placePoint.x;
                     float diffZ = camera->position.z - placePoint.z;

@@ -73,7 +73,7 @@ public:
 
 
     //0 is verts and 1 is uvs
-    inline static std::vector<std::vector<float>> getSignModel(BlockCoord where, int direction) {
+    inline static std::vector<std::vector<float>> getSignModel(BlockCoord where, int direction, bool large = false) {
         std::vector<std::vector<float>> model;
 
         std::vector<float> verts;
@@ -94,7 +94,7 @@ public:
 
         auto signWordIt = signWords.find(where);
 
-        int lettersPerRow = 14;
+        int lettersPerRow = large ? 1 : 14;
 
 
 
@@ -108,7 +108,14 @@ public:
             std::string word = signWordIt->second;
 
             GlyphFace g;
-            for(int i = 0; i < word.length(); i++) {
+
+            int length;
+            if(large) {
+                length = 1;
+            } else {
+                length = word.length();
+            }
+            for(int i = 0; i < length; i++) {
                 char letter = word[i];
                 float xpos = s.x - ((i % lettersPerRow) * glyphWidth);
                 float ypos = s.y - (std::floor(static_cast<float>(i) / static_cast<float>(lettersPerRow)))*glyphWidth;

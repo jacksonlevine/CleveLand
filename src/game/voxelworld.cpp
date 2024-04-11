@@ -1033,10 +1033,10 @@ void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool im
 
                         tuvs.insert(tuvs.end(), ladderUVs.begin(), ladderUVs.end());
                     } else
-                    if(block == 21) {
+                    if(block == 21 || block == 22) {
                         //sign                  
                         int direction = BlockInfo::getDirectionBits(flags);
-                        std::vector<std::vector<float>> signModel = SignInfo::getSignModel(coord, direction);
+                        std::vector<std::vector<float>> signModel = SignInfo::getSignModel(coord, direction, block == 22);
                         
 
                         float blockLightVal = 0.0f;

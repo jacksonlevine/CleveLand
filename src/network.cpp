@@ -39,24 +39,6 @@ Message createMessage(MessageType type, float x, float y, float z, uint32_t info
     msg.rot = r;
     return msg;
 }
-StringMsg createStringMessage(StringMessageType type, int x, int y, int z, std::string word, uint32_t id) {
-    StringMsg msg;
-    msg.x = x;
-    msg.y = y;
-    msg.z = z;
-    msg.id = id;
-
-    if(word.size() < sizeof(char) * 250) {
-            std::copy(word.begin(), word.end(), msg.word);
-            msg.word[word.size()] = '\0';
-    } else {
-            std::copy(word.begin(), word.begin() + sizeof(char) * 250, msg.word);
-            msg.word[250] = '\0';
-    }
-
-    return msg;
-    
-}
 
 
 NameMessage createNameMessage(int id, std::string name, size_t length) {
@@ -205,17 +187,17 @@ std::string getMessageTypeString(Message& m) {
             return std::string("MobUpdate");
         case MessageType::MobUpdateBatch:
             return std::string("MobUpdateBatch");
-        case MessageType::StringMessage:
-            return std::string("StringMessage");
         case MessageType::RequestSignsString:
             return std::string("RequestSignsString");
         case MessageType::SignsString:
             return std::string("SignsString");
+        case MessageType::SignUpdate:
+            return std::string("SignUpdate");
     }
 }
 
 TCPClient::TCPClient(boost::asio::io_context& io_context, VoxelWorld *voxworld, std::function<void(float)> *gameTimeSet, glm::vec3 *cameraPos, std::atomic<float> * camRot)
-    : io_context_(io_context), socket_(io_context), string_socket_(io_context), voxelWorld(voxworld), setGameTime(gameTimeSet), cameraPos(cameraPos), camRot(camRot), strand_(io_context) {
+    : io_context_(io_context), socket_(io_context), voxelWorld(voxworld), setGameTime(gameTimeSet), cameraPos(cameraPos), camRot(camRot) {
 
     
 
@@ -282,11 +264,6 @@ void TCPClient::send(const Message& message) {
     boost::asio::write(socket_, boost::asio::buffer(&message, sizeof(Message)));
 }
 
-void TCPClient::sendString(const StringMsg& message) {
-    std::lock_guard<std::mutex> lock(WRITE_MUTEX);
-    boost::asio::write(string_socket_, boost::asio::buffer(&message, sizeof(StringMsg)));
-}
-
 void TCPClient::processMessage(Message* message) {
     
             if(message->type == MessageType::TellYouYourID) {
@@ -332,7 +309,7 @@ void TCPClient::processMessage(Message* message) {
 
 
             if (message->type == MessageType::SignsString) {
-                std::cout << "Expecting " << std::to_string(message->info) << " byte sign string\n";
+                std::cout << "Expecting " << std::to_string(message->info) << " byte signs string\n";
                 std::vector<char> ss_buffer(static_cast<size_t>(message->info) + 1, '\0');
                 boost::asio::read(socket_, boost::asio::buffer(ss_buffer, message->info));
 
@@ -341,23 +318,28 @@ void TCPClient::processMessage(Message* message) {
                     receivedString << "\n";
                 loadSignWordsFromString(receivedString);
                 receivedSigns.store(true);
-
+                for(auto &[key, val] : signWords) {
+                    std::cout << "Sign at " << std::to_string(key.x) << " " << std::to_string(key.y) << " " << std::to_string(key.z) << ": " << val << "\n";
+                    //voxelWorld->justQueueRerender(key, 21);
+                }
             }
 
 
 
 
 
-            if (message->type == MessageType::StringMessage) {
+            if (message->type == MessageType::SignUpdate) {
+
+                BlockCoord coord(message->x, message->y, message->z);
                 
-                StringMsg strmsg; 
-                boost::asio::read(socket_, boost::asio::buffer(&strmsg, sizeof(StringMsg)));
+                std::cout << "Expecting " << std::to_string(message->info) << " byte sign string\n";
+                std::vector<char> ss_buffer(static_cast<size_t>(message->info) + 1, '\0');
+                boost::asio::read(socket_, boost::asio::buffer(ss_buffer, message->info));
+                std::string receivedString(ss_buffer.data(), message->info);
 
-
-                if(strmsg.type == StringMessageType::SignPlace) {
-                    signWords.insert_or_assign(BlockCoord(strmsg.x, strmsg.y, strmsg.z), std::string(strmsg.word));
-                    voxelWorld->justQueueRerender(BlockCoord(strmsg.x, strmsg.y, strmsg.z), 21);
-                }
+                signWords.insert_or_assign(BlockCoord(coord), receivedString);
+                voxelWorld->justQueueRerender(coord, 21);
+                
             }
 
 
@@ -511,41 +493,27 @@ void TCPClient::receive() {
 
     try {
 
-        auto handle_receive = [this](tcp::socket* sock) {
-            auto buffer = std::make_shared<std::array<char, sizeof(Message)>>();
-            boost::asio::async_read(*sock, boost::asio::buffer(*buffer), 
-                [this, buffer](const boost::system::error_code& error, std::size_t /*bytes_transferred*/) {
-                    if (!error) {
-                        Message message;
-                        std::memcpy(&message, buffer->data(), sizeof(Message));
-                        
-                        if (rcvtpromisesat == false) {
-                            receive_thread_promise.set_value();
-                            rcvtpromisesat = true;
-                        }
+        Message message;
 
-                        if (message.type != PlayerMove && message.type != TimeUpdate) {
-                            //#ifdef PRINT_YOUR_STUFF
-                            std::cout << "Received: " << getMessageTypeString(message) << std::endl;
-                            //#endif
-                        }
+        boost::asio::read(socket_, boost::asio::buffer(&message, sizeof(Message)));
 
-                        processMessage(&message);
-                    } else {
-                        // Handle error (e.g., connection closed, read error)
-                        std::cerr << "Read error: " << error.message() << std::endl;
-                    }
-                }
-            );
-        };
-        handle_receive(&socket_);
 
-        // strand_.post([this, handle_receive]() {
-        //     handle_receive(socket_);
-        // });
-        // strand_.post([this, handle_receive]() {
-        //     handle_receive(string_socket_);
-        // });
+        if(rcvtpromisesat == false) {
+            receive_thread_promise.set_value();
+            rcvtpromisesat = true;
+        }
+            
+            
+        if(message.type != PlayerMove && message.type != TimeUpdate) {
+            #ifdef PRINT_YOUR_STUFF
+            std::cout << "Received: " << getMessageTypeString(message) << std::endl;
+            #endif
+        }
+
+
+        processMessage(&message);
+
+
 
 
     }

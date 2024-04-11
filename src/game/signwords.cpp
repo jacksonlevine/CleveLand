@@ -9,7 +9,7 @@ void saveSignWordsToFile(){
     std::ofstream outf("signwords", std::ios::trunc);
 
     for(auto &[key, val] : signWords) {
-        outf << std::to_string(key.x) << " " << std::to_string(key.x) << " " << std::to_string(key.x) << " " << val << "\n";
+        outf << std::to_string(key.x) << " " << std::to_string(key.y) << " " << std::to_string(key.z) << " " << val << "\n";
     }
 
     outf.close();
