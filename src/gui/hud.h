@@ -5,7 +5,7 @@
 #include <gl/glew.h>
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
-#include "../util/textureface.h"
+#include "../util/guitextureface.h"
 
 struct Hud {
 

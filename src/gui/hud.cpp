@@ -8,7 +8,7 @@ Hud::Hud() {
 void Hud::rebuildDisplayData() {
     float chImageWidth = 25;
 
-    TextureFace cht(2, 0);
+    GUITextureFace cht(2, 0);
 
     glm::vec2 chLowerLeft(-chImageWidth/windowWidth, -chImageWidth/windowHeight);
     float relHeight = chImageWidth/(windowHeight/2);

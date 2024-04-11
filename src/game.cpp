@@ -3,8 +3,326 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 #include <cmath>
+#include "portaudio.h"
+#include <sndfile.h>
+#include "util/fade.h"
+
+#include "chat/chat.h"
+
+std::string VERSIONSTRING;
+
+PaStream* sfxStream;
+PaStream* musicStream;
+
+float channels = 0;
+float samplerate = 0;
+
+SoundFXSystem sfs;
 
 //#define TIME_RENDER
+
+SoundEffect doorSound = sfs.add("assets/sfx/door.mp3");
+
+SoundEffectSeries doorSoundSeries{
+    {sfs.add("assets/sfx/door1.mp3"),
+    sfs.add("assets/sfx/door2.mp3"),}
+};
+
+SoundEffect stoneStep1 = sfs.add("assets/sfx/stonestep1.mp3");
+SoundEffect stoneStep2 = sfs.add("assets/sfx/stonestep2.mp3");
+SoundEffect stoneStep3 = sfs.add("assets/sfx/stonestep3.mp3");
+SoundEffect stoneStep4 = sfs.add("assets/sfx/stonestep4.mp3");
+
+SoundEffect ladderSound = sfs.add("assets/sfx/ladder.mp3");
+
+SoundEffect inventorySound = sfs.add("assets/sfx/inventory.mp3");
+SoundEffect inventoryClose = sfs.add("assets/sfx/inventoryclose.mp3");
+
+SoundEffect buttonHover = sfs.add("assets/sfx/buttonover.mp3");
+SoundEffect buttonPress = sfs.add("assets/sfx/buttonpress.mp3");
+
+SoundEffect pickInInventory = sfs.add("assets/sfx/pickininventory.mp3");
+SoundEffect placeInInventory = sfs.add("assets/sfx/placeininventory.mp3");
+
+bool MOVINGINWATER = false;
+bool HEAD_COVERED = false;
+
+SoundEffectSeries stoneStepSeries{
+    {stoneStep1, stoneStep2, stoneStep3, stoneStep4}
+};
+
+SoundEffectSeries stonePlaceSeries{
+    {sfs.add("assets/sfx/stoneplace1.mp3"),
+    sfs.add("assets/sfx/stoneplace2.mp3"),
+    sfs.add("assets/sfx/stoneplace3.mp3")}
+};
+
+SoundEffectSeries glassPlaceSeries{
+    {sfs.add("assets/sfx/glassplace1.mp3"),
+    sfs.add("assets/sfx/glassplace2.mp3"),
+    sfs.add("assets/sfx/glassplace3.mp3"),
+    sfs.add("assets/sfx/glassplace4.mp3")}
+};
+
+SoundEffectSeries plantPlaceSeries{
+    {sfs.add("assets/sfx/plantplace1.mp3"),
+    sfs.add("assets/sfx/plantplace2.mp3"),
+    sfs.add("assets/sfx/plantplace3.mp3")}
+};
+
+
+SoundEffectSeries grassStepSeries{
+    {sfs.add("assets/sfx/grassstep1.mp3"),
+    sfs.add("assets/sfx/grassstep2.mp3"),
+    sfs.add("assets/sfx/grassstep3.mp3"),
+    sfs.add("assets/sfx/grassstep4.mp3"),
+    sfs.add("assets/sfx/grassstep5.mp3"),
+    sfs.add("assets/sfx/grassstep6.mp3")}
+};
+
+
+SoundEffectSeries sandStepSeries{
+    {sfs.add("assets/sfx/sandstep1.mp3"),
+    sfs.add("assets/sfx/sandstep2.mp3"),
+    sfs.add("assets/sfx/sandstep3.mp3"),
+    sfs.add("assets/sfx/sandstep4.mp3"),
+    sfs.add("assets/sfx/sandstep5.mp3")}
+};
+
+SoundEffectSeries waterSeries{
+    {sfs.add("assets/sfx/water1.mp3"),
+    sfs.add("assets/sfx/water2.mp3"),
+    sfs.add("assets/sfx/water3.mp3"),
+    sfs.add("assets/sfx/water4.mp3"),
+    sfs.add("assets/sfx/water5.mp3")}
+};
+
+bool UNDERWATER_VIEW = false;
+
+std::vector<float> cricketAudio;
+size_t cricketAudioIndex = 0;
+
+std::vector<float> waterMoveAudio;
+size_t waterMoveIndex = 0;
+
+std::vector<float> songAudio;
+size_t songIndex = 0;
+float songLevel = 0.0f;
+
+
+std::vector<float> underWaterAudio;
+size_t underWaterIndex = 0;
+
+float waterMoveLevel = 0.0f;
+
+float CRICKET_VOLUME = 0.0f;
+
+
+#define FADERNUM 3
+Fader audioFaders[FADERNUM] = {
+    Fader(&waterMoveLevel, false, 0.1),
+    Fader(&CRICKET_VOLUME, false, 0.1),
+    Fader(&songLevel, false, 0.01),
+};
+
+void tickFaders() {
+    for(int i = 0; i < FADERNUM; i++) {
+        audioFaders[i].tick();
+    }
+}
+
+
+
+bool IN_GAME = false;
+
+float CRICKET_DULLING = 0.0f;
+
+
+
+
+static int musicCallback(const void* inputBuffer, void* outputBuffer,
+                         unsigned long framesPerBuffer,
+                         const PaStreamCallbackTimeInfo* timeInfo,
+                         PaStreamCallbackFlags statusFlags,
+                         void* userData) {
+    float* out = (float*)outputBuffer;
+
+
+            for (size_t i = 0; i < framesPerBuffer; ++i) {
+
+                    float chan1 = CRICKET_VOLUME * (((UNDERWATER_VIEW ) ? 0.0f : cricketAudio[cricketAudioIndex * 2])) + waterMoveLevel * (UNDERWATER_VIEW ? underWaterAudio[underWaterIndex * 2] : waterMoveAudio[waterMoveIndex * 2]);     // Left channel
+                    float chan2 = CRICKET_VOLUME * (((UNDERWATER_VIEW ) ? 0.0f : cricketAudio[cricketAudioIndex * 2 + 1])) + waterMoveLevel * (UNDERWATER_VIEW ? underWaterAudio[underWaterIndex * 2 + 1] : waterMoveAudio[waterMoveIndex * 2 + 1]) ; // Right channel
+
+                    chan1 += songLevel * songAudio[songIndex * 2];
+                    chan2 += songLevel * songAudio[songIndex * 2 + 1];
+
+                    *out++ = std::max(-1.0f, std::min(1.0f, chan1));
+                    *out++ = std::max(-1.0f, std::min(1.0f, chan2));
+
+                    cricketAudioIndex = (cricketAudioIndex + 1) % (cricketAudio.size() / 2);
+                    waterMoveIndex = (waterMoveIndex + 1) % (waterMoveAudio.size() / 2);
+                    underWaterIndex = (underWaterIndex + 1) % (underWaterAudio.size() / 2);
+                    songIndex = (songIndex + 1) % (songAudio.size() / 2);
+
+            }
+
+            
+    return paContinue;
+}
+
+std::function<void(int)> playSound = [](int block){
+    int blockID = (block & BlockInfo::BLOCK_ID_BITS);
+    if(blockID == 3) {
+        sfs.playNextInSeries(plantPlaceSeries);
+        return;
+    }
+    if(blockID == 5 || blockID == 9) {
+        sfs.playNextInSeries(stonePlaceSeries);
+        return;
+    }
+    if(blockID == 11) {
+        sfs.playNextInSeries(doorSoundSeries);
+        return;
+    }
+    if(blockID == 8 || blockID == 12) {
+        sfs.playNextInSeries(glassPlaceSeries);
+        return;
+    }
+    if(blockID == 2 && !UNDERWATER_VIEW) {
+        sfs.playNextInSeries(waterSeries);
+        return;
+    }
+    sfs.playNextInSeries(stonePlaceSeries);
+};
+
+static int sfxCallback(const void* inputBuffer, void* outputBuffer,
+                         unsigned long framesPerBuffer,
+                         const PaStreamCallbackTimeInfo* timeInfo,
+                         PaStreamCallbackFlags statusFlags,
+                         void* userData) {
+    float* out = (float*)outputBuffer;
+    std::fill(out, out + framesPerBuffer*2, 0.0f);
+    for(RingBuffer * rbuf : sfs.outputBuffers) {
+        if(rbuf->count > 0) {
+            float input[1024];
+            rbuf->readOneBuffer(input);
+            for (size_t i = 0; i < framesPerBuffer*2; i += 2) {
+                out[i] = std::max(-1.0f, std::min(1.0f, input[i] + out[i]));
+                out[i+1] = std::max(-1.0f, std::min(1.0f, input[i+1] + out[i+1]));
+            }
+        }
+
+        
+    }
+
+    return paContinue;
+}
+
+
+
+
+std::unordered_map<int, SoundEffectSeries> footstepSounds = {
+    {3, grassStepSeries},
+    {1, sandStepSeries}
+};
+
+
+void Game::playFootstepSound() {
+    uint32_t blockUnder = voxelWorld.blockAt(BlockCoord {
+            static_cast<int>(std::round(camera->position.x)),
+            static_cast<int>(std::round(camera->position.y-2)),
+            static_cast<int>(std::round(camera->position.z)),
+        });
+    uint32_t blockID = (blockUnder & BlockInfo::BLOCK_ID_BITS);
+    if(blockID != 0) {
+        if(footstepSounds.find(blockID) != footstepSounds.end()) {
+            sfs.playNextInSeries(footstepSounds.at(blockID));
+        } else {
+            sfs.playNextInSeries(stoneStepSeries);
+        }
+    }
+}
+
+
+void Game::footstepTimer() {
+    static float x = 0;
+    static float y = 0;
+    static float z = 0;
+
+          static bool previousMovingInWater = false;
+
+    if(std::fabs(camera->position.x - x) > 0.01 ||
+            std::fabs(camera->position.z - z) > 0.01 ) {
+                x = camera->position.x;
+                y = camera->position.y;
+                z = camera->position.z;
+
+                if(stepSoundTimer > footstepInterval) {
+                    
+                    playFootstepSound();
+                    stepSoundTimer = 0.0f;
+                } else {
+
+
+                    stepSoundTimer += deltaTime;
+                }
+
+          
+
+
+                if(inWater) {
+                        
+                        MOVINGINWATER = true;
+                } else {
+                    MOVINGINWATER = false;
+                }
+
+                
+        } else {
+            MOVINGINWATER = false;
+        }
+
+        if (previousMovingInWater != (MOVINGINWATER)) {
+                    if(MOVINGINWATER) {
+                        audioFaders[0].up();
+                    }else {
+                        audioFaders[0].down();
+                    }
+                    
+                    previousMovingInWater = MOVINGINWATER;
+                }
+
+        
+            
+
+}
+
+std::vector<float> loadAudioFile(const std::string& filename) {
+    SF_INFO sfinfo;
+    SNDFILE* sndfile = sf_open(filename.c_str(), SFM_READ, &sfinfo);
+    if (sndfile == nullptr) {
+        std::cerr << "Error opening audio file: " << filename << "\n";
+        return {};
+    }
+
+    samplerate = sfinfo.samplerate;
+    channels = sfinfo.channels;
+
+
+    std::vector<float> buffer(sfinfo.frames * sfinfo.channels);
+    long long numFramesRead = sf_readf_float(sndfile, buffer.data(), sfinfo.frames);
+
+    std::cout << "Num frames read: " << std::to_string(numFramesRead) << "\n";
+
+    if (numFramesRead < sfinfo.frames) {
+        std::cerr << "Error reading frames from audio file: " << filename << "\n";
+    }
+
+    sf_close(sndfile);
+    return buffer;
+}
+
+
 
 
 Game::Game() : lastFrame(0), focused(false), camera(nullptr),
@@ -24,20 +342,140 @@ collCage([this](BlockCoord b){
     return (blockIDHere != 0 && blockIDHere != 2);
 }),
 user(glm::vec3(0,0,0), glm::vec3(0,0,0)),
-grounded(true)
+grounded(true), io_context()
 {
+    static std::function<void(float)> setTimeFunc = [this](float t) {
+        timeOfDay = t;
+    };
+
+    cricketAudio = loadAudioFile("assets/sfx/crickets.mp3");
+    waterMoveAudio = loadAudioFile("assets/sfx/watermove.mp3");
+    underWaterAudio = loadAudioFile("assets/sfx/underwater.mp3");
+
+
+    songAudio = loadAudioFile("assets/music/clevelandmusic.mp3");
+    
+    PaError err;
+
+    Pa_Initialize();
+
+    PaStreamParameters outputParameters;
+    outputParameters.device = Pa_GetDefaultOutputDevice(); // Default output device
+    outputParameters.channelCount = channels; // Stereo output
+    outputParameters.sampleFormat = paFloat32; // 32-bit floating-point output
+    outputParameters.suggestedLatency = Pa_GetDeviceInfo(outputParameters.device)->defaultLowOutputLatency;
+    outputParameters.hostApiSpecificStreamInfo = NULL;
+
+     err = Pa_OpenStream(&sfxStream,
+                        NULL, // No input parameters, as we're only playing audio
+                        &outputParameters, // Output parameters
+                        samplerate, // Sample rate
+                        480, // Frames per buffer
+                        paClipOff, // Stream flags
+                        sfxCallback, // Callback function
+                        NULL); // User data
+    if (err != paNoError) {
+        std::cout << "Error opening sfxStream" << Pa_GetErrorText(err) << "\n";
+    }
+
+    err = Pa_StartStream(sfxStream);
+    if (err != paNoError) {
+        // Handle error
+    }
+
+
+    err = Pa_OpenStream(&musicStream,
+                        NULL, // No input parameters, as we're only playing audio
+                        &outputParameters, // Output parameters
+                        samplerate, // Sample rate
+                        480, // Frames per buffer
+                        paClipOff, // Stream flags
+                        musicCallback, // Callback function
+                        NULL); // User data
+    if (err != paNoError) {
+        std::cout << "Error opening musicStream" << Pa_GetErrorText(err) << "\n";
+    }
+
+        err = Pa_StartStream(musicStream);
+    if (err != paNoError) {
+        // Handle error
+    }
 
     windowWidth = 1280;
     windowHeight = 720;
     camera = new Camera3D(this);
+
+
+    client = new TCPClient(io_context, &voxelWorld, &setTimeFunc, &(camera->position), &camRot);
+
+
+    int opusErr;
+    theFuckinEncoderDude = opus_encoder_create(
+        static_cast<opus_int32>(SAMPLERATE),
+        1,
+        OPUS_APPLICATION_VOIP,
+        &opusErr
+    );
+
+    if(opusErr != OPUS_OK) {
+        std::cerr << "Error: Opus could not initialize." << '\n';
+    }
+
+    err = Pa_Initialize();
+    if(err == paNoError) {
+        std::cout << "Portaudio initialized." << '\n';
+    } else {
+    }
+
+    //promptForChoices();
+
+    std::cout << "Creating mp block set func \n";
+    static std::function<void(int,int,int,uint32_t)> mpBlockSetFunc = [this](int x,int y,int z,uint32_t b) {
+        if(inMultiplayer) {
+
+            Message m = createMessage(MessageType::BlockSet, x, y, z, b);
+            
+            client->send(m);
+        } 
+    };
+    this->mpBlockSetFunc = &mpBlockSetFunc;
+
+    voxelWorld.multiplayerBlockSetFunc = &mpBlockSetFunc;
+
+
+
+
+
     mouseSensitivity = 0.1;
     averageDeltaTime = 0.0f;
 
-    glfwInit();
-    window = glfwCreateWindow(windowWidth, windowHeight, "Untitled game", NULL, NULL);
+
+    std::cout << "Gonna try to init glfw \n";
+    int gi = glfwInit();
+
+    if(gi == GLFW_FALSE) {
+        std::cout << "Error initializing GLFW\n";
+    }
+      std::cout << "Gonna try to init window \n";
+    // glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    // glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    // glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+
+    // glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE); // Necessary for macOS
+
+    window = glfwCreateWindow(windowWidth, windowHeight, "CleveLand", NULL, NULL);
+    if(window == NULL) {
+        std::cout << "ERROR in create window \n";
+    }
     glfwMakeContextCurrent(window);
     this->setFocused(true);
-    glewInit();
+    GLenum er = glewInit();
+    if (GLEW_OK != er)
+    {
+    /* Problem: glewInit failed, something is seriously wrong. */
+    fprintf(stderr, "Error: %s\n", glewGetErrorString(err));
+
+    }
     glViewport(0, 0, windowWidth, windowHeight);
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
@@ -48,6 +486,22 @@ grounded(true)
     glDepthFunc(GL_LESS);
     initializeShaders();
     initializeTextures();
+
+
+    glfwSetCharCallback(window, [](GLFWwindow* win, unsigned int codepoint){
+        Game* instance = static_cast<Game*>(glfwGetWindowUserPointer(win));
+        if (instance) {
+            std::lock_guard<std::mutex> guard(GUIMutex);
+            if(instance->updateThese.size() > 0) {
+                for(auto [key, guiElement] : instance->updateThese) {
+                    updateGUIL(guiElement, KeyInput{false, static_cast<char>(codepoint), false});
+                }
+            }
+        }
+    });
+
+
+
     hud = new Hud();
     hud->rebuildDisplayData();
     //voxelWorld.populateChunksAndGeometryStores(registry);
@@ -63,10 +517,15 @@ grounded(true)
 
             
             draw();
-            
 
+
+            if(rightClickTimear > 0.0f) {
+                rightClickTimear = std::max(0.0f, rightClickTimear -= deltaTime);
+            }
+            
             glfwPollEvents();
-            updateTime();
+
+            updateCamRot();
             runPeriodicTick();
 
             static std::function<float(float, float, float)> gaussian = [](float x, float peak, float radius) {
@@ -80,8 +539,12 @@ grounded(true)
                 float peakHeight = exp(-pow(peak - peak, 2.0) / (2.0 * variance));
                 return b / peakHeight;
             };
-
+            
+            tickFaders();    
+            
             if(inGame) {
+                
+                
                 voxelWorld.runStep(deltaTime);
                 timeOfDay = std::fmod(timeOfDay + deltaTime, dayLength);
                 ambientBrightnessMult = std::max(0.05f, std::min(1.0f, gaussian(timeOfDay, dayLength/2.0f, dayLength/2.0f) * 1.3f));
@@ -89,6 +552,15 @@ grounded(true)
 
                 sunsetFactor = gaussian(timeOfDay, dayLength*(3.0f/4.0f), dayLength/16.0f);
                 sunriseFactor = gaussian(timeOfDay, dayLength/6.0f, dayLength/16.0f);
+                // Calculate the distance from timeOfDay to 0 and dayLength
+                float distanceToZero = timeOfDay;
+                float distanceToDayLength = dayLength - timeOfDay;
+
+                // Choose the closer peak (0 or dayLength) for the Gaussian curve
+                float cricketPeak = (distanceToZero < distanceToDayLength) ? 0.0f : dayLength;
+
+                // Calculate CRICKET_DULLING using the chosen peak
+                CRICKET_DULLING = gaussian(timeOfDay, cricketPeak, dayLength / 2.0f);
 
                 static float textureAnimInterval = 0.1f;
                 static float textureAnimTimer = 0.0f;
@@ -105,7 +577,6 @@ grounded(true)
         static float timer = 0.0f;
         drawSplashScreen();
         glfwPollEvents();
-        updateTime();
         if(timer > 2.0f) {
             loopFunc = &normalFunc;
         } else {
@@ -116,8 +587,10 @@ grounded(true)
     loopFunc = &splashFunc;
 
     std::vector<Setting> sets = {
-        Setting{std::string("viewDistance"), std::to_string(viewDistance)}
+        Setting{std::string("viewDistance"), std::to_string(viewDistance)},
+        Setting{std::string("serverIp"), TYPED_IN_SERVER_IP}
     };
+
     settings.loadOrSaveSettings(sets);
 
     for(Setting &set : sets) {
@@ -126,26 +599,63 @@ grounded(true)
             viewDistance = std::stoi(set.value);
         }
 
+        if(set.name == std::string("serverIp")) {
+            TYPED_IN_SERVER_IP = set.value;
+        }
+
+
     }
 
 
+
+}
+
+void Game::updateCamRot() {
+    glm::vec3 camDirNormalized = glm::normalize(camera->direction);
+    float rotationAngle = atan2(camera->direction.z, camera->direction.x);
+    camRot.store(rotationAngle);
+}
+
+
+void Game::checkAboveHeadThreadFunction() {
+    static glm::vec3 prevPos(0,0,0);
+    
+   while (shouldRunHeadCoveredLoop.load()) { 
+    
+    if(camera->position != prevPos) {
+        
+        bool headCov = false;
+        for(int i = std::floor(camera->position.y); i < std::floor(camera->position.y) + 10; i++) {
+            BlockCoord coord(std::round(camera->position.x), i, std::round(camera->position.z));
+            uint32_t block = voxelWorld.blockAt(coord);
+
+            uint32_t blockID = (block & BlockInfo::BLOCK_ID_BITS);
+            if(std::find(BlockInfo::semiTransparents.begin(), BlockInfo::semiTransparents.end(), blockID) == BlockInfo::semiTransparents.end() && blockID != 0) {
+                headCov = true;
+                headCovered.store(true);
+                break;
+            }
+        }
+
+        if(!headCov) {
+            headCovered.store(false);
+        }
+
+
+        prevPos = camera->position;
+    }
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+}
 
 }
 
 void Game::getAverageDelta() {
-    static int times = 0;
-    static float accum = 0.0f;
-    if(times < 100) {
-        accum += static_cast<float>(deltaTime);
-        times++;
-    } else {
-        averageDeltaTime = accum / 100;
-        times = 0;
-        accum = 0.0f;
-    }
+    averageDeltaTime = std::min(deltaTime, 0.02);
 }
 
 void Game::stepMovementAndPhysics() {
+
+    static bool wasNGrounded = false;
 
 
             if(initialTimer > 0.0f) {
@@ -162,6 +672,7 @@ void Game::stepMovementAndPhysics() {
                if(std::find(collCage.solid.begin(), collCage.solid.end(), FLOOR) == collCage.solid.end())
                 {
                     grounded = false;
+                    wasNGrounded = true;
                 } else {
                     if(leaning) {
                         leanSpot = glm::vec3(std::round(camera->position.x),
@@ -259,6 +770,10 @@ void Game::stepMovementAndPhysics() {
                     if(side == FLOOR)
                     {
                         grounded = true;
+                        if(wasNGrounded) {
+                            playFootstepSound();
+                            wasNGrounded = false;
+                        }
                     }
                     if(side == ROOF)
                     {
@@ -413,8 +928,12 @@ void Game::draw() {
     
     
     drawParticles();
+    if(inMultiplayer) {
+        drawPlayers(MobType::Player);
+        drawPlayers(MobType::Normal);
+    }
 
-
+    footstepTimer();
 
     glBindVertexArray(VAO);
     if(currentGuiButtons != nullptr) {
@@ -423,24 +942,24 @@ void Game::draw() {
 
         mousedOverElement = 0.0f;
 
-        for(GUIButton& button : *currentGuiButtons) {
+        for(GUIElement* button : *currentGuiButtons) {
             double xpos, ypos;
             glfwGetCursorPos(window, &xpos, &ypos);
-            if(xpos > button.screenPos.x * windowWidth &&
-            xpos < (button.screenPos.x + button.screenWidth) * windowWidth &&
-            ypos > button.screenPos.y * windowHeight &&
-            ypos < (button.screenPos.y + button.screenHeight) * windowHeight)
+            if(xpos > button->screenPos.x * windowWidth &&
+            xpos < (button->screenPos.x + button->screenWidth) * windowWidth &&
+            ypos > button->screenPos.y * windowHeight &&
+            ypos < (button->screenPos.y + button->screenHeight) * windowHeight)
             {
-                mousedOverElement = button.elementID;
+                mousedOverElement = button->elementID;
             }
 
-            if(!button.uploaded) {
-                bindMenuGeometry(button.vbo, button.displayData.data(), button.displayData.size());
-                button.uploaded = true;
+            if(!button->uploaded) {
+                bindMenuGeometry(button->vbo, button->displayData.data(), button->displayData.size());
+                button->uploaded = true;
             } else {
-                bindMenuGeometryNoUpload(button.vbo);
+                bindMenuGeometryNoUpload(button->vbo);
             }
-            glDrawArrays(GL_TRIANGLES, 0, button.displayData.size() / 5);
+            glDrawArrays(GL_TRIANGLES, 0, button->displayData.size() / 5);
         }
 
         GLuint moeLocation = glGetUniformLocation(menuShader->shaderID, "mousedOverElement");
@@ -501,7 +1020,7 @@ void Game::draw() {
             glDrawArrays(GL_TRIANGLES, 0, logoDisplayData.size()/5);
 
 
-            const char* message = "Version 0.0.3b";
+            const char* message = VERSIONSTRING.c_str();
 
             std::vector<float> displayData;
 
@@ -667,8 +1186,15 @@ void Game::stepChunkDraw() {
     );
     if(voxelWorld.blockAt(headCoord) == 2) {
         underWaterView = 1.0f;
+        UNDERWATER_VIEW = true;
     } else {
         underWaterView = 0.0f;
+        UNDERWATER_VIEW = false;
+    }
+    if(headCovered.load()) {
+        audioFaders[1].down();
+    } else {
+        audioFaders[1].up();
     }
 
     BlockCoord feetCoord(
@@ -683,18 +1209,23 @@ void Game::stepChunkDraw() {
         std::round(camera->position.z)
     );
 
-    static bool previousInWater  = false;
+    static bool previouslyInWater  = false;
 
     uint32_t blockUsersIn = voxelWorld.blockAt(feetCoord) & BlockInfo::BLOCK_ID_BITS;
     uint32_t blockUsersInLowered = voxelWorld.blockAt(feetCoord2) & BlockInfo::BLOCK_ID_BITS;
 
     if(blockUsersIn == 2) {
         inWater = true;
-        if(previousInWater != inWater) {
-            previousInWater = inWater;
+
+        footstepInterval = 1.0f;
+        if(previouslyInWater != inWater) {
+            previouslyInWater = inWater;
             splashyParticles(feetCoord2, 15);
+            sfs.playNextInSeries(waterSeries);
         }
-    } 
+    } else {
+        footstepInterval = 0.4f;
+    }
 
     if(blockUsersIn == 14) {
         inClimbable = true;
@@ -707,7 +1238,7 @@ void Game::stepChunkDraw() {
     if(blockUsersInLowered != 2)
     {
         inWater = false;
-        previousInWater = false;
+        previouslyInWater = false;
     }
 
 
@@ -726,10 +1257,87 @@ void Game::stepChunkDraw() {
     GLuint uwLoc = glGetUniformLocation(worldShader->shaderID, "underWater");
     glUniform1f(uwLoc, underWaterView);
 
+    CAMERA_POSITION = camera->position;
     voxelWorld.cameraPosition = camera->position;
     voxelWorld.cameraDirection = camera->direction;
 
     int poppedIndex = 0;
+    if(voxelWorld.userGeometryStoreQueue.pop(poppedIndex)) {
+
+            GeometryStore &geometryStore = voxelWorld.geometryStorePool[poppedIndex];
+            if(geometryStore.myLock.try_lock()) {
+                if(!registry.all_of<MeshComponent>(geometryStore.me)) {
+                    MeshComponent m;
+                    m.length = geometryStore.verts.size();
+                    bindWorldGeometry(
+                        m.vbov,
+                        m.vbouv,
+                        geometryStore.verts.data(),
+                        geometryStore.uvs.data(),
+                        geometryStore.verts.size(),
+                        geometryStore.uvs.size()
+                    );
+                    //Transparent stuff
+                    m.tlength = geometryStore.tverts.size();
+                    bindWorldGeometry(
+                        m.tvbov,
+                        m.tvbouv,
+                        geometryStore.tverts.data(),
+                        geometryStore.tuvs.data(),
+                        geometryStore.tverts.size(),
+                        geometryStore.tuvs.size()
+                    );
+                    registry.emplace<MeshComponent>(geometryStore.me, m);
+                } else {
+                    MeshComponent &m = registry.get<MeshComponent>(geometryStore.me);
+                    glDeleteBuffers(1, &m.vbov);
+                    glDeleteBuffers(1, &m.vbouv);
+                    glGenBuffers(1, &m.vbov);
+                    glGenBuffers(1, &m.vbouv);
+
+
+                    m.length = geometryStore.verts.size();
+                    bindWorldGeometry(
+                        m.vbov,
+                        m.vbouv,
+                        geometryStore.verts.data(),
+                        geometryStore.uvs.data(),
+                        geometryStore.verts.size(),
+                        geometryStore.uvs.size()
+                    );
+                    //Transparent stuff
+                    glDeleteBuffers(1, &m.tvbov);
+                    glDeleteBuffers(1, &m.tvbouv);
+                    glGenBuffers(1, &m.tvbov);
+                    glGenBuffers(1, &m.tvbouv);
+
+                    m.tlength = geometryStore.tverts.size();
+                    bindWorldGeometry(
+                        m.tvbov,
+                        m.tvbouv,
+                        geometryStore.tverts.data(),
+                        geometryStore.tuvs.data(),
+                        geometryStore.tverts.size(),
+                        geometryStore.tuvs.size()
+                    );
+                }
+                geometryStore.myLock.unlock();
+                if(loadRendering) {
+
+                    initialChunksRendered += 1;
+                    //std::cout << initialChunksRendered << "\n";
+                    if(initialChunksRendered >= numMustLoad) {
+                        //std::cout << "Done! Rendered " << numMustLoad << " chunks.\n";
+                        loadRendering = false;
+                    }
+                }
+            } else {
+                while(!voxelWorld.highPriorityGeometryStoreQueue.push(poppedIndex)) {
+
+                }
+            }
+
+    } else
     if(voxelWorld.highPriorityGeometryStoreQueue.pop(poppedIndex)) {
 
             GeometryStore &geometryStore = voxelWorld.geometryStorePool[poppedIndex];
@@ -920,19 +1528,47 @@ void Game::stepChunkDraw() {
 }
 
 void Game::displayEscapeMenu() {
-    camera->setFocused(false);
-    static std::vector<GUIButton> buttons = {
-        GUIButton(0.0f, 0.0f, "Save and exit to main menu", 0.0f, 1.0f, [this](){
+
+
+static auto button1 = new GUIButton(0.0f, 0.0f, "Save and exit to main menu", 0.0f, 1.0f, [this](){
             
             inGame = false;
-            voxelWorld.runChunkThread = false;
-            //voxelWorld.chunkUpdateThread.join();
-            saveGame(currentSingleplayerWorldPath.c_str());
+            voxelWorld.runChunkThread.store(false);
+            
+
+            if(voxelWorld.chunkUpdateThread.joinable()) {
+                voxelWorld.chunkUpdateThread.join();
+                std::cout << "Joined Voxelworld Thread\n";
+            }
+            if(voxelWorld.userChunkUpdateThread.joinable()) {
+                voxelWorld.userChunkUpdateThread.join();
+                std::cout << "Joined Voxelworld Thread\n";
+            }
+
+            if (inMultiplayer) {
+                exitMultiplayer();
+                std::cout << "Closed Client connection\n";
+            }
+            else {
+                saveGame(currentSingleplayerWorldPath.c_str());
+            }
+            
+            
             camera->setFocused(false);
+
+            voxelWorld.nudmMutex.lock();
+            voxelWorld.udmMutex.lock();     
 
             voxelWorld.userDataMap.clear();
             voxelWorld.nonUserDataMap.clear();
+
+            voxelWorld.nudmMutex.unlock();
+            voxelWorld.udmMutex.unlock();   
+
+voxelWorld.hashadlightMutex.lock();
+            
             voxelWorld.hasHadInitialLightPass.clear();
+voxelWorld.hashadlightMutex.unlock();
             int throwaway = 0;
             while(voxelWorld.geometryStoreQueue.pop(throwaway)) {
 
@@ -965,20 +1601,35 @@ void Game::displayEscapeMenu() {
             registry.clear();
 
             goToMainMenu();
-        }),
-        GUIButton(0.0f, -0.1f, "Settings", 0.0f, 3.0f, [this](){
+        });
+      static auto  button2 = new  GUIButton(0.0f, -0.1f, "Settings", 0.0f, 3.0f, [this](){
             goToSettingsMenu();
-        }),
-        GUIButton(0.0f, -0.2f, "Back to game", 0.0f, 2.0f, [this](){
+        });
+      static auto button3 = new  GUIButton(0.0f, -0.2f, "Back to game", 0.0f, 2.0f, [this](){
             camera->firstMouse = true;
             camera->setFocused(true);
+            std::lock_guard<std::mutex> guard(GUIMutex);
+            updateThese.clear();
             currentGuiButtons = nullptr;
-        }),
+        });
+
+
+
+    camera->setFocused(false);
+
+    static std::vector<GUIElement*> buttons = {
+        button1,
+        button2,
+        button3
     };
-    for(GUIButton &button : buttons) {
-        button.rebuildDisplayData();
-        button.uploaded = false;
+
+
+    for(GUIElement* button : buttons) {
+        rebuildGUILDisplayData(button);
+        button->uploaded = false;
     }
+    std::lock_guard<std::mutex> guard(GUIMutex);
+    updateThese.clear();
     currentGuiButtons = &buttons;
 }
 
@@ -990,77 +1641,241 @@ void Game::goToSettingsMenu() {
     static std::function<void()> updateNum = [this](){
 
         rendDist = std::string("Render Distance: ") + std::to_string(viewDistance);
-        currentGuiButtons->at(0).label = rendDist.c_str(); 
-        for(GUIButton &button : *currentGuiButtons) {
-            button.rebuildDisplayData();
-            button.uploaded = false;
+        currentGuiButtons->at(0)->label = rendDist; 
+        for(GUIElement* button : *currentGuiButtons) {
+           rebuildGUILDisplayData(button);
+            button->uploaded = false;
         }
     };  
-    static std::vector<GUIButton> buttons = {
-        GUIButton(0.0f, 0.0f, (std::string("Render Distance: ") + std::to_string(viewDistance)).c_str(), 0.0f, -1.0f, [this](){
+
+    static auto button1 =new  GUIButton(0.0f, 0.0f, (std::string("Render Distance: ") + std::to_string(viewDistance)).c_str(), 0.0f, -1.0f, [this](){
             
-        }),
-        GUIButton(-0.2f, -0.1f, "<", 0.0f, 3.0f, [this](){
+        });
+     static auto button2 = new    GUIButton(-0.2f, -0.1f, "<", 0.0f, 3.0f, [this](){
             changeViewDistance(std::max(viewDistance-1, 2));
             updateNum();
             
-        }),
-        GUIButton(0.2f, -0.1f, ">", 0.0f, 4.0f, [this](){
+        });
+    static auto button3 =  new    GUIButton(0.2f, -0.1f, ">", 0.0f, 4.0f, [this](){
             changeViewDistance(std::min(viewDistance+1, 24));
             updateNum();
-        }),
-        GUIButton(0.0f, -0.2f, "Back", 0.0f, 5.0f, [this](){
+        });
+    static auto button4 =  new  GUIButton(0.0f, -0.2f, "Back", 0.0f, 5.0f, [this](){
             displayEscapeMenu();
-        }),
+        });
+    static std::vector<GUIElement*> buttons = {
+        button1,
+        button2,
+        button3,
+        button4
     };
 
 
-    for(GUIButton &button : buttons) {
-        button.rebuildDisplayData();
-        button.uploaded = false;
+    for(GUIElement* button : buttons) {
+     rebuildGUILDisplayData(button);
+        button->uploaded = false;
     }
+    std::lock_guard<std::mutex> guard(GUIMutex);
+    updateThese.clear();
     currentGuiButtons = &buttons;
 }
 
 void Game::goToMainMenu() {
     mainMenu = true;
-    static std::vector<GUIButton> buttons = {
-        GUIButton(0.0f, 0.0f, "Singleplayer", 0.0f, 1.0f, [this](){
+    songIndex = 0;
+    audioFaders[2].up();
+
+    static auto b1 = new GUIButton(0.0f, 0.0f, "Multiplayer / Online", 0.0f, 1.0f, [this](){
+            this->goToMultiplayerWorldsMenu();
+            mainMenu = false;
+        });
+      static auto b2 = new GUIButton(0.0f, -0.1f, "Singleplayer", 0.0f, 2.0f, [this](){
             this->goToSingleplayerWorldsMenu();
             mainMenu = false;
-        }),
-        GUIButton(0.0f, -0.1f, "Quit Game", 0.0f, 2.0f, [this](){
+        });
+     static auto b3 = new GUIButton(0.0f, -0.2f, "Quit Game", 0.0f, 3.0f, [this](){
             glfwSetWindowShouldClose(this->window, GLFW_TRUE);
             mainMenu = false;
-        }),
+        });
+
+
+
+
+    static std::vector<GUIElement*> buttons = {
+        b1,
+        b2,
+        b3
     };
-    for(GUIButton &button : buttons) {
-        button.rebuildDisplayData();
-        button.uploaded = false;
+    for(GUIElement* button : buttons) {
+        rebuildGUILDisplayData(button);
+        button->uploaded = false;
     }
+    updateThese.clear();
+    std::lock_guard<std::mutex> guard(GUIMutex);
+    currentGuiButtons = &buttons;
+}
+
+
+void Game::goToUsernameScreen() {
+
+    static bool textClicked = true;
+
+    static std::string typedInUsername("");
+
+    std::cout << "Stored username: " << typedInUsername << "\n";
+
+    static auto b1 = new GUIButton(0.0f, 0.0f, "Please enter a username:", 0.0f, 1.0f, [](){});
+    
+    static auto b2 = new GUITextInput(0.0f, -0.1f, "", 0.7f, 2.0, [this](){
+        std::lock_guard<std::mutex> guard(GUIMutex);
+        updateThese.clear();
+        updateThese.insert({std::string("username"), (*currentGuiButtons).at(1)});
+    }, typedInUsername);
+
+    static auto b3 = new GUIButton(0.0f, -0.2f, "Accept", 0.0f, 3.0f, [this](){
+        goToMainMenu();
+    });
+
+
+    static std::vector<GUIElement*> buttons = {
+        b1,
+        b2,
+        b3
+    };
+    for(GUIElement* button : buttons) {
+        rebuildGUILDisplayData(button);
+        button->uploaded = false;
+    }
+    std::lock_guard<std::mutex> guard(GUIMutex);
+    updateThese.clear();
+    currentGuiButtons = &buttons;
+}
+
+
+
+
+
+void Game::goToMultiplayerWorldsMenu() {
+
+    static auto b1 = new GUIButton(0.0f, 0.0f, "Enter Server IP:", 0.0f, 1.0f, [](){
+            
+        });
+
+    static auto b2 = new GUITextInput(0.0f, -0.1f, "", 0.7f, 2.0, [this](){
+        std::lock_guard<std::mutex> guard(GUIMutex);
+        updateThese.clear();
+        updateThese.insert({std::string("serverip"), (*currentGuiButtons).at(1)});
+    }, TYPED_IN_SERVER_IP);
+
+
+    static auto b3 = new GUIButton(0.0f, -0.2f, "Connect", 0.0f, 3.0f, [this](){
+        saveSettings();
+        goToMultiplayerWorld();
+    });
+
+
+    static auto b4 =  new  GUIButton(0.0f, -0.4f, "Back to main menu", 0.0f, 4.0f, [this](){
+            this->goToMainMenu();
+        });
+    static std::vector<GUIElement*> buttons = {
+        b1,
+        b2,
+        b3,
+        b4
+    };
+
+    for(GUIElement* button : buttons) {
+        rebuildGUILDisplayData(button);
+        button->uploaded = false;
+    }
+    std::lock_guard<std::mutex> guard(GUIMutex);
+    updateThese.clear();
+    currentGuiButtons = &buttons;
+}
+
+
+void Game::goToSignTypeMenu(BlockCoord signPos) {
+
+    static std::string SIGN_BUFFER;
+    static BlockCoord sp;
+
+    SIGN_BUFFER = std::string("");
+    glfwSetCursorPos(window, 0, 0);
+
+    sp = signPos;
+
+    static auto b1 = new GUIButton(0.0f, 0.0f, "What to put on this sign:", 0.0f, 1.0f, [](){
+            
+        });
+
+    static auto b2 = new GUITextInput(0.0f, -0.1f, "", 0.7f, 2.0, [this](){
+        std::lock_guard<std::mutex> guard(GUIMutex);
+        updateThese.clear();
+        updateThese.insert({std::string("signtype"), (*currentGuiButtons).at(1)});
+    }, SIGN_BUFFER);
+
+
+    static auto b3 = new GUIButton(0.0f, -0.4f, "Accept", 0.0f, 3.0f, [this](){
+        signWords.insert_or_assign(sp, std::string(SIGN_BUFFER.c_str()));
+        std::cout << "Putting words " << SIGN_BUFFER << " at " << std::to_string(sp.x) << " " << std::to_string(sp.y) << " " << std::to_string(sp.z) << "\n";
+        uint32_t blockHere = voxelWorld.blockAt(sp);
+        if(inMultiplayer) {
+            (*mpBlockSetFunc)(sp.x, sp.y, sp.z, blockHere);
+        } else {
+            voxelWorld.setBlock(sp, blockHere);
+        }
+        camera->firstMouse = true;
+        camera->setFocused(true);
+        currentGuiButtons = nullptr;
+        updateThese.clear();
+    });
+
+
+    static std::vector<GUIElement*> buttons = {
+        b1,
+        b2,
+        b3,
+    };
+
+    camera->setFocused(false);
+
+    for(GUIElement* button : buttons) {
+        rebuildGUILDisplayData(button);
+        button->uploaded = false;
+    }
+    std::lock_guard<std::mutex> guard(GUIMutex);
+    updateThese.clear();
     currentGuiButtons = &buttons;
 }
 
 void Game::goToSingleplayerWorldsMenu() {
-    static std::vector<GUIButton> buttons = {
-        GUIButton(0.0f, 0.2f, "World 1", 0.55f, 1.0f, [this](){
+
+    static auto button1 = new GUIButton(0.0f, 0.2f, "World 1", 0.55f, 1.0f, [this](){
             goToSingleplayerWorld("world1");
-        }),
-        GUIButton(0.0f, 0.1f, "World 2", 0.55f, 2.0f, [this](){
+        });
+     static auto button2=  new  GUIButton(0.0f, 0.1f, "World 2", 0.55f, 2.0f, [this](){
             goToSingleplayerWorld("world2");
-        }),
-        GUIButton(0.0f, 0.0f, "World 3", 0.55f, 3.0f, [this](){
+        });
+     static auto button3=  new  GUIButton(0.0f, 0.0f, "World 3", 0.55f, 3.0f, [this](){
             goToSingleplayerWorld("world3");
-        }),
-        GUIButton(0.0f, -0.1f, "World 4", 0.55f, 4.0f, [this](){
+        });
+     static auto button4=  new  GUIButton(0.0f, -0.1f, "World 4", 0.55f, 4.0f, [this](){
             goToSingleplayerWorld("world4");
-        }),
-        GUIButton(0.0f, -0.2f, "World 5", 0.55f, 5.0f, [this](){
+        });
+     static auto button5=  new  GUIButton(0.0f, -0.2f, "World 5", 0.55f, 5.0f, [this](){
             goToSingleplayerWorld("world5");
-        }),
-        GUIButton(0.0f, -0.4f, "Back to main menu", 0.0f, 6.0f, [this](){
+        });
+      static auto button6= new  GUIButton(0.0f, -0.4f, "Back to main menu", 0.0f, 6.0f, [this](){
             this->goToMainMenu();
-        }),
+        });
+
+    static std::vector<GUIElement*> buttons = {
+        button1,
+        button2,
+        button3,
+        button4,
+        button5,
+        button6
     };
 
     static std::vector<std::string> labels = {
@@ -1076,10 +1891,10 @@ void Game::goToSingleplayerWorldsMenu() {
         thisPath += std::to_string(i+1);
         if(voxelWorld.checkVersionOfSave(thisPath.c_str()) == 1) {
             labels[i] = (std::string("World ") + std::to_string(i+1)) + " (Classic)";
-            buttons[i].label = labels[i].c_str();
+            buttons[i]->label = labels[i].c_str();
         } else {
             labels[i] = (std::string("World ") + std::to_string(i+1));
-            buttons[i].label = labels[i].c_str();
+            buttons[i]->label = labels[i].c_str();
         }
     }
 
@@ -1087,29 +1902,32 @@ void Game::goToSingleplayerWorldsMenu() {
         std::string thisPath = "saves/world";
         thisPath += std::to_string(i);
         if(voxelWorld.saveExists(thisPath.c_str())) {
-            auto buttonIt = std::find_if(buttons.begin(), buttons.end(), [i](GUIButton& button){
-                return button.elementID == i + 6;
+            auto buttonIt = std::find_if(buttons.begin(), buttons.end(), [i](GUIElement * button){
+                return button->elementID == i + 6;
             });
+            static auto button = GUIButton(0.7f, 0.2f + (-0.1f * (i-1)), "X", 0.0f, static_cast<float>(i + 6), [this, i](){
+                        goToConfirmDeleteWorld(i);
+                    });
             if(buttonIt == buttons.end()) {
                 buttons.push_back(
-                    GUIButton(0.7f, 0.2f + (-0.1f * (i-1)), "X", 0.0f, static_cast<float>(i + 6), [this, i](){
-                        goToConfirmDeleteWorld(i);
-                    })
+                    &button
                 );
             }
         } else {
-            auto buttonIt = std::find_if(buttons.begin(), buttons.end(), [i](GUIButton& button){
-                return button.elementID == i + 6;
+            auto buttonIt = std::find_if(buttons.begin(), buttons.end(), [i](GUIElement * button){
+                return button->elementID == i + 6;
             });
             if(buttonIt != buttons.end()) {
                 buttons.erase(buttonIt);
             }
         }
     } 
-    for(GUIButton &button : buttons) {
-        button.rebuildDisplayData();
-        button.uploaded = false;
+    for(GUIElement* button : buttons) {
+       rebuildGUILDisplayData(button);
+        button->uploaded = false;
     }
+    std::lock_guard<std::mutex> guard(GUIMutex);
+    updateThese.clear();
     currentGuiButtons = &buttons;
 }
 
@@ -1122,30 +1940,37 @@ void Game::goToConfirmDeleteWorld(int num) {
         //std::cout << "Would delete " << std::string("saves/world") + std::to_string(num) << "\n";
     };
 
-    static std::vector<GUIButton> buttons = {
-        GUIButton(0.0f, 0.2f, "Are you sure you want to delete ", 0.55f, -97.0f, [](){}),
-        GUIButton(0.0f, 0.1f, "There is NO UNDO for this action.", 0.55f, -97.0f, [](){}),
-        GUIButton(0.0f, -0.1f, "Delete this world", 0.55f, 1.0f, [this](){
+    static auto button1 =new  GUIButton(0.0f, 0.2f, "Are you sure you want to delete ", 0.55f, -97.0f, [](){});
+    static auto  button2 = new    GUIButton(0.0f, 0.1f, "There is NO UNDO for this action.", 0.55f, -97.0f, [](){});
+    static auto button3  =   new   GUIButton(0.0f, -0.1f, "Delete this world", 0.55f, 1.0f, [this](){
             
-        }),
-        GUIButton(0.0f, -0.2f, "Cancel", 0.55f, 2.0f, [this](){
+        });
+    static auto button4 = new     GUIButton(0.0f, -0.2f, "Cancel", 0.55f, 2.0f, [this](){
             goToSingleplayerWorldsMenu();
-        }),
+        });
+
+    static std::vector<GUIElement*> buttons = {
+        button1,
+        button2,
+        button3,
+        button4
     };
 
-    buttons.at(2).myFunction = deleteFunc;
+    buttons.at(2)->myFunction = deleteFunc;
 
     static std::vector<std::string> labels = {
         std::string("Are you sure you want to delete ")
     };
 
     labels.at(0) = std::string("Are you sure you want to delete World ") + std::to_string(num) + " forever?";
-    buttons.at(0).label = labels.at(0).c_str();
+    buttons.at(0)->label = labels.at(0).c_str();
 
-    for(GUIButton &button : buttons) {
-        button.rebuildDisplayData();
-        button.uploaded = false;
+    for(GUIElement* button : buttons) {
+        rebuildGUILDisplayData(button);
+        button->uploaded = false;
     }
+    std::lock_guard<std::mutex> guard(GUIMutex);
+    updateThese.clear();
     currentGuiButtons = &buttons;
 }
 
@@ -1153,6 +1978,7 @@ void Game::loadOrCreateSaveGame(const char* path) {
     timeOfDay = dayLength/4.0f;
     if(voxelWorld.saveExists(path)) {
         voxelWorld.loadWorldFromFile(path);
+        std::cout << "Loaded, didn't create \n";
     } else {
         voxelWorld.worldGenVersion = 2;
         voxelWorld.waterLevel = 40;
@@ -1273,7 +2099,7 @@ void Game::saveGame(const char* path) {
 
 void Game::changeViewDistance(int newValue) {
 
-    voxelWorld.runChunkThread = false;
+    voxelWorld.runChunkThread.store(false);
     changingViewDistance = true;
     // if(voxelWorld.chunkUpdateThread.joinable()) {
     //     voxelWorld.chunkUpdateThread.join();
@@ -1303,8 +2129,11 @@ void Game::changeViewDistance(int newValue) {
     voxelWorld.takenCareOfChunkSpots.clear();
     voxelWorld.geometryStorePool.clear();
     voxelWorld.chunks.clear();
-    voxelWorld.hasHadInitialLightPass.clear();
+    voxelWorld.hashadlightMutex.lock();
 
+    
+    voxelWorld.hasHadInitialLightPass.clear();
+           voxelWorld.hashadlightMutex.unlock();             
     auto meshesView = registry.view<MeshComponent>();
     for(const entt::entity e : meshesView) {
         MeshComponent &m = registry.get<MeshComponent>(e);
@@ -1323,12 +2152,16 @@ void Game::changeViewDistance(int newValue) {
 
     viewDistance = newValue;
 
-        voxelWorld.runChunkThread = true;
+        voxelWorld.runChunkThread.store(true);
 
         voxelWorld.chunkUpdateThread = std::thread([this](){
             voxelWorld.chunkUpdateThreadFunction(viewDistance);
         });
+        voxelWorld.userChunkUpdateThread = std::thread([this](){
+            voxelWorld.chunkUpdateThreadFunctionUser(viewDistance);
+        });
         voxelWorld.chunkUpdateThread.detach();
+        voxelWorld.userChunkUpdateThread.detach();
     changingViewDistance = false;
 
     saveSettings();
@@ -1416,34 +2249,147 @@ void Game::goToSingleplayerWorld(const char *worldname) {
 
     initialTimer = 1.0f;
     voxelWorld.initialLoadProgress = 0;
+    initialChunksRendered = 0;
     loadRendering = true;
 
     voxelWorld.populateChunksAndGeometryStores(registry, viewDistance);
-
-
-
+    std::lock_guard<std::mutex> guard(GUIMutex);
+    updateThese.clear();
     currentGuiButtons = nullptr;
 
     currentSingleplayerWorldPath = std::string("saves/") + std::string(worldname);
 
     loadOrCreateSaveGame(currentSingleplayerWorldPath.c_str());
 
-
-    voxelWorld.runChunkThread = true;
+    voxelWorld.runChunkThread.store(true);
     voxelWorld.chunkUpdateThread = std::thread([this](){
         voxelWorld.chunkUpdateThreadFunction(viewDistance);
         });
-    voxelWorld.chunkUpdateThread.detach();
 
-
-
-
-
-
+        voxelWorld.userChunkUpdateThread = std::thread([this](){
+            voxelWorld.chunkUpdateThreadFunctionUser(viewDistance);
+        });
+        voxelWorld.chunkUpdateThread.detach();
+        voxelWorld.userChunkUpdateThread.detach();
 
     camera->setFocused(true);
 
     inGame = true;
+    audioFaders[2].down();
+}
+
+void Game::goToMultiplayerWorld() {
+
+    
+
+    bool connected = true;
+
+    
+
+    try {
+        client->connect();
+        
+        client->receivedWorld.store(false);
+
+        
+        client->start();
+        inMultiplayer = true;
+
+        Message m = createMessage(MessageType::RequestWorldString, 0, 0, 0, 0);
+
+        client->send(m);
+
+
+
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+        receive_thread_promise.get_future().get();
+    } catch (std::exception& e) {
+        std::cout << "Error: " << e.what() << "\n";
+        connected = false;
+        inMultiplayer = false;
+        std::cout << "Is this priting\n";
+    }
+
+
+    if(connected) {
+
+        connectToChat();
+
+
+        
+
+
+        std::cout << "Got  to here\n";
+        initialTimer = 1.0f;
+        voxelWorld.initialLoadProgress = 0;
+        initialChunksRendered = 0;
+        loadRendering = true;
+
+        
+
+        while(!client->receivedWorld.load()) {
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+        }
+
+        Message m = createMessage(MessageType::RequestPlayerList, 0, 0, 0, 0);
+        client->send(m);
+
+        //Now the world is received
+        inMultiplayer = true;
+        voxelWorld.populateChunksAndGeometryStores(registry, viewDistance);
+        std::lock_guard<std::mutex> guard(GUIMutex);
+        updateThese.clear();
+        currentGuiButtons = nullptr;
+        loadOrCreateSaveGame("multiplayer");
+
+        voxelWorld.runChunkThread.store(true);
+        voxelWorld.chunkUpdateThread = std::thread([this](){
+            voxelWorld.chunkUpdateThreadFunction(viewDistance);
+            });
+        voxelWorld.userChunkUpdateThread = std::thread([this](){
+            voxelWorld.chunkUpdateThreadFunctionUser(viewDistance);
+        });
+        voxelWorld.chunkUpdateThread.detach();
+        voxelWorld.userChunkUpdateThread.detach();
+
+        camera->setFocused(true);
+
+        inGame = true;
+        audioFaders[2].down();
+
+        shouldRunHeadCoveredLoop.store(true);
+
+        static auto headLoopFunc = [this](){
+            checkAboveHeadThreadFunction();
+        };
+
+        headCoveredLoop = std::thread(headLoopFunc);
+
+        headCoveredLoop.detach();
+    } else {
+        static std::string offlinemsg("Server is offline. Click to retry.");
+        (*currentGuiButtons)[0]->label = offlinemsg;
+        for(GUIElement * button : *currentGuiButtons) {
+           rebuildGUILDisplayData(button);
+            button->uploaded = false;
+        }
+        inMultiplayer = false;
+    }
+    
+
+    
+}
+
+void Game::exitMultiplayer() {
+    inMultiplayer = false;
+    disconnectFromChat();
+    client->stop();
+    client->disconnect();
+    client->receivedWorld.store(false);
+    shouldRunHeadCoveredLoop.store(false);
+    if(headCoveredLoop.joinable()) {
+        headCoveredLoop.join();
+    }
 }
 
 void Game::displayLoadScreen(const char* message, float progress, bool inMainLoop) {
@@ -1470,8 +2416,8 @@ if(!inMainLoop) {
 
         glm::vec2 leftStart(-width/2.0f, -height/2.0f);
 
-        TextureFace blank(0,1);
-        TextureFace full(1,1);
+        GUITextureFace blank(0,1);
+        GUITextureFace full(1,1);
 
         std::vector<float> displayData = {
             leftStart.x,                leftStart.y,        full.bl.x,  full.bl.y,  -1.0f,
@@ -1525,6 +2471,10 @@ if(!inMainLoop) {
     }
 }
 
+
+
+
+
 void Game::updateTime() {
     double currentFrame = glfwGetTime();
     deltaTime = currentFrame - lastFrame;
@@ -1533,7 +2483,24 @@ void Game::updateTime() {
 }
 
 void Game::runStep() {
+    static float guiTimer = 0.0f;
+    static float guiTick = 0.5f;
+    if(guiTimer > guiTick) {
+        guiTimer = 0.0f;
+        std::lock_guard<std::mutex> guard(GUIMutex);
+        if(updateThese.size() > 0) {
+            for(auto [key, guiElement] : updateThese) {
+                updateGUIL(guiElement, KeyInput{true, '.', false});
+            }
+            //std::cout << "UT size: " << std::to_string(updateThese.size()) << "\n";
+        }
+    } else {
+        guiTimer += deltaTime;
+    }
+    IN_GAME = inGame;
+    updateTime();
     (*loopFunc)();
+    
 }
 
 void Game::frameBufferSizeCallback(GLFWwindow *window, int width, int height) {
@@ -1542,13 +2509,13 @@ void Game::frameBufferSizeCallback(GLFWwindow *window, int width, int height) {
     glViewport(0, 0, windowWidth, windowHeight);
     camera->frameBufferSizeCallback(window, windowWidth, windowHeight);
 
-    GUIButton::windowWidth = windowWidth;
-    GUIButton::windowHeight = windowHeight;
+    GUILwindowWidth = windowWidth;
+    GUILwindowHeight = windowHeight;
     
     if(currentGuiButtons != nullptr) {
-        for(GUIButton &button : *currentGuiButtons) {
-            button.rebuildDisplayData();
-            button.uploaded = false;
+        for(GUIElement* button : *currentGuiButtons) {
+           rebuildGUILDisplayData(button);
+            button->uploaded = false;
         }
     }
     hud->rebuildDisplayData();
@@ -1572,7 +2539,13 @@ void Game::mouseButtonCallback(GLFWwindow *window, int button, int action, int m
             }
                 
             if(button == GLFW_MOUSE_BUTTON_RIGHT)
-                castPlaceRay();
+
+                if(rightClickTimear <= 0.0f) {
+                    castPlaceRay();
+                    rightClickTimear = rightClickCooldown;
+
+                }
+                
         }
 
         clickedOnElement = mousedOverElement;
@@ -1584,9 +2557,9 @@ void Game::mouseButtonCallback(GLFWwindow *window, int button, int action, int m
         }
 
         if(currentGuiButtons != nullptr) {
-            for(auto &button : *currentGuiButtons) {
-                if(button.elementID == clickedOnElement) {
-                    button.myFunction();
+            for(auto button : *currentGuiButtons) {
+                if(button->elementID == clickedOnElement) {
+                    button->myFunction();
                 }
             }
         }
@@ -1617,10 +2590,20 @@ void Game::castBreakRay() {
                 otherHalf = rayResult.blockHit + BlockCoord(0, 1, 0);
             }
 
-            voxelWorld.userDataMap.at(rayResult.chunksToRebuild.front()).insert_or_assign(otherHalf, 0);    
-            voxelWorld.userDataMap.at(rayResult.chunksToRebuild.front()).insert_or_assign(rayResult.blockHit, 0);
+            // voxelWorld.udmMutex.lock();  
+            
+            // voxelWorld.userDataMap.at(rayResult.chunksToRebuild.front()).insert_or_assign(otherHalf, 0);    
+            // voxelWorld.userDataMap.at(rayResult.chunksToRebuild.front()).insert_or_assign(rayResult.blockHit, 0);
 
-            auto chunkIt = voxelWorld.takenCareOfChunkSpots.find(rayResult.chunksToRebuild.front());
+            //  voxelWorld.udmMutex.unlock();
+            if(inMultiplayer) {
+                (*mpBlockSetFunc)(otherHalf.x, otherHalf.y, otherHalf.z, 0);      
+                (*mpBlockSetFunc)(rayResult.blockHit.x, rayResult.blockHit.y, rayResult.blockHit.z, 0);       
+            } else {
+                 voxelWorld.setBlock(otherHalf, 0);       
+                voxelWorld.setBlock(rayResult.blockHit, 0); 
+
+                 auto chunkIt = voxelWorld.takenCareOfChunkSpots.find(rayResult.chunksToRebuild.front());
                 if(chunkIt != voxelWorld.takenCareOfChunkSpots.end()) {
                     
                     BlockChunk *chunk = chunkIt->second;
@@ -1630,19 +2613,30 @@ void Game::castBreakRay() {
                     }
 
                 }
-        }else
-        if(blockIDHere == 12) {
-            if(rayResult.chunksToRebuild.size() > 0) {
-            if(voxelWorld.userDataMap.find(rayResult.chunksToRebuild.front()) == voxelWorld.userDataMap.end()) {
-                voxelWorld.userDataMap.insert_or_assign(rayResult.chunksToRebuild.front(), 
-                std::unordered_map<BlockCoord, unsigned int, IntTupHash>());
             }
-                   blockBreakParticles(rayResult.blockHit, 25);
-            voxelWorld.userDataMap.at(rayResult.chunksToRebuild.front()).insert_or_assign(rayResult.blockHit, 0);
+            
 
-                
+           
+        }else
+        if((std::find(BlockInfo::lights.begin(), BlockInfo::lights.end(), blockIDHere) != BlockInfo::lights.end())) {
+            if(rayResult.chunksToRebuild.size() > 0) {
+            //     voxelWorld.udmMutex.lock();  
+            
+            // if(voxelWorld.userDataMap.find(rayResult.chunksToRebuild.front()) == voxelWorld.userDataMap.end()) {
+            //     voxelWorld.userDataMap.insert_or_assign(rayResult.chunksToRebuild.front(), 
+            //     std::unordered_map<BlockCoord, unsigned int, IntTupHash>());
+            // }
+            //        blockBreakParticles(rayResult.blockHit, 25);
+            // voxelWorld.userDataMap.at(rayResult.chunksToRebuild.front()).insert_or_assign(rayResult.blockHit, 0);
 
-                for(ChunkCoord& ccoord : rayResult.chunksToRebuild) {
+            //      voxelWorld.udmMutex.unlock();   
+
+                if(inMultiplayer) {
+                    (*mpBlockSetFunc)(rayResult.blockHit.x, rayResult.blockHit.y, rayResult.blockHit.z, 0);      
+                } else {
+                    voxelWorld.setBlock(rayResult.blockHit, 0);  
+
+                        for(ChunkCoord& ccoord : rayResult.chunksToRebuild) {
                     auto chunkIt = voxelWorld.takenCareOfChunkSpots.find(ccoord);
                     if(chunkIt != voxelWorld.takenCareOfChunkSpots.end()) {
                         //std::cout << "it's here" << "\n";
@@ -1660,16 +2654,28 @@ void Game::castBreakRay() {
 
                     }
                 }
+                }
+                    blockBreakParticles(rayResult.blockHit, 25);
+
+                
         }
         } else
         if(rayResult.chunksToRebuild.size() > 0) {
-            if(voxelWorld.userDataMap.find(rayResult.chunksToRebuild.front()) == voxelWorld.userDataMap.end()) {
-                voxelWorld.userDataMap.insert_or_assign(rayResult.chunksToRebuild.front(), 
-                std::unordered_map<BlockCoord, unsigned int, IntTupHash>());
-            }
-                   blockBreakParticles(rayResult.blockHit, 25);
-            voxelWorld.userDataMap.at(rayResult.chunksToRebuild.front()).insert_or_assign(rayResult.blockHit, 0);
-
+    //         voxelWorld.udmMutex.lock();  
+        
+    //         if(voxelWorld.userDataMap.find(rayResult.chunksToRebuild.front()) == voxelWorld.userDataMap.end()) {
+    //             voxelWorld.userDataMap.insert_or_assign(rayResult.chunksToRebuild.front(), 
+    //             std::unordered_map<BlockCoord, unsigned int, IntTupHash>());
+    //         }
+    //                blockBreakParticles(rayResult.blockHit, 25);
+    //         voxelWorld.userDataMap.at(rayResult.chunksToRebuild.front()).insert_or_assign(rayResult.blockHit, 0);
+            
+    // voxelWorld.udmMutex.unlock();    
+    if(inMultiplayer) {
+         (*mpBlockSetFunc)(rayResult.blockHit.x, rayResult.blockHit.y, rayResult.blockHit.z, 0);  
+    } else {
+        voxelWorld.setBlock(rayResult.blockHit, 0);  
+        
                 std::set<BlockChunk *> implicated;
                 for(BlockCoord& neigh : BlockInfo::neighbors) {
                     auto segIt = voxelWorld.lightMap.find(rayResult.blockHit + neigh);
@@ -1694,10 +2700,6 @@ void Game::castBreakRay() {
 
                     }
                 }
-                
-
-
-
 
                 for(ChunkCoord& ccoord : rayResult.chunksToRebuild) {
                     auto chunkIt = voxelWorld.takenCareOfChunkSpots.find(ccoord);
@@ -1717,11 +2719,25 @@ void Game::castBreakRay() {
 
                     }
                 }
+    }
+                
+                blockBreakParticles(rayResult.blockHit, 25);
+
+
+                
+
+
+
+
+                
         }
 
     }
 }
 void Game::castPlaceRay() {
+    if(inMultiplayer) {
+        std::cout << "I'm in multiplayer\n";
+    }
     RayCastResult rayResult = rayCast(
         voxelWorld.chunkWidth,
         camera->position,
@@ -1733,6 +2749,7 @@ void Game::castPlaceRay() {
         false
     );
     if(rayResult.hit) {
+        
 
         uint32_t blockBitsHere = voxelWorld.blockAt(rayResult.blockHit);
         uint32_t blockIDHere = blockBitsHere & BlockInfo::BLOCK_ID_BITS;
@@ -1749,26 +2766,45 @@ void Game::castPlaceRay() {
             DoorInfo::toggleDoorOpenBit(blockBitsHere);
             DoorInfo::toggleDoorOpenBit(otherHalfBits);
 
-            voxelWorld.userDataMap.at(rayResult.chunksToRebuild.front()).insert_or_assign(otherHalf, otherHalfBits);    
-            voxelWorld.userDataMap.at(rayResult.chunksToRebuild.front()).insert_or_assign(rayResult.blockHit, blockBitsHere);
+            if(inMultiplayer) {
+                        
+                         (*mpBlockSetFunc)(otherHalf.x, otherHalf.y, otherHalf.z, otherHalfBits);  
+                         (*mpBlockSetFunc)(rayResult.blockHit.x, rayResult.blockHit.y, rayResult.blockHit.z, blockBitsHere);  
 
-            auto chunkIt = voxelWorld.takenCareOfChunkSpots.find(rayResult.chunksToRebuild.front());
-                if(chunkIt != voxelWorld.takenCareOfChunkSpots.end()) {
-                    
-                    BlockChunk *chunk = chunkIt->second;
+                    } else {
 
-                    while(!voxelWorld.deferredChunkQueue.push(chunk)) {
+                        voxelWorld.setBlock(otherHalf, otherHalfBits);
+                        voxelWorld.setBlock(rayResult.blockHit, blockBitsHere);
 
+                        auto chunkIt = voxelWorld.takenCareOfChunkSpots.find(rayResult.chunksToRebuild.front());
+                        if(chunkIt != voxelWorld.takenCareOfChunkSpots.end()) {
+                            
+                            BlockChunk *chunk = chunkIt->second;
+
+                            while(!voxelWorld.deferredChunkQueue.push(chunk)) {
+
+                            }
+
+                        }
                     }
 
-                }
+    //                 voxelWorld.udmMutex.lock(); 
+
+    //         voxelWorld.userDataMap.at(rayResult.chunksToRebuild.front()).insert_or_assign(otherHalf, otherHalfBits);    
+    //         voxelWorld.userDataMap.at(rayResult.chunksToRebuild.front()).insert_or_assign(rayResult.blockHit, blockBitsHere);
+    // voxelWorld.udmMutex.unlock();    
+           
+            
         }else
 
         if(rayResult.chunksToRebuild.size() > 0) {
+            voxelWorld.udmMutex.lock();  
+           
             if(voxelWorld.userDataMap.find(rayResult.chunksToRebuild.front()) == voxelWorld.userDataMap.end()) {
                 voxelWorld.userDataMap.insert_or_assign(rayResult.chunksToRebuild.front(), 
                 std::unordered_map<BlockCoord, unsigned int, IntTupHash>());
             }
+            voxelWorld.udmMutex.unlock();     
 
             glm::vec3 blockHit(rayResult.blockHit.x, rayResult.blockHit.y, rayResult.blockHit.z);
             glm::vec3 hitPoint = rayResult.head;
@@ -1794,13 +2830,24 @@ void Game::castPlaceRay() {
 
 
             BlockCoord placePoint(rayResult.blockHit.x+hitNormal.x, rayResult.blockHit.y+hitNormal.y, rayResult.blockHit.z+hitNormal.z);
-            
+            if(std::find(BlockInfo::placeInside.begin(), BlockInfo::placeInside.end(), (voxelWorld.blockAt(placePoint) & BlockInfo::BLOCK_ID_BITS)) == BlockInfo::placeInside.end()) {
+                return;
+            }
+            if(placePoint == BlockCoord(std::round(camera->position.x), std::round(camera->position.y-1), std::round(camera->position.z)) ||
+        placePoint == BlockCoord(std::round(camera->position.x), std::round(camera->position.y), std::round(camera->position.z))) {
+            return;
+        }
             ChunkCoord chunkToReb(
                 static_cast<int>(std::floor(static_cast<float>(placePoint.x)/voxelWorld.chunkWidth)),
                 static_cast<int>(std::floor(static_cast<float>(placePoint.z)/voxelWorld.chunkWidth)));
+            voxelWorld.udmMutex.lock();  
+              
             if(voxelWorld.userDataMap.find(chunkToReb) == voxelWorld.userDataMap.end()) {
                 voxelWorld.userDataMap.insert_or_assign(chunkToReb, std::unordered_map<BlockCoord, unsigned int, IntTupHash>());
             }
+
+            voxelWorld.udmMutex.unlock();  
+
             if(selectedBlockID == 14) {
                 static std::vector<BlockCoord> neighborAxes = {
                     BlockCoord(1,0,0),
@@ -1828,20 +2875,31 @@ void Game::castPlaceRay() {
                     BlockInfo::setDirectionBits(ladderID, direction);
 
 
-
-                    voxelWorld.userDataMap.at(chunkToReb).insert_or_assign(placePoint, ladderID);
-
-                    auto chunkIt = voxelWorld.takenCareOfChunkSpots.find(chunkToReb);
-                    if(chunkIt != voxelWorld.takenCareOfChunkSpots.end()) {
+//                         voxelWorld.udmMutex.lock();  
+            
+//                     voxelWorld.userDataMap.at(chunkToReb).insert_or_assign(placePoint, ladderID);
+// voxelWorld.udmMutex.unlock();    
+                    if(inMultiplayer) {
                         
-                        BlockChunk *chunk = chunkIt->second;
+                         (*mpBlockSetFunc)(placePoint.x, placePoint.y, placePoint.z, ladderID);  
+                    } else {
+                       voxelWorld.setBlock(placePoint, ladderID); 
+
+                       auto chunkIt = voxelWorld.takenCareOfChunkSpots.find(chunkToReb);
+                        if(chunkIt != voxelWorld.takenCareOfChunkSpots.end()) {
+                            
+                            BlockChunk *chunk = chunkIt->second;
 
 
-                        while(!voxelWorld.deferredChunkQueue.push(chunk)) {
+                            while(!voxelWorld.deferredChunkQueue.push(chunk)) {
+
+                            }
 
                         }
-
                     }
+                    
+
+                    
                 
             } else
             if(selectedBlockID == 13) {
@@ -1871,10 +2929,15 @@ void Game::castPlaceRay() {
                     BlockInfo::setDirectionBits(chestID, direction);
 
 
-
-                    voxelWorld.userDataMap.at(chunkToReb).insert_or_assign(placePoint, chestID);
-
-                    auto chunkIt = voxelWorld.takenCareOfChunkSpots.find(chunkToReb);
+// voxelWorld.udmMutex.lock();  
+              
+//                     voxelWorld.userDataMap.at(chunkToReb).insert_or_assign(placePoint, chestID);
+// voxelWorld.udmMutex.unlock();   
+if(inMultiplayer)  {
+    (*mpBlockSetFunc)(placePoint.x, placePoint.y, placePoint.z, chestID);  
+} else {
+     voxelWorld.setBlock(placePoint, chestID);
+     auto chunkIt = voxelWorld.takenCareOfChunkSpots.find(chunkToReb);
                     if(chunkIt != voxelWorld.takenCareOfChunkSpots.end()) {
                         
                         BlockChunk *chunk = chunkIt->second;
@@ -1885,6 +2948,113 @@ void Game::castPlaceRay() {
                         }
 
                     }
+}
+                   
+                    
+                
+            } else
+            if(selectedBlockID == 21) {
+                static std::vector<BlockCoord> neighborAxes = {
+                    BlockCoord(1,0,0),
+                    BlockCoord(0,0,1),
+                    BlockCoord(1,0,0),
+                    BlockCoord(0,0,1),
+                };
+
+                
+                    uint32_t signID = 21;
+
+                    float diffX = camera->position.x - placePoint.x;
+                    float diffZ = camera->position.z - placePoint.z;
+
+                    int direction = 0;
+
+                    if (std::abs(diffX) > std::abs(diffZ)) {
+                        // The player is primarily aligned with the X-axis
+                        direction = diffX > 0 ? /*Plus X*/1 : /*Minus X*/3;
+                    } else {
+                        // The player is primarily aligned with the Z-axis
+                        direction = diffZ > 0 ? /*Plus Z*/2 : /*Minus Z*/0;
+                    }
+
+                    BlockInfo::setDirectionBits(signID, direction);
+
+
+// voxelWorld.udmMutex.lock();  
+              
+//                     voxelWorld.userDataMap.at(chunkToReb).insert_or_assign(placePoint, chestID);
+// voxelWorld.udmMutex.unlock();   
+if(inMultiplayer)  {
+    (*mpBlockSetFunc)(placePoint.x, placePoint.y, placePoint.z, signID);  
+} else {
+     voxelWorld.setBlock(placePoint, signID);
+     auto chunkIt = voxelWorld.takenCareOfChunkSpots.find(chunkToReb);
+                    if(chunkIt != voxelWorld.takenCareOfChunkSpots.end()) {
+                        
+                        BlockChunk *chunk = chunkIt->second;
+
+
+                        while(!voxelWorld.deferredChunkQueue.push(chunk)) {
+
+                        }
+
+                    }
+}
+
+goToSignTypeMenu(placePoint);
+                   
+                    
+                
+            } else
+            if(selectedBlockID == 20) { //lantern torch
+                static std::vector<BlockCoord> neighborAxes = {
+                    BlockCoord(1,0,0),
+                    BlockCoord(0,0,1),
+                    BlockCoord(1,0,0),
+                    BlockCoord(0,0,1),
+                };
+
+                
+                    uint32_t torchID = 20;
+
+                    float diffX = camera->position.x - placePoint.x;
+                    float diffZ = camera->position.z - placePoint.z;
+
+                    int direction = 0;
+
+                    if (std::abs(diffX) > std::abs(diffZ)) {
+                        // The player is primarily aligned with the X-axis
+                        direction = diffX > 0 ? /*Plus X*/1 : /*Minus X*/3;
+                    } else {
+                        // The player is primarily aligned with the Z-axis
+                        direction = diffZ > 0 ? /*Plus Z*/2 : /*Minus Z*/0;
+                    }
+
+                    BlockInfo::setDirectionBits(torchID, direction);
+
+
+// voxelWorld.udmMutex.lock();  
+              
+//                     voxelWorld.userDataMap.at(chunkToReb).insert_or_assign(placePoint, chestID);
+// voxelWorld.udmMutex.unlock();   
+if(inMultiplayer)  {
+    (*mpBlockSetFunc)(placePoint.x, placePoint.y, placePoint.z, torchID);  
+} else {
+     voxelWorld.setBlock(placePoint, torchID);
+     auto chunkIt = voxelWorld.takenCareOfChunkSpots.find(chunkToReb);
+                    if(chunkIt != voxelWorld.takenCareOfChunkSpots.end()) {
+                        
+                        BlockChunk *chunk = chunkIt->second;
+
+
+                        while(!voxelWorld.deferredChunkQueue.push(chunk)) {
+
+                        }
+
+                    }
+}
+                   
+                    
                 
             } else
             if(selectedBlockID == 11){ //placing  door
@@ -1955,9 +3125,21 @@ void Game::castPlaceRay() {
                             ChunkCoord chunkToReb2(
                             static_cast<int>(std::floor(static_cast<float>(right.x)/voxelWorld.chunkWidth)),
                             static_cast<int>(std::floor(static_cast<float>(right.z)/voxelWorld.chunkWidth)));
+    // voxelWorld.udmMutex.lock();  
 
-                            voxelWorld.userDataMap.at(chunkToReb2).insert_or_assign(right, blockBitsRight);
-                            voxelWorld.userDataMap.at(chunkToReb2).insert_or_assign(rightUp, neighTopBits);
+
+    //                         voxelWorld.userDataMap.at(chunkToReb2).insert_or_assign(right, blockBitsRight);
+    //                         voxelWorld.userDataMap.at(chunkToReb2).insert_or_assign(rightUp, neighTopBits);
+    //                         voxelWorld.udmMutex.unlock();     
+
+                            if(inMultiplayer) {
+                                (*mpBlockSetFunc)(right.x, right.y, right.z, blockBitsRight);  
+                                (*mpBlockSetFunc)(rightUp.x, rightUp.y, rightUp.z, neighTopBits);  
+                            } else {
+                                voxelWorld.setBlock(right, blockBitsRight);
+                                voxelWorld.setBlock(rightUp, neighTopBits);
+                            }
+                            
                         }
                     }
                     if((blockBitsLeft & BlockInfo::BLOCK_ID_BITS) == 11) {
@@ -1976,16 +3158,112 @@ void Game::castPlaceRay() {
                             ChunkCoord chunkToReb2(
                             static_cast<int>(std::floor(static_cast<float>(left.x)/voxelWorld.chunkWidth)),
                             static_cast<int>(std::floor(static_cast<float>(left.z)/voxelWorld.chunkWidth)));
-
-                            voxelWorld.userDataMap.at(chunkToReb2).insert_or_assign(left, blockBitsLeft);
-                            voxelWorld.userDataMap.at(chunkToReb2).insert_or_assign(leftUp, neighTopBits);
+// voxelWorld.udmMutex.lock();  
+            
+//                             voxelWorld.userDataMap.at(chunkToReb2).insert_or_assign(left, blockBitsLeft);
+//                             voxelWorld.userDataMap.at(chunkToReb2).insert_or_assign(leftUp, neighTopBits);
+//                             voxelWorld.udmMutex.unlock();     
+                            if(inMultiplayer) {
+                                (*mpBlockSetFunc)(left.x, left.y, left.z, blockBitsLeft);  
+                                (*mpBlockSetFunc)(leftUp.x, leftUp.y, leftUp.z, neighTopBits);  
+                            } else {
+                                voxelWorld.setBlock(left, blockBitsLeft);
+                                voxelWorld.setBlock(leftUp, neighTopBits);
+                            }
+                            
                         }
                     }
 
+// voxelWorld.udmMutex.lock();  
+            
+//                     voxelWorld.userDataMap.at(chunkToReb).insert_or_assign(placePoint, bottomID);
+//                     voxelWorld.userDataMap.at(chunkToReb).insert_or_assign(placeAbove, topID);
+// voxelWorld.udmMutex.unlock();     
+if(inMultiplayer) {
+                                (*mpBlockSetFunc)(placePoint.x, placePoint.y, placePoint.z, bottomID);  
+                                (*mpBlockSetFunc)(placeAbove.x, placeAbove.y, placeAbove.z, topID);  
+                            } else {
+                    voxelWorld.setBlock(placePoint, bottomID);
+                    voxelWorld.setBlock(placeAbove, topID);
+                    auto chunkIt = voxelWorld.takenCareOfChunkSpots.find(chunkToReb);
+                    if(chunkIt != voxelWorld.takenCareOfChunkSpots.end()) {
+                        
+                        BlockChunk *chunk = chunkIt->second;
 
-                    voxelWorld.userDataMap.at(chunkToReb).insert_or_assign(placePoint, bottomID);
-                    voxelWorld.userDataMap.at(chunkToReb).insert_or_assign(placeAbove, topID);
 
+                        while(!voxelWorld.deferredChunkQueue.push(chunk)) {
+
+                        }
+
+                    }
+                            }
+                    
+                }
+            } else 
+            if (((std::find(BlockInfo::lights.begin(), BlockInfo::lights.end(), selectedBlockID) != BlockInfo::lights.end()))){
+//                 voxelWorld.udmMutex.lock();  
+              
+//                 voxelWorld.userDataMap.at(chunkToReb).insert_or_assign(placePoint, selectedBlockID);
+// voxelWorld.udmMutex.unlock();   
+
+                if(inMultiplayer) {
+                    (*mpBlockSetFunc)(placePoint.x, placePoint.y, placePoint.z, selectedBlockID);  
+                } else {
+                    voxelWorld.setBlock(placePoint, selectedBlockID);
+                    auto chunkIt = voxelWorld.takenCareOfChunkSpots.find(chunkToReb);
+                    if(chunkIt != voxelWorld.takenCareOfChunkSpots.end()) {
+                        
+                        BlockChunk *chunk = chunkIt->second;
+
+
+                        while(!voxelWorld.lightUpdateQueue.push(chunk)) {
+
+                        }
+
+                    }
+                }
+                
+
+
+                
+            }else {
+
+                
+
+// voxelWorld.udmMutex.lock();  
+           
+
+//                 voxelWorld.userDataMap.at(chunkToReb).insert_or_assign(placePoint, selectedBlockID);
+//  voxelWorld.udmMutex.unlock();  
+                if(inMultiplayer) {
+                    (*mpBlockSetFunc)(placePoint.x, placePoint.y, placePoint.z, selectedBlockID);  
+                } else {
+                    voxelWorld.setBlock(placePoint, selectedBlockID);
+                    std::set<BlockChunk *> implicated;
+                    for(BlockCoord& neigh : BlockInfo::neighbors) {
+                        auto segIt = voxelWorld.lightMap.find(rayResult.blockHit + neigh);
+                        if(segIt != voxelWorld.lightMap.end()) {
+                            
+                            for(LightRay& ray : segIt->second.rays) {
+                                ChunkCoord chunkOfOrigin(
+                                    std::floor(static_cast<float>(ray.origin.x)/voxelWorld.chunkWidth),
+                                    std::floor(static_cast<float>(ray.origin.z)/voxelWorld.chunkWidth)
+                                );
+                                auto chunkIt = voxelWorld.takenCareOfChunkSpots.find(chunkOfOrigin);
+                                if(chunkIt != voxelWorld.takenCareOfChunkSpots.end()){
+                                    implicated.insert(chunkIt->second);
+                                }
+                                    
+                            }
+                            
+                        }
+                    }
+                    for(BlockChunk * pointer : implicated) {
+                        while(!voxelWorld.lightUpdateQueue.push(pointer)) {
+
+                        }
+                        //std::cout << "Doing this\n";
+                    }
                     auto chunkIt = voxelWorld.takenCareOfChunkSpots.find(chunkToReb);
                     if(chunkIt != voxelWorld.takenCareOfChunkSpots.end()) {
                         
@@ -1998,63 +3276,8 @@ void Game::castPlaceRay() {
 
                     }
                 }
-            } else 
-            if (selectedBlockID == 12){
-                voxelWorld.userDataMap.at(chunkToReb).insert_or_assign(placePoint, selectedBlockID);
-
-                auto chunkIt = voxelWorld.takenCareOfChunkSpots.find(chunkToReb);
-                if(chunkIt != voxelWorld.takenCareOfChunkSpots.end()) {
-                    
-                    BlockChunk *chunk = chunkIt->second;
-
-
-                    while(!voxelWorld.lightUpdateQueue.push(chunk)) {
-
-                    }
-
-                }
-            }else {
-
-                std::set<BlockChunk *> implicated;
-                for(BlockCoord& neigh : BlockInfo::neighbors) {
-                    auto segIt = voxelWorld.lightMap.find(rayResult.blockHit + neigh);
-                    if(segIt != voxelWorld.lightMap.end()) {
-                        
-                        for(LightRay& ray : segIt->second.rays) {
-                            ChunkCoord chunkOfOrigin(
-                                std::floor(static_cast<float>(ray.origin.x)/voxelWorld.chunkWidth),
-                                std::floor(static_cast<float>(ray.origin.z)/voxelWorld.chunkWidth)
-                            );
-                            auto chunkIt = voxelWorld.takenCareOfChunkSpots.find(chunkOfOrigin);
-                            if(chunkIt != voxelWorld.takenCareOfChunkSpots.end()){
-                                implicated.insert(chunkIt->second);
-                            }
-                                
-                        }
-                        
-                    }
-                }
-                for(BlockChunk * pointer : implicated) {
-                    while(!voxelWorld.lightUpdateQueue.push(pointer)) {
-
-                    }
-                }
-
-
-
-                voxelWorld.userDataMap.at(chunkToReb).insert_or_assign(placePoint, selectedBlockID);
-
-                auto chunkIt = voxelWorld.takenCareOfChunkSpots.find(chunkToReb);
-                if(chunkIt != voxelWorld.takenCareOfChunkSpots.end()) {
-                    
-                    BlockChunk *chunk = chunkIt->second;
-
-
-                    while(!voxelWorld.deferredChunkQueue.push(chunk)) {
-
-                    }
-
-                }
+                
+                
             }
                 
 
@@ -2077,6 +3300,17 @@ void Game::keyCallback(GLFWwindow *window, int key, int scancode, int action, in
             displayEscapeMenu();
         }
 
+    }
+
+    if(key == GLFW_KEY_BACKSPACE ) {
+        if(action == GLFW_PRESS || action == GLFW_REPEAT) {
+            std::lock_guard<std::mutex> guard(GUIMutex);
+            if(updateThese.size() > 0) {
+                for(auto [key, guiElement] : updateThese) {
+                    updateGUIL(guiElement, KeyInput{false, '.', true});
+                }
+            }
+        }
     }
 
     if(key == GLFW_KEY_LEFT_SHIFT) 
@@ -2394,7 +3628,7 @@ void Game::initializeShaders() {
                 float dy = abs(TexCoord.y - TexBase.y);
 
                 // Check if the fragment is within the bounds of the quad
-                if (dx > 0.05555555555555555555555555555 || dy > 0.05555555555555555555555555555) {
+                if (dx > 0.02941176470588235294117647058824 || dy > 0.02941176470588235294117647058824) {
                     discard; // Discard the fragment if its outside the quad
                 }
 
@@ -2463,6 +3697,110 @@ void Game::initializeShaders() {
         )glsl",
         "wireFrameShader"
     );
+    playerShader = std::make_unique<Shader>(
+        R"glsl(
+            #version 330 core
+            
+            layout(location = 0) in vec3 vertexPosition; // Quad vertex positions
+            layout(location = 1) in float cornerID;    // Corner ID of quad
+            layout(location = 2) in vec3 lastPosition;
+            layout(location = 3) in vec3 instancePosition; 
+            layout(location = 4) in float timePosted;
+            layout(location = 5) in float rotation;
+            layout(location = 6) in float lastRotation;
+            layout(location = 7) in float type;
+            
+
+            mat4 mixMat4(mat4 a, mat4 b, float t) {
+                mat4 result;
+                result[0] = mix(a[0], b[0], t);
+                result[1] = mix(a[1], b[1], t);
+                result[2] = mix(a[2], b[2], t);
+                result[3] = mix(a[3], b[3], t);
+                return result;
+            }
+
+            mat4 rotationMatrix(vec3 axis, float angle) {
+                vec3 normalizedAxis = normalize(axis);
+                float s = sin(angle);
+                float c = cos(angle);
+                float oc = 1.0 - c;
+
+                return mat4(
+                    oc * normalizedAxis.x * normalizedAxis.x + c,
+                    oc * normalizedAxis.x * normalizedAxis.y - normalizedAxis.z * s,
+                    oc * normalizedAxis.z * normalizedAxis.x + normalizedAxis.y * s,
+                    0.0,
+                    oc * normalizedAxis.x * normalizedAxis.y + normalizedAxis.z * s,
+                    oc * normalizedAxis.y * normalizedAxis.y + c,
+                    oc * normalizedAxis.y * normalizedAxis.z - normalizedAxis.x * s,
+                    0.0,
+                    oc * normalizedAxis.z * normalizedAxis.x - normalizedAxis.y * s,
+                    oc * normalizedAxis.y * normalizedAxis.z + normalizedAxis.x * s,
+                    oc * normalizedAxis.z * normalizedAxis.z + c,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0
+                );
+            }
+            
+
+            out vec2 tcoord;
+
+            //out float tpas;
+            uniform mat4 mvp;
+            uniform float time;
+
+            void main() {
+
+                float timePassed = min(1.0, (time - timePosted)/0.250);
+                //tpas = timePassed;
+
+                vec3 mixPosition = mix(lastPosition, instancePosition, timePassed);
+
+                mat4 lastRotMat = rotationMatrix(vec3(0.0, 1.0, 0.0), lastRotation);
+                mat4 rotMat = rotationMatrix(vec3(0.0, 1.0, 0.0), rotation);
+
+                vec3 rotatedPosition = ( mixMat4(lastRotMat, rotMat, timePassed) * vec4(vertexPosition, 1.0)).xyz;
+
+                gl_Position = mvp * vec4(mixPosition + rotatedPosition, 1.0);
+
+
+
+                vec2 baseUV = vec2(mod(type, 4.0f)/4.0f, 1.0f - floor(type/4.0f));
+
+                // Selecting UV based on cornerID
+                if (cornerID == 0.0) {
+                    tcoord = baseUV;
+                } else if (cornerID == 1.0) {
+                    tcoord = vec2(baseUV.x + (1.0f/4.0f), baseUV.y);
+                } else if (cornerID == 2.0) {
+                    tcoord = vec2(baseUV.x + (1.0f/4.0f), baseUV.y - (1.0f/4.0f));
+                } else if (cornerID == 3.0) {
+                    tcoord = vec2(baseUV.x, baseUV.y - (1.0f/4.0f));
+                }
+            }
+        )glsl",
+        R"glsl(
+            #version 330 core
+            in vec2 tcoord;
+            out vec4 FragColor;
+            uniform sampler2D ourTexture;
+
+            //in float tpas;
+
+            void main()
+            {
+                vec4 texColor = texture(ourTexture, tcoord);
+                FragColor = texColor;
+                //FragColor = vec4(tpas, 0.0, 0.0, 1.0);
+            }
+
+        )glsl",
+        "playerShader"
+    );
     billBoardShader = std::make_unique<Shader>(
         R"glsl(
             #version 330 core
@@ -2515,17 +3853,17 @@ void Game::initializeShaders() {
 
 
 
-                vec2 baseUV = vec2(mod(blockID, 16.0f)/16.0f, 1.0f - floor(blockID/16.0f));
+                vec2 baseUV = vec2(mod(blockID, 16.0f) * 0.03308823529411764705882352941176f, 1.0f - floor((blockID/16.0f) * 0.52941176470588235294117647058824f));
 
                 // Selecting UV based on cornerID
                 if (cornerID == 0.0) {
                     tcoord = baseUV;
                 } else if (cornerID == 1.0) {
-                    tcoord = vec2(baseUV.x + (1.0f/64.0f), baseUV.y);
+                    tcoord = vec2(baseUV.x + (1.0f/128.0f), baseUV.y);
                 } else if (cornerID == 2.0) {
-                    tcoord = vec2(baseUV.x + (1.0f/64.0f), baseUV.y - (1.0f/64.0f));
+                    tcoord = vec2(baseUV.x + (1.0f/128.0f), baseUV.y - (1.0f/128.0f));
                 } else if (cornerID == 3.0) {
-                    tcoord = vec2(baseUV.x, baseUV.y - (1.0f/64.0f));
+                    tcoord = vec2(baseUV.x, baseUV.y - (1.0f/128.0f));
                 }
             }
         )glsl",
@@ -2573,7 +3911,7 @@ void Game::initializeShaders() {
                 gl_Position = mvp * vec4((position + blockPosition) , 1.0);
 
 
-                TexCoord = uv + vec2(breakPhase/16.0f, 0);
+                TexCoord = uv + vec2(breakPhase * 0.03308823529411764705882352941176f, 0);
 
             }
         )glsl",
@@ -2980,6 +4318,182 @@ void Game::bindBillBoardGeometryNoUpload(GLuint billposvbo) {
 
 
 
+void Game::bindPlayerGeometry(GLuint playerposvbo, std::vector<PlayerGeo> &billinstances, MobType type) {
+
+    
+
+    if(mobVBOs[type] == 0) {
+        std::cout << "BIND PGEOMETRY VBO IS 0 \n";
+        glGenBuffers(1, &mobVBOs[type]);
+        
+            // Quad vertices
+        glBindBuffer(GL_ARRAY_BUFFER, mobVBOs[type]);
+        glBufferData(GL_ARRAY_BUFFER, mobVerts[type].size() * sizeof(float), mobVerts[type].data(), GL_STATIC_DRAW);
+        std::cout << "size of mobverts: " << std::to_string(mobVerts[type].size()) << "\n";
+        // Vertex position attribute
+        GLint posAttrib = glGetAttribLocation(playerShader->shaderID, "vertexPosition");
+        glEnableVertexAttribArray(posAttrib);
+        glVertexAttribPointer(posAttrib, 3, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+
+        // Corner ID attribute
+        GLint cornerAttrib = glGetAttribLocation(playerShader->shaderID, "cornerID");
+        glEnableVertexAttribArray(cornerAttrib);
+        glVertexAttribPointer(cornerAttrib, 1, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(3 * sizeof(float)));
+    } else {
+        glBindBuffer(GL_ARRAY_BUFFER, mobVBOs[type]);
+
+        // Vertex position attribute
+        GLint posAttrib = glGetAttribLocation(playerShader->shaderID, "vertexPosition");
+        glEnableVertexAttribArray(posAttrib);
+        glVertexAttribPointer(posAttrib, 3, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+
+        // Corner ID attribute
+        GLint cornerAttrib = glGetAttribLocation(playerShader->shaderID, "cornerID");
+        glEnableVertexAttribArray(cornerAttrib);
+        glVertexAttribPointer(cornerAttrib, 1, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(3 * sizeof(float)));
+    }
+
+    int error = glGetError();
+    if (error != GL_NO_ERROR)
+    {
+        std::cerr << "Bind players geom err (1): " << error << std::endl;
+    }
+
+
+    // Instance positions
+    glBindBuffer(GL_ARRAY_BUFFER, playerposvbo);
+    glBufferData(GL_ARRAY_BUFFER, billinstances.size() * sizeof(PlayerGeo), billinstances.data(), GL_STATIC_DRAW);
+    
+        error = glGetError();
+    if (error != GL_NO_ERROR)
+    {
+        std::cerr << "Buffer player data (2): " << error << std::endl;
+    }
+
+    GLint lastinst_attrib = glGetAttribLocation(playerShader->shaderID, "lastPosition");
+
+    glEnableVertexAttribArray(lastinst_attrib);
+    glVertexAttribPointer(lastinst_attrib, 3, GL_FLOAT, GL_FALSE, sizeof(PlayerGeo), (void*)0);
+    glVertexAttribDivisor(lastinst_attrib, 1); // Instanced attribute
+
+
+    GLint inst_attrib = glGetAttribLocation(playerShader->shaderID, "instancePosition");
+
+    glEnableVertexAttribArray(inst_attrib);
+    glVertexAttribPointer(inst_attrib, 3, GL_FLOAT, GL_FALSE, sizeof(PlayerGeo), (void*)(3*sizeof(float)));
+    glVertexAttribDivisor(inst_attrib, 1); // Instanced attribute
+    
+    GLint t_attrib = glGetAttribLocation(playerShader->shaderID, "timePosted");
+
+    glEnableVertexAttribArray(t_attrib);
+    glVertexAttribPointer(t_attrib, 1, GL_FLOAT, GL_FALSE, sizeof(PlayerGeo), (void*)(6*sizeof(float)));
+    glVertexAttribDivisor(t_attrib, 1); // Instanced attribute
+    
+
+
+    GLint rot_attrib = glGetAttribLocation(playerShader->shaderID, "rotation");
+
+    glEnableVertexAttribArray(rot_attrib);
+    glVertexAttribPointer(rot_attrib, 1, GL_FLOAT, GL_FALSE, sizeof(PlayerGeo), (void*)(7*sizeof(float)));
+    glVertexAttribDivisor(rot_attrib, 1); // Instanced attribute
+
+    GLint lrot_attrib = glGetAttribLocation(playerShader->shaderID, "lastRotation");
+
+    glEnableVertexAttribArray(lrot_attrib);
+    glVertexAttribPointer(lrot_attrib, 1, GL_FLOAT, GL_FALSE, sizeof(PlayerGeo), (void*)(8*sizeof(float)));
+    glVertexAttribDivisor(lrot_attrib, 1); // Instanced attribute
+
+    GLint type_attrib = glGetAttribLocation(playerShader->shaderID, "type");
+
+    glEnableVertexAttribArray(type_attrib);
+    glVertexAttribPointer(type_attrib, 1, GL_FLOAT, GL_FALSE, sizeof(PlayerGeo), (void*)(9*sizeof(float)));
+    glVertexAttribDivisor(type_attrib, 1); // Instanced attribute
+
+
+    error = glGetError();
+    if (error != GL_NO_ERROR)
+    {
+        std::cerr << "Bind players geom err (2): " << error << std::endl;
+    }
+
+}
+
+
+void Game::drawPlayers(MobType mt) {
+    if(playersVAO == 0) {
+        glGenVertexArrays(1, &playersVAO);
+    }
+    glBindVertexArray(playersVAO);
+    glUseProgram(playerShader->shaderID);
+    GLuint mvp_loc = glGetUniformLocation(playerShader->shaderID, "mvp");
+
+    // std::cout << "MVP loc: " << std::to_string(mvp_loc) << "\n";
+    // for (int i = 0; i < 4; ++i) {
+    //     for (int j = 0; j < 4; ++j) {
+    //         std::cout << camera->mvp[j][i] << " ";  // Note: glm uses column-major order
+    //     }
+    //     std::cout << std::endl;
+    // }
+    
+    glUniformMatrix4fv(mvp_loc, 1, GL_FALSE, glm::value_ptr(camera->mvp));
+
+    GLuint t_loc = glGetUniformLocation(playerShader->shaderID, "time");
+
+    glUniform1f(t_loc, static_cast<float>(glfwGetTime()));
+    //std::cout << "sending time: " << static_cast<float>(glfwGetTime()) << std::endl;
+
+   
+    if(mt == MobType::Player) {
+    
+        if(PLAYERSCHANGED.load()) {
+            mobDisps[mt].clear();
+
+            //std::cout << "Other players size: " << std::to_string(PLAYERS.size()) << "\n";
+            for(OtherPlayer & player : PLAYERS) {
+                std::cout << "Player at: " << std::to_string(player.x) << ", " << std::to_string(player.y) << ", " << std::to_string(player.z) << "\n";
+                mobDisps[mt].push_back(PlayerGeo{
+                    glm::vec3(player.lx, player.ly, player.lz),
+                    glm::vec3(player.x, player.y, player.z) ,
+                    static_cast<float>(glfwGetTime()),
+                    player.rot,
+                    player.lrot,
+                    static_cast<float>(MobType::Player)
+                });
+                //std::cout << "timePosted: " << static_cast<float>(glfwGetTime()) << std::endl;
+
+            }
+            PLAYERSCHANGED.store(false);
+        }
+    } else {
+        if(MOBSCHANGED.load()) {
+            mobDisps[mt].clear();
+            std::lock_guard<std::mutex> mobLock(MOBS_MUTEX);
+
+                for(auto &[id, mob] : MOBS) {
+                    if(mob.type == mt) {
+                        mobDisps[mt].push_back(PlayerGeo{
+                            mob.lpos,
+                            mob.pos,
+                            mob.timePosted,
+                            mob.rot,
+                            mob.lrot,
+                            static_cast<float>(mt)
+                        });
+                    }
+
+                }
+                MOBSCHANGED.store(false);
+        }
+    }
+        
+    glBindTexture(GL_TEXTURE_2D, mobsTexture);
+    if(mobPosVBOs[mt] == 0) {
+        glGenBuffers(1, &(mobPosVBOs[mt]));
+    }
+    bindPlayerGeometry(mobPosVBOs[mt], mobDisps[mt], mt);
+    glDrawArraysInstanced(GL_TRIANGLES, 0, mobVerts[mt].size() / 4.0f, mobDisps[mt].size());
+    glBindVertexArray(0);
+}
 
 
 
@@ -3282,7 +4796,7 @@ void Game::bindWireFrameGeometryNoUpload(GLuint vbov) {
 
 void Game::stepTextureAnim() {
 
-    int width = 288;
+    int width = 544;
     int chans = 4;
 
 
@@ -3296,7 +4810,7 @@ void Game::stepTextureAnim() {
     //Water
     glm::ivec4 baseColor(0, 45, 100, 140);
     glm::ivec2 coord(0,0);
-    int startY = 270, startX = 36, squareSize = 18;
+    int startY = 256+270, startX = 36, squareSize = 18;
     for(int y = startY; y < startY + squareSize; ++y) {
         for(int x = startX; x < startX + squareSize; ++x) {
             int i = (y * width + x) * chans;
@@ -3431,6 +4945,29 @@ void Game::initializeTextures() {
         std::cout << "Failed to load texture splashtexture2" << std::endl;
     }
     stbi_image_free(data);
+
+
+
+
+
+    glGenTextures(1, &mobsTexture);
+    glBindTexture(GL_TEXTURE_2D, mobsTexture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+    data = stbi_load("assets/mobs.png", &width, &height, &nrChannels, 0);
+    if (data)
+    {
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+        glGenerateMipmap(GL_TEXTURE_2D);
+    }
+    else
+    {
+        std::cout << "Failed to load texture mobs" << std::endl;
+    }
+    stbi_image_free(data);
 }
 
 void Game::drawSky(float top_r, float top_g, float top_b, float top_a,
@@ -3445,7 +4982,7 @@ void Game::drawSky(float top_r, float top_g, float top_b, float top_a,
     {
         glGenVertexArrays(1, &background_vao);
 
-        const GLchar* vs_src = R"glsl(
+        const char* vs_src = R"glsl(
 
             #version 450 core
             out vec2 v_uv;
@@ -3459,7 +4996,7 @@ void Game::drawSky(float top_r, float top_g, float top_b, float top_a,
 
         )glsl";
 
-        const GLchar* fs_src = R"glsl(
+        const char* fs_src = R"glsl(
 
             #version 450 core
             uniform vec4 top_color;
@@ -3495,7 +5032,7 @@ void Game::drawSky(float top_r, float top_g, float top_b, float top_a,
         glCompileShader(vs_id);
 
         GLint success;
-        GLchar infoLog[512];
+        char infoLog[512];
         glGetShaderiv(vs_id, GL_COMPILE_STATUS, &success);
         if (!success)
         {

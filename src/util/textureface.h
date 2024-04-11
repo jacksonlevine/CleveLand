@@ -25,7 +25,7 @@ public:
 
 extern const float onePixel;
 extern const float textureWidth;
-extern const float oneOver16;
+extern const float texSlotWidth;
 
 
 #endif

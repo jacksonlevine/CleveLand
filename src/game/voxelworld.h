@@ -1,6 +1,8 @@
 #ifndef VOXELWORLD_H
 #define VOXELWORLD_H
 
+class VoxelWorld;
+
 #include <unordered_map>
 #include "../util/chunkcoord.h"
 #include <iostream>
@@ -18,15 +20,26 @@
 #include "../util/random.h"
 #include "../util/blockinfo.h"
 #include "../game/specialblocks/door.h"
+#include "../game/specialblocks/post.h"
 #include <atomic>
 #include "../util/lightinfo.h"
 #include <GLFW/glfw3.h>
 #include <stack>
 #include "specialblocks/chest.h"
 #include "specialblocks/ladder.h"
+#include "specialblocks/torch.h"
+#include "specialblocks/sign.h"
+#include "../soundfxsystem.h"
+
 
 class VoxelWorld {
 public:
+
+    std::mutex MASTERLOCK;
+
+    std::mutex udmMutex;
+
+
     inline static unsigned int seed = 0;
 
     inline static std::function<float(int, int, int)>* currentNoiseFunction = 0;
@@ -37,16 +50,19 @@ public:
     inline static int chunkWidth = 16;
     inline static int chunkHeight = 128;
 
-    inline static bool runChunkThread = false;
+    inline static std::atomic<bool> runChunkThread = false;
 
      inline static glm::ivec3 worldOffset = glm::ivec3(0,0,0);
     void getOffsetFromSeed();
+
+    std::function<void(int,int,int,uint32_t)> *multiplayerBlockSetFunc;
 
     std::unordered_map<
         ChunkCoord,
         BlockChunk*,
         IntTupHash
     >                   takenCareOfChunkSpots;
+    std::mutex takenCareOfChunkMutex;
 
     glm::vec3 cameraPosition;
     glm::vec3 cameraDirection;
@@ -82,17 +98,17 @@ public:
             IntTupHash
     >                       lightMapAmbient;
 
-    void depropogateLightOrigin(BlockCoord spot, BlockCoord origin, std::set<BlockChunk*> *imp, std::unordered_map<
-            BlockCoord,
-            LightSegment,
-            IntTupHash
-    >& lightMap);
+    // void depropogateLightOrigin(BlockCoord spot, BlockCoord origin, std::set<BlockChunk*> *imp, std::unordered_map<
+    //         BlockCoord,
+    //         LightSegment,
+    //         IntTupHash
+    // >& lightMap);
     void depropogateLightOriginIteratively(BlockCoord origin, std::set<BlockChunk*> *imp, std::unordered_map<BlockCoord,LightSegment,IntTupHash>& lightMap);
-    void propogateLightOrigin(BlockCoord spot, BlockCoord origin, int value, std::set<BlockChunk*> *imp, std::unordered_map<BlockCoord, uint32_t, IntTupHash>& memo, std::unordered_map<
-            BlockCoord,
-            LightSegment,
-            IntTupHash
-    > &lightMap);
+    // void propogateLightOrigin(BlockCoord spot, BlockCoord origin, int value, std::set<BlockChunk*> *imp, std::unordered_map<BlockCoord, uint32_t, IntTupHash>& memo, std::unordered_map<
+    //         BlockCoord,
+    //         LightSegment,
+    //         IntTupHash
+    // > &lightMap);
     void propogateLightOriginIteratively(BlockCoord spot, BlockCoord origin, int value, std::set<BlockChunk*> *imp, std::unordered_map<BlockCoord, uint32_t, IntTupHash>& memo, std::unordered_map<
             BlockCoord,
             LightSegment,
@@ -111,7 +127,9 @@ public:
 
     void populateChunksAndGeometryStores(entt::registry &registry, int viewDistance);
 
-    void rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool immediateInPlace, bool light);
+    void rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool immediateInPlace, bool light, bool user = false);
+
+    void chunkUpdateThreadFunctionUser(int loadRadius);
 
     void chunkUpdateThreadFunction(int loadRadius);
 
@@ -119,9 +137,10 @@ public:
 
     boost::lockfree::queue<int, boost::lockfree::capacity<2304>> geometryStoreQueue;
     boost::lockfree::queue<int, boost::lockfree::capacity<2304>> highPriorityGeometryStoreQueue;
-
+    boost::lockfree::queue<int, boost::lockfree::capacity<2304>> userGeometryStoreQueue;
 
     boost::lockfree::queue<BlockChunk*, boost::lockfree::capacity<2304>> deferredChunkQueue;
+    boost::lockfree::queue<BlockChunk*, boost::lockfree::capacity<2304>> userPowerQueue;
 
     boost::lockfree::queue<BlockChunk*, boost::lockfree::capacity<2304>> lightUpdateQueue;
 
@@ -130,13 +149,16 @@ public:
         bool,
         IntTupHash
     >                   hasHadInitialLightPass;
+    
+    std::mutex hashadlightMutex;
 
+    std::mutex lightMapMutex;
     
     inline static bool shouldTryReload = false;
 
 
     std::thread chunkUpdateThread;
-
+    std::thread userChunkUpdateThread;
 
     static float noiseFunction(int x, int y, int z);
 
@@ -166,6 +188,12 @@ public:
     void loadWorldFromFile(const char *path) noexcept(false);
     int checkVersionOfSave(const char *path);
     void deleteFolder(std::string path);
+
+    void locallySetBlock(BlockCoord coord, uint32_t block);
+    void setBlock(BlockCoord coord, uint32_t block, bool updateMultiplayer = true);
+    void setBlockAndQueueRerender(BlockCoord coord, uint32_t block);
+
+    void checkAboveHeadThreadFunction();
     
     inline static int initialLoadProgress = 0;
 

@@ -17,8 +17,8 @@ Camera3D::Camera3D(Game *gs) : gs(gs), focused(false) {
         glm::perspective(
             glm::radians(fov),
             static_cast<float>(gs->windowWidth)/gs->windowHeight,
-            near,
-            far
+            _near,
+            _far
         );
 
     view = glm::lookAt(position, position + direction, up);
@@ -175,8 +175,8 @@ void Camera3D::frameBufferSizeCallback(GLFWwindow *window, int width, int height
         glm::perspective(
             glm::radians(fov),
             static_cast<float>(width)/height,
-            near,
-            far
+            _near,
+            _far
         );
     this->updatePosition();
 }

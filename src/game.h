@@ -1,8 +1,20 @@
 #ifndef GAME_H
 #define GAME_H
 
+
+
+#ifndef MY_GL_INCLUDE
+#define MY_GL_INCLUDE
 #include <gl/glew.h>
+#endif
+
+
+#ifndef MY_GLFW_INCLUDE
+#define MY_GLFW_INCLUDE
 #include "GLFW/glfw3.h"
+#endif
+
+
 #include <glm/gtc/type_ptr.hpp>
 #include <memory>
 #include "shader.h"
@@ -20,12 +32,45 @@
 #include "util/settings.h"
 #include "game/specialblocks/chest.h"
 #include "game/specialblocks/ladder.h"
+#include "network.h"
+#include <boost/asio.hpp>
+#include "soundfxsystem.h"
+#include "util/playergeo.h"
+#include "chat/chatstuff.h"
+#include "util/cameraposition.h"
+#include "mobtype.h"
+#include "game/signwords.h"
+
+extern std::string VERSIONSTRING;
+
+extern SoundFXSystem sfs;
 
 
 class Camera3D;
 
 class Game {
 public:
+
+    std::map<std::string, GUIElement*> updateThese;
+    std::atomic<float> camRot;
+
+    void updateCamRot();
+
+    boost::asio::io_context io_context;
+    TCPClient *client;
+
+    std::thread headCoveredLoop;
+    inline static std::atomic<bool> shouldRunHeadCoveredLoop = false;
+    inline static std::atomic<bool> headCovered = false;
+
+    inline static float stepSoundTimer = 0.0f;
+    inline static float footstepInterval = 0.4f;
+
+    void playFootstepSound();
+
+    void footstepTimer();
+
+
     inline static int viewDistance = 5;
 
     inline static float underWaterView = 0.0f;
@@ -53,12 +98,15 @@ public:
     std::unique_ptr<Shader> wireFrameShader;
     std::unique_ptr<Shader> billBoardShader;
     std::unique_ptr<Shader> blockOverlayShader;
+    std::unique_ptr<Shader> playerShader;
     
     GLuint menuTexture;
     GLuint menuBackgroundTexture;
     GLuint splashTexture;
     GLuint splashTexture2;
     GLuint logoTexture;
+
+    GLuint mobsTexture;
 
     unsigned char *worldTexturePixels;
 
@@ -69,15 +117,27 @@ public:
     inline static float mousedOverElement = 0.0f;
     inline static float clickedOnElement = 0.0f;
 
+    inline static float rightClickCooldown = 0.1f;
+    inline static float rightClickTimear = 0.0f;
+
     inline static float initialTimer = 0.0f;
 
-    inline static std::vector<GUIButton> *currentGuiButtons = nullptr;
+    inline static std::vector<GUIElement*> *currentGuiButtons = nullptr;
 
     std::string currentSingleplayerWorldPath;
 
 
     std::vector<Particle> particleDisplayData;
     inline static bool particlesUploaded = false;
+
+
+    inline static GLuint playersVAO = 0;
+
+    inline static GLuint basePlayerVBO = 0;
+
+
+    std::vector<PlayerGeo> playerDisplayData;
+    inline static bool playerGeoUploaded = false;
 
     void initializeShaders();
     void initializeTextures();
@@ -87,10 +147,13 @@ public:
 
     void goToMainMenu();
     void goToSingleplayerWorldsMenu();
+    void goToMultiplayerWorldsMenu();
 
     void displayEscapeMenu();
 
     void goToSingleplayerWorld(const char *worldname);
+    void goToMultiplayerWorld();
+    void exitMultiplayer();
 
     void loadOrCreateSaveGame(const char* path);
     void saveGame(const char* path);
@@ -108,6 +171,12 @@ public:
     void bindBillBoardGeometry(GLuint billposvbo, std::vector<Particle> &billinstances);
     void bindBillBoardGeometryNoUpload(GLuint billposvbo);
 
+    void bindPlayerGeometry(GLuint billposvbo, std::vector<PlayerGeo> &billinstances, MobType type);
+    void bindPlayerGeometryNoUpload(GLuint billposvbo);
+
+    void drawPlayers(MobType mt);
+
+    void checkAboveHeadThreadFunction();
     inline static glm::vec3 blockOverlayCoord = glm::vec3(0,0,0);
     inline static bool blockOverlayShowing = false;
     inline static float necessaryBlockBreakingTime = 1.0f;
@@ -130,6 +199,8 @@ public:
 
     void drawSky(float top_r, float top_g, float top_b, float top_a,
     float bot_r, float bot_g, float bot_b, float bot_a, float cameraPitch);
+
+    std::function<void (int, int, int, uint32_t)>* mpBlockSetFunc;
 
     void castBreakRay();
     void castPlaceRay();
@@ -178,8 +249,10 @@ public:
     void runPeriodicTick();
     
     void displayLoadScreen(const char *message, float progress, bool inMainLoop);
-
+  
     void drawBackgroundImage();
+
+    void goToUsernameScreen();
 
     inline static int initialChunksRendered = 0;
     inline static bool loadRendering = true;
@@ -192,13 +265,16 @@ public:
 
     void goToSettingsMenu();
 
+    void goToSignTypeMenu(BlockCoord signPos);
+
     inline static bool changingViewDistance = false;
 
     inline static Settings settings;
 
     inline static void saveSettings() {
         std::vector<Setting> sets = {
-            Setting{std::string("viewDistance"), std::to_string(viewDistance)}
+            Setting{std::string("viewDistance"), std::to_string(viewDistance)},
+            Setting{std::string("serverIp"), TYPED_IN_SERVER_IP}
         };
         settings.saveSettings(sets);
     }
@@ -218,6 +294,10 @@ public:
     inline static float sunriseFactor = 0.0f;
 
     inline static bool inClimbable = false;
+
+
+
+    inline static bool inMultiplayer = false;
 
     Game();
 private:

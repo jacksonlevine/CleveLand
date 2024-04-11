@@ -1,5 +1,312 @@
 #include "voxelworld.h"
 
+
+void VoxelWorld::locallySetBlock(BlockCoord coord, uint32_t block) {
+    ChunkCoord cc(
+        std::floor(static_cast<float>(coord.x) / chunkWidth),
+        std::floor(static_cast<float>(coord.z) / chunkWidth)
+    );
+    
+
+    udmMutex.lock();  
+        
+    auto chunkIt = userDataMap.find(cc);
+
+    if(chunkIt == userDataMap.end()) {
+        userDataMap.insert_or_assign(cc, std::unordered_map<BlockCoord, uint32_t, IntTupHash>());
+    }
+    userDataMap.at(cc).insert_or_assign(coord, block);
+    
+    udmMutex.unlock();  
+
+
+}
+
+
+void VoxelWorld::setBlock(BlockCoord coord, uint32_t block, bool updateMultiplayer) {
+    ChunkCoord cc(
+        std::floor(static_cast<float>(coord.x) / chunkWidth),
+        std::floor(static_cast<float>(coord.z) / chunkWidth)
+    );
+    
+    playSound(block);
+    if(updateMultiplayer) {
+        (*multiplayerBlockSetFunc)(coord.x, coord.y, coord.z, block);
+    } 
+    locallySetBlock(coord, block);
+        
+}
+
+
+void VoxelWorld::setBlockAndQueueRerender(BlockCoord coord, uint32_t block) {
+    //setBlock(coord, block, false);
+    ChunkCoord cc(
+        std::floor(static_cast<float>(coord.x) / chunkWidth),
+        std::floor(static_cast<float>(coord.z) / chunkWidth)
+    );
+
+
+    if(block != 0) {
+        
+        uint32_t blockBitsHere = blockAt(coord);
+        uint32_t blockIDHere = blockBitsHere & BlockInfo::BLOCK_ID_BITS;
+        
+
+            udmMutex.lock();  
+           
+            if(userDataMap.find(cc) == userDataMap.end()) {
+                userDataMap.insert_or_assign(cc, 
+                std::unordered_map<BlockCoord, unsigned int, IntTupHash>());
+            }
+            udmMutex.unlock();     
+            glm::vec3 blockHit(coord.x, coord.y, coord.z);
+
+            BlockCoord placePoint(coord.x, coord.y, coord.z);
+            
+            ChunkCoord chunkToReb(
+                static_cast<int>(std::floor(static_cast<float>(placePoint.x)/chunkWidth)),
+                static_cast<int>(std::floor(static_cast<float>(placePoint.z)/chunkWidth)));
+            udmMutex.lock();  
+              
+            if(userDataMap.find(chunkToReb) == userDataMap.end()) {
+                userDataMap.insert_or_assign(chunkToReb, std::unordered_map<BlockCoord, unsigned int, IntTupHash>());
+            }
+
+            udmMutex.unlock();   
+            
+            
+            if (std::find(BlockInfo::lights.begin(), BlockInfo::lights.end(), (block & BlockInfo::BLOCK_ID_BITS)) != BlockInfo::lights.end()){
+//                 udmMutex.lock();  
+              
+//                 userDataMap.at(chunkToReb).insert_or_assign(placePoint, selectedBlockID);
+// udmMutex.unlock();   
+
+
+                setBlock(placePoint, block, false);
+
+                takenCareOfChunkMutex.lock();
+                auto chunkIt = takenCareOfChunkSpots.find(chunkToReb);
+                if(chunkIt != takenCareOfChunkSpots.end()) {
+                    
+                    BlockChunk *chunk = chunkIt->second;
+
+
+                    while(!userPowerQueue.push(chunk)) {
+
+                    }
+
+                }
+                takenCareOfChunkMutex.unlock();
+            }else {
+
+                std::set<BlockChunk *> implicated;
+                lightMapMutex.lock();
+                for(BlockCoord& neigh : BlockInfo::neighbors) {
+                    
+                    auto segIt = lightMap.find(coord + neigh);
+                    if(segIt != lightMap.end()) {
+                        
+                        for(LightRay& ray : segIt->second.rays) {
+                            ChunkCoord chunkOfOrigin(
+                                std::floor(static_cast<float>(ray.origin.x)/chunkWidth),
+                                std::floor(static_cast<float>(ray.origin.z)/chunkWidth)
+                            );
+                            takenCareOfChunkMutex.lock();
+                            auto chunkIt = takenCareOfChunkSpots.find(chunkOfOrigin);
+                            if(chunkIt != takenCareOfChunkSpots.end()){
+                                implicated.insert(chunkIt->second);
+                            }
+                            takenCareOfChunkMutex.unlock();
+                                
+                        }
+                        
+                    }
+                }
+                lightMapMutex.unlock();
+                for(BlockChunk * pointer : implicated) {
+                    while(!lightUpdateQueue.push(pointer)) {
+
+                    }
+                    //std::cout << "Doing this\n";
+                }
+
+// udmMutex.lock();  
+           
+
+//                 userDataMap.at(chunkToReb).insert_or_assign(placePoint, selectedBlockID);
+//  udmMutex.unlock();     
+                setBlock(placePoint, block, false);
+                takenCareOfChunkMutex.lock();
+                auto chunkIt = takenCareOfChunkSpots.find(chunkToReb);
+                if(chunkIt != takenCareOfChunkSpots.end()) {
+                    
+                    BlockChunk *chunk = chunkIt->second;
+
+
+                    while(!userPowerQueue.push(chunk)) {
+
+                    }
+
+                }
+                takenCareOfChunkMutex.unlock();
+
+                
+
+        }
+    }
+    else
+    if(block == 0) {
+        uint32_t blockBitsHere = blockAt(coord);
+        uint32_t blockIDHere = blockBitsHere & BlockInfo::BLOCK_ID_BITS;
+        if(blockIDHere == 11) {
+            int top = DoorInfo::getDoorTopBit(blockBitsHere);
+            BlockCoord otherHalf;
+            if(top == 1) {
+                otherHalf = coord + BlockCoord(0, -1, 0);
+            } else {
+                otherHalf = coord + BlockCoord(0, 1, 0);
+            }
+
+            // udmMutex.lock();  
+            
+            // userDataMap.at(rayResult.chunksToRebuild.front()).insert_or_assign(otherHalf, 0);    
+            // userDataMap.at(rayResult.chunksToRebuild.front()).insert_or_assign(rayResult.blockHit, 0);
+
+            //  udmMutex.unlock();
+
+             setBlock(otherHalf, 0, false);       
+            setBlock(coord, 0, false); 
+takenCareOfChunkMutex.lock();
+            auto chunkIt = takenCareOfChunkSpots.find(cc);
+                if(chunkIt != takenCareOfChunkSpots.end()) {
+                    
+                    BlockChunk *chunk = chunkIt->second;
+
+                    while(!userPowerQueue.push(chunk)) {
+
+                    }
+
+                }
+                takenCareOfChunkMutex.unlock();
+        }else
+        if(((std::find(BlockInfo::lights.begin(), BlockInfo::lights.end(), blockIDHere) != BlockInfo::lights.end()))) {
+            //     udmMutex.lock();  
+            
+            // if(userDataMap.find(rayResult.chunksToRebuild.front()) == userDataMap.end()) {
+            //     userDataMap.insert_or_assign(rayResult.chunksToRebuild.front(), 
+            //     std::unordered_map<BlockCoord, unsigned int, IntTupHash>());
+            // }
+            //        blockBreakParticles(rayResult.blockHit, 25);
+            // userDataMap.at(rayResult.chunksToRebuild.front()).insert_or_assign(rayResult.blockHit, 0);
+
+            //      udmMutex.unlock();   
+
+                setBlock(coord, 0, false);  
+                // blockBreakParticles(coord, 25);
+
+takenCareOfChunkMutex.lock();
+                    auto chunkIt = takenCareOfChunkSpots.find(cc);
+                    if(chunkIt != takenCareOfChunkSpots.end()) {
+                        //std::cout << "it's here" << "\n";
+                      //  std::cout << "fucking index:" << chunkIt->second.geometryStorePoolIndex << "\n";
+                       // rebuildChunk(chunkIt->second, chunkIt->second.position, true);
+
+
+                       BlockChunk *chunk = chunkIt->second;
+
+
+                       while(!userPowerQueue.push(chunk)) {
+
+                       }
+
+
+                    }
+                    takenCareOfChunkMutex.unlock();
+
+
+        } else
+         {
+    //         udmMutex.lock();  
+        
+    //         if(userDataMap.find(rayResult.chunksToRebuild.front()) == userDataMap.end()) {
+    //             userDataMap.insert_or_assign(rayResult.chunksToRebuild.front(), 
+    //             std::unordered_map<BlockCoord, unsigned int, IntTupHash>());
+    //         }
+    //                blockBreakParticles(rayResult.blockHit, 25);
+    //         userDataMap.at(rayResult.chunksToRebuild.front()).insert_or_assign(rayResult.blockHit, 0);
+            
+    // udmMutex.unlock();    
+                setBlock(coord, 0, false);  
+                // blockBreakParticles(rayResult.blockHit, 25);
+
+                lightMapMutex.lock();
+                std::set<BlockChunk *> implicated;
+                for(BlockCoord& neigh : BlockInfo::neighbors) {
+                    auto segIt = lightMap.find(coord + neigh);
+                    if(segIt != lightMap.end()) {
+                        
+                        for(LightRay& ray : segIt->second.rays) {
+                            ChunkCoord chunkOfOrigin(
+                                std::floor(static_cast<float>(ray.origin.x)/chunkWidth),
+                                std::floor(static_cast<float>(ray.origin.z)/chunkWidth)
+                            );
+                            takenCareOfChunkMutex.lock();
+                            auto chunkIt = takenCareOfChunkSpots.find(chunkOfOrigin);
+                            if(chunkIt != takenCareOfChunkSpots.end()){
+                                implicated.insert(chunkIt->second);
+                            }
+                                takenCareOfChunkMutex.unlock();
+                        }
+                        
+                    }
+                }
+                lightMapMutex.unlock();
+                for(BlockChunk * pointer : implicated) {
+                    while(!lightUpdateQueue.push(pointer)) {
+
+                    }
+                }
+                
+
+
+
+
+                takenCareOfChunkMutex.lock();
+                    auto chunkIt = takenCareOfChunkSpots.find(cc);
+                    if(chunkIt != takenCareOfChunkSpots.end()) {
+                        //std::cout << "it's here" << "\n";
+                      //  std::cout << "fucking index:" << chunkIt->second.geometryStorePoolIndex << "\n";
+                       // rebuildChunk(chunkIt->second, chunkIt->second.position, true);
+
+
+                       BlockChunk *chunk = chunkIt->second;
+
+
+                       while(!userPowerQueue.push(chunk)) {
+
+                       }
+
+
+                    }
+                    takenCareOfChunkMutex.unlock();
+
+        }
+
+
+
+
+
+
+
+
+
+
+    }
+
+
+}
+
+
 void VoxelWorld::runStep(float deltaTime) {
     static float timer = 0.0f;
 
@@ -57,6 +364,25 @@ void VoxelWorld::getOffsetFromSeed() {
     worldOffset = glm::ivec3(rand()*100, rand()*100, rand()*100);
 }
 
+#define DEV
+
+void VoxelWorld::chunkUpdateThreadFunctionUser(int loadRadius) {
+    while(runChunkThread.load()) {
+
+        BlockChunk* chunk3 = 0;
+        while(userPowerQueue.pop(chunk3)) {
+            if(!runChunkThread.load()) {
+                break;
+            }
+            std::cout << "doing stuff on user chunk\n";
+            rebuildChunk(chunk3, chunk3->position, true, true, true);
+        }
+
+    }
+}
+
+
+
 void VoxelWorld::chunkUpdateThreadFunction(int loadRadius) {
     stillRunningThread = true;
     #ifdef DEV
@@ -66,18 +392,29 @@ void VoxelWorld::chunkUpdateThreadFunction(int loadRadius) {
     bool first = true;
 
 
-    while(runChunkThread) {
+    while(runChunkThread.load()) {
         glm::vec3 currCamPosDivided = cameraPosition/10.0f;
 
         
 
-
         BlockCoord cameraBlockPos(std::round(cameraPosition.x), std::round(cameraPosition.y), std::round(cameraPosition.z));
-        ChunkCoord cameraChunkPos(std::floor(static_cast<float>(cameraBlockPos.x)/chunkWidth), std::floor(static_cast<float>(cameraBlockPos.z)/chunkWidth));
+        if (!runChunkThread.load()) {
+            break;
+        }
+        ChunkCoord cameraChunkPos(std::floor(static_cast<float>(cameraBlockPos.x) / chunkWidth), std::floor(static_cast<float>(cameraBlockPos.z) / chunkWidth));
+        if (!runChunkThread.load()) {
+            break;
+        }
+
+       BlockChunk* chunk4 = 0;
+
+
+
+        
 
         BlockChunk* chunk2 = 0;
         while(lightUpdateQueue.pop(chunk2)) {
-            if(!runChunkThread) {
+            if(!runChunkThread.load()) {
                 break;
             }
             rebuildChunk(chunk2, chunk2->position, true, true);
@@ -86,7 +423,7 @@ void VoxelWorld::chunkUpdateThreadFunction(int loadRadius) {
 
         BlockChunk* chunk = 0;
         while(deferredChunkQueue.pop(chunk)) {
-            if(!runChunkThread) {
+            if(!runChunkThread.load()) {
                 break;
             }
             rebuildChunk(chunk, chunk->position, true, false);
@@ -112,34 +449,53 @@ void VoxelWorld::chunkUpdateThreadFunction(int loadRadius) {
                     for(int z = cameraChunkPos.z - loadRadius; z < cameraChunkPos.z + loadRadius; ++z) {
 
                         ChunkCoord thisChunkCoord(x,z);
+                        takenCareOfChunkMutex.lock();
                         if(takenCareOfChunkSpots.find(thisChunkCoord) == takenCareOfChunkSpots.end()) {
-                            
-                            if(hasHadInitialLightPass.find(thisChunkCoord) == hasHadInitialLightPass.end()) {
-                                rebuildChunk(sortedChunkPtrs[takenChunkIndex], thisChunkCoord, false, true);
+                            takenCareOfChunkMutex.unlock();
+                            bool hasHadPass = false;
+                            hashadlightMutex.lock();
+                            if (hasHadInitialLightPass.find(thisChunkCoord) != hasHadInitialLightPass.end()) {
+                                hasHadPass = true;
+                            }
+                            hashadlightMutex.unlock();
+            
+                            if(!hasHadPass) {
+                                if (runChunkThread.load()) {
+                                    rebuildChunk(sortedChunkPtrs[takenChunkIndex], thisChunkCoord, false, true);
+                                }
+                                
                             } else {
-                                rebuildChunk(sortedChunkPtrs[takenChunkIndex], thisChunkCoord, false, false);
+                                if (runChunkThread.load()) {
+                                    rebuildChunk(sortedChunkPtrs[takenChunkIndex], thisChunkCoord, false, false);
+                                }
                             }
                             
 
                             takenChunkIndex++;
+                        } else {
+                            takenCareOfChunkMutex.unlock();
                         }
+
+
                         
-                        if(!runChunkThread) {
+                        if(!runChunkThread.load()) {
                             break;
                         }
                         if(first) {
                             initialLoadProgress += 1;
                         } else {
+
                             if(deferredChunkQueue.pop(chunk)) {
                                 rebuildChunk(chunk, chunk->position, true, false);
                                 break;
                             }
                         }
                     }
-                    if(!runChunkThread ) {
+                    if(!runChunkThread.load() ) {
                         break;
                     }
                     if(!first) {
+
                         if(deferredChunkQueue.pop(chunk)) {
                                 rebuildChunk(chunk, chunk->position, true, false);
                                 break;
@@ -202,16 +558,20 @@ void VoxelWorld::populateChunksAndGeometryStores(entt::registry &registry, int v
 }
 
 
-void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool immediateInPlace, bool light) {
+void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool immediateInPlace, bool light, bool user) {
+
+
 
     float time = glfwGetTime();
 
     std::unordered_map<BlockCoord, uint32_t, IntTupHash> memo;
 
     if(!immediateInPlace) {
+        takenCareOfChunkMutex.lock();
         if(takenCareOfChunkSpots.find(chunk->position) != takenCareOfChunkSpots.end()) {
             takenCareOfChunkSpots.erase(chunk->position);
         }
+        takenCareOfChunkMutex.unlock();
         chunk->position = newPosition;
         generateChunk(newPosition, memo);
     }
@@ -338,13 +698,14 @@ void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool im
                         int doorTop = DoorInfo::getDoorTopBit(flags);
 
                         float blockLightVal = 0.0f;
+                        lightMapMutex.lock();
                         auto segIt = lightMap.find(coord);
                         if(segIt != lightMap.end()) {
                             for(LightRay& ray : segIt->second.rays) {
                                 blockLightVal = std::min(blockLightVal + ray.value, 16.0f);
                             }
                         }
-                        
+                        lightMapMutex.unlock();
                         int index = 0;
                         for(float vert : DoorInfo::doorModels[modelIndex]) {
                             float thisvert = 0.0f;
@@ -410,6 +771,120 @@ void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool im
 
                         tuvs.insert(tuvs.end(), ladderUVs.begin(), ladderUVs.end());
                     } else
+                    if(block == 21) {
+                        //sign                  
+                        int direction = BlockInfo::getDirectionBits(flags);
+                        std::vector<std::vector<float>> signModel = SignInfo::getSignModel(coord, direction);
+                        
+
+                        float blockLightVal = 0.0f;
+                        auto segIt = lightMap.find(coord);
+                        if(segIt != lightMap.end()) {
+                            for(LightRay& ray : segIt->second.rays) {
+                                blockLightVal = std::min(blockLightVal + ray.value, 16.0f);
+                            }
+                        }
+
+                        
+                        int index = 0;
+                        for(float vert : signModel[0]) {
+                            float thisvert = 0.0f;
+                            if(index == 0){
+                                thisvert = vert + coord.x;
+                            } else
+                            if(index == 1){
+                                thisvert = vert + coord.y;
+                            } else
+                            if(index == 2){
+                                thisvert = vert + coord.z;
+                            } else 
+                            if(index == 3) {
+                                thisvert = vert + blockLightVal;
+                            } else {
+                                thisvert = vert;
+                            }
+                            tverts.push_back(thisvert);
+                            index = (index + 1) % 5;
+                        }
+
+                        tuvs.insert(tuvs.end(), signModel[1].begin(), signModel[1].end());
+                    } else
+                    if(block == 19) {
+
+                        static std::vector<float> postUVs = PostInfo::getPostUVs();
+                        int direction = BlockInfo::getDirectionBits(flags);
+
+                        int modelIndex = direction;
+
+                        float blockLightVal = 0.0f;
+                        auto segIt = lightMap.find(coord);
+                        if(segIt != lightMap.end()) {
+                            for(LightRay& ray : segIt->second.rays) {
+                                blockLightVal = std::min(blockLightVal + ray.value, 16.0f);
+                            }
+                        }
+                        
+                        int index = 0;
+                        for(float vert : PostInfo::postModels[modelIndex]) {
+                            float thisvert = 0.0f;
+                            if(index == 0){
+                                thisvert = vert + coord.x;
+                            } else
+                            if(index == 1){
+                                thisvert = vert + coord.y;
+                            } else
+                            if(index == 2){
+                                thisvert = vert + coord.z;
+                            } else 
+                            if(index == 3) {
+                                thisvert = vert + blockLightVal;
+                            } else {
+                                thisvert = vert;
+                            }
+                            tverts.push_back(thisvert);
+                            index = (index + 1) % 5;
+                        }
+
+                        tuvs.insert(tuvs.end(), postUVs.begin(), postUVs.end());
+                    } else
+                    if(block == 20) {
+
+                        static std::vector<float> torchUVs = TorchInfo::getTorchUVs();
+                        int direction = BlockInfo::getDirectionBits(flags);
+
+                        int modelIndex = direction;
+
+                        float blockLightVal = 0.0f;
+                        auto segIt = lightMap.find(coord);
+                        if(segIt != lightMap.end()) {
+                            for(LightRay& ray : segIt->second.rays) {
+                                blockLightVal = std::min(blockLightVal + ray.value, 16.0f);
+                            }
+                        }
+                        
+                        int index = 0;
+                        for(float vert : TorchInfo::torchModels[modelIndex]) {
+                            float thisvert = 0.0f;
+                            if(index == 0){
+                                thisvert = vert + coord.x;
+                            } else
+                            if(index == 1){
+                                thisvert = vert + coord.y;
+                            } else
+                            if(index == 2){
+                                thisvert = vert + coord.z;
+                            } else 
+                            if(index == 3) {
+                                thisvert = vert + blockLightVal;
+                            } else {
+                                thisvert = vert;
+                            }
+                            tverts.push_back(thisvert);
+                            index = (index + 1) % 5;
+                        }
+
+                        tuvs.insert(tuvs.end(), torchUVs.begin(), torchUVs.end());
+                    } else
                     if(block == 13) {
 
                         static std::vector<float> chestUVs = ChestInfo::getChestUVs();
@@ -455,7 +930,9 @@ void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool im
                             uint32_t neighblockcombined = blockAtMemo(coord + neigh, memo);
                             uint32_t neighblock = neighblockcombined & BlockInfo::BLOCK_ID_BITS;
                             bool neighSemiTrans = std::find(BlockInfo::semiTransparents.begin(), BlockInfo::semiTransparents.end(), neighblock) != BlockInfo::semiTransparents.end();
-                            bool waterBorderingTransparent = (block == 2 && neighblock != 2);
+
+                            bool waterBorderingTransparent = (block == 2 && std::find(BlockInfo::transparents.begin(), BlockInfo::transparents.end(), neighblock) != BlockInfo::transparents.end() && neighblock != 2);
+
                             if(neighblock == 0 || neighSemiTrans || waterBorderingTransparent) {
 
                                 BlockCoord lightCubeHere = coord + neigh;
@@ -489,7 +966,7 @@ void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool im
                                 if(block == 2 && blockAtMemo(coord + BlockCoord(0,1,0), memo) != 2) {
                                     blockShift = -0.125f;
                                     blockBottomShift = 0.125f;
-                                    bottomTextureShift = 2/288.0f;
+                                    bottomTextureShift = 2/544.0f;
                                 }
 
                                 
@@ -499,8 +976,9 @@ void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool im
                                 std::vector<TextureFace> &thisTex = BlockInfo::texs[block];
 
                                 if(neighborIndex == TOP) {
-
+                                    
                                     tverts.insert(tverts.end(), {
+
                                     thisFace[0] + coord.x, thisFace[1] + coord.y + blockShift, thisFace[2] + coord.z, thisFace[3]+blockLightVal,
                                     thisFace[4]+ (skyBlocked ? -4.0f : 0.0f), 
                                     thisFace[5] + coord.x, thisFace[6] + coord.y + blockShift, thisFace[7] + coord.z, thisFace[8]+blockLightVal,
@@ -511,13 +989,16 @@ void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool im
 
 
 
-                                    // thisFace[15] + coord.x, thisFace[16] + coord.y + blockShift, thisFace[17] + coord.z, thisFace[18]+blockLightVal,
-                                    // thisFace[19]+ (skyBlocked ? -4.0f : 0.0f), 
-                                    // thisFace[20] + coord.x, thisFace[21] + coord.y + blockShift, thisFace[22] + coord.z, thisFace[23]+blockLightVal,
-                                    // thisFace[24]+ (skyBlocked ? -4.0f : 0.0f), 
-                                    // thisFace[25] + coord.x, thisFace[26] + coord.y + blockShift, thisFace[27] + coord.z, thisFace[28]+blockLightVal,
-                                    // thisFace[29]+ (skyBlocked ? -4.0f : 0.0f)
-                                });
+                                        // thisFace[15] + coord.x, thisFace[16] + coord.y + blockShift, thisFace[17] + coord.z, thisFace[18]+blockLightVal,
+                                        // thisFace[19]+ (skyBlocked ? -4.0f : 0.0f), 
+                                        // thisFace[20] + coord.x, thisFace[21] + coord.y + blockShift, thisFace[22] + coord.z, thisFace[23]+blockLightVal,
+                                        // thisFace[24]+ (skyBlocked ? -4.0f : 0.0f), 
+                                        // thisFace[25] + coord.x, thisFace[26] + coord.y + blockShift, thisFace[27] + coord.z, thisFace[28]+blockLightVal,
+                                        // thisFace[29]+ (skyBlocked ? -4.0f : 0.0f)
+                                    }
+                                    
+                                
+                                    );
 
                                     tuvs.insert(tuvs.end() , {
                                         thisTex[0].bl.x - textureWidth, thisTex[0].bl.y,  thisTex[0].br.x, thisTex[0].br.y,
@@ -528,6 +1009,54 @@ void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool im
                                         // thisTex[0].tl.x, thisTex[0].tl.y,
                                         // thisTex[0].bl.x, thisTex[0].bl.y
                                     });
+
+                                    if(block == 2) {
+
+
+                                            tverts.insert(tverts.end(), {
+
+                                                thisFace[10] + coord.x, thisFace[11] + coord.y + blockShift, thisFace[12] + coord.z, thisFace[13]+blockLightVal,
+                                            thisFace[14]+ (skyBlocked ? -4.0f : 0.0f), 
+
+                                            thisFace[5] + coord.x, thisFace[6] + coord.y + blockShift, thisFace[7] + coord.z, thisFace[8]+blockLightVal,
+                                            thisFace[9]+ (skyBlocked ? -4.0f : 0.0f), 
+
+                                            thisFace[0] + coord.x, thisFace[1] + coord.y + blockShift, thisFace[2] + coord.z, thisFace[3]+blockLightVal,
+                                            thisFace[4]+ (skyBlocked ? -4.0f : 0.0f), 
+
+                                            
+
+                                            
+
+
+
+
+                                                // thisFace[15] + coord.x, thisFace[16] + coord.y + blockShift, thisFace[17] + coord.z, thisFace[18]+blockLightVal,
+                                                // thisFace[19]+ (skyBlocked ? -4.0f : 0.0f), 
+                                                // thisFace[20] + coord.x, thisFace[21] + coord.y + blockShift, thisFace[22] + coord.z, thisFace[23]+blockLightVal,
+                                                // thisFace[24]+ (skyBlocked ? -4.0f : 0.0f), 
+                                                // thisFace[25] + coord.x, thisFace[26] + coord.y + blockShift, thisFace[27] + coord.z, thisFace[28]+blockLightVal,
+                                                // thisFace[29]+ (skyBlocked ? -4.0f : 0.0f)
+                                            }
+                                            
+                                        
+                                            );
+
+                                            tuvs.insert(tuvs.end() , {
+
+                                                thisTex[0].tr.x, thisTex[0].tr.y - textureWidth,  thisTex[0].br.x, thisTex[0].br.y,
+                                                thisTex[0].br.x, thisTex[0].br.y,              thisTex[0].br.x, thisTex[0].br.y,
+                                                thisTex[0].bl.x - textureWidth, thisTex[0].bl.y,  thisTex[0].br.x, thisTex[0].br.y,
+                                                
+                                                
+
+                                                // thisTex[0].tr.x, thisTex[0].tr.y,
+                                                // thisTex[0].tl.x, thisTex[0].tl.y,
+                                                // thisTex[0].bl.x, thisTex[0].bl.y
+                                            });
+
+                                    }
+
                                 } else if(neighborIndex == BOTTOM) {
 
                                     tverts.insert(tverts.end(), {
@@ -689,9 +1218,12 @@ void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool im
             }
         }
     }
-
-    geometryStorePool.at(chunk->geometryStorePoolIndex).myLock.lock();
-
+    try {
+        geometryStorePool.at(chunk->geometryStorePoolIndex).myLock.lock();
+    }
+    catch (std::exception e) {
+        std::cout << e.what() << "\n";
+    }
         try {
             geometryStorePool.at(chunk->geometryStorePoolIndex).verts = verts;
         }
@@ -724,10 +1256,31 @@ void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool im
             std::cout << "index: " << chunk->geometryStorePoolIndex << "\n";
             std::cout << "size: " << geometryStorePool.size() << "\n";
         }
+        try {
+            geometryStorePool.at(chunk->geometryStorePoolIndex).myLock.unlock();
+        }
+        catch (std::exception e) {
+            std::cout << e.what() << "\n";
+        }
 
-        geometryStorePool.at(chunk->geometryStorePoolIndex).myLock.unlock();
+          if (user) {
 
-    if(!immediateInPlace) {
+
+            while(!userGeometryStoreQueue.push(chunk->geometryStorePoolIndex)) {
+
+            }
+            takenCareOfChunkMutex.lock();
+            if(takenCareOfChunkSpots.find(chunk->position) == takenCareOfChunkSpots.end()) {
+                takenCareOfChunkSpots.insert_or_assign(chunk->position, chunk);
+            }
+            takenCareOfChunkMutex.unlock();
+
+
+    } else {
+
+
+
+        if(!immediateInPlace) {
 
         // bool found = false;
         // for(int i : geometryStoresToRebuild) {
@@ -743,10 +1296,12 @@ void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool im
         while(!geometryStoreQueue.push(chunk->geometryStorePoolIndex)) {
 
         }
+        takenCareOfChunkMutex.lock();
         if(takenCareOfChunkSpots.find(chunk->position) == takenCareOfChunkSpots.end()) {
             takenCareOfChunkSpots.insert_or_assign(chunk->position, chunk);
         }
-    } else {
+        takenCareOfChunkMutex.unlock();
+      } else {
 
         while(!highPriorityGeometryStoreQueue.push(chunk->geometryStorePoolIndex)) {
 
@@ -755,9 +1310,20 @@ void VoxelWorld::rebuildChunk(BlockChunk *chunk, ChunkCoord newPosition, bool im
 
     }
 
+
+
+
+    }
+
+    
+
+  
+  
+
     float elapsed = glfwGetTime() - time;
     timeChunkMeshing += elapsed;
     numberOfSamples += 1;
+
 }
 
 void VoxelWorld::depropogateLightOriginIteratively(BlockCoord origin, std::set<BlockChunk*> *imp, std::unordered_map<BlockCoord,LightSegment,IntTupHash>& lightMap) {
@@ -781,12 +1347,14 @@ void VoxelWorld::depropogateLightOriginIteratively(BlockCoord origin, std::set<B
         );
 
         if(chunkCoordOfOrigin != chunkCoordHere) {
+            takenCareOfChunkMutex.lock();
             auto chunkIt = takenCareOfChunkSpots.find(chunkCoordHere);
             if(chunkIt != takenCareOfChunkSpots.end()) {
                 imp->insert(chunkIt->second);
             }
+            takenCareOfChunkMutex.unlock();
         }
-
+        lightMapMutex.lock();
         auto segIt = lightMap.find(spot);
         if(segIt != lightMap.end()) {
             auto rayIt = std::find_if(segIt->second.rays.begin(), segIt->second.rays.end(), [origin](LightRay& ray){
@@ -802,56 +1370,57 @@ void VoxelWorld::depropogateLightOriginIteratively(BlockCoord origin, std::set<B
                 }
             }
         }
+        lightMapMutex.unlock();
     }
 }
 
 
 
 
-void VoxelWorld::depropogateLightOrigin(BlockCoord spot, BlockCoord origin, std::set<BlockChunk*> *imp, std::unordered_map<
-            BlockCoord,
-            LightSegment,
-            IntTupHash
-    >& lightMap  ) {
+// void VoxelWorld::depropogateLightOrigin(BlockCoord spot, BlockCoord origin, std::set<BlockChunk*> *imp, std::unordered_map<
+//             BlockCoord,
+//             LightSegment,
+//             IntTupHash
+//     >&   ) {
 
-    ChunkCoord chunkCoordOfOrigin(
-        std::floor(static_cast<float>(origin.x)/chunkWidth),
-        std::floor(static_cast<float>(origin.z)/chunkWidth)
-    );
+//     ChunkCoord chunkCoordOfOrigin(
+//         std::floor(static_cast<float>(origin.x)/chunkWidth),
+//         std::floor(static_cast<float>(origin.z)/chunkWidth)
+//     );
 
-    ChunkCoord chunkCoordHere(
-        std::floor(static_cast<float>(spot.x)/chunkWidth),
-        std::floor(static_cast<float>(spot.z)/chunkWidth)
-    );
+//     ChunkCoord chunkCoordHere(
+//         std::floor(static_cast<float>(spot.x)/chunkWidth),
+//         std::floor(static_cast<float>(spot.z)/chunkWidth)
+//     );
 
-    if(chunkCoordOfOrigin != chunkCoordHere) {
-        auto chunkIt = takenCareOfChunkSpots.find(chunkCoordHere);
-        if(chunkIt != takenCareOfChunkSpots.end()) {
-            imp->insert(chunkIt->second);
-        }
-    }
+//     if(chunkCoordOfOrigin != chunkCoordHere) {
+//         auto chunkIt = takenCareOfChunkSpots.find(chunkCoordHere);
+//         if(chunkIt != takenCareOfChunkSpots.end()) {
+//             imp->insert(chunkIt->second);
+//         }
+//     }
 
-    auto segIt = lightMap.find(spot);
-    if(segIt != lightMap.end()) {
-
-
-        auto rayIt = std::find_if(segIt->second.rays.begin(), segIt->second.rays.end(), [origin](LightRay& ray){
-            return ray.origin == origin;
-        });
-
-        if(rayIt != segIt->second.rays.end()) {
-            std::vector<int> directions = rayIt->directions;
-            segIt->second.rays.erase(rayIt);
-            for(int direction : directions) {
-                depropogateLightOrigin(spot + BlockInfo::neighbors[direction], origin, imp, lightMap);
-            }
-        }
+//     auto segIt = lightMap.find(spot);
+//     if(segIt != lightMap.end()) {
 
 
+//         auto rayIt = std::find_if(segIt->second.rays.begin(), segIt->second.rays.end(), [origin](LightRay& ray){
+//             return ray.origin == origin;
+//         });
 
-    }
+//         if(rayIt != segIt->second.rays.end()) {
+//             std::vector<int> directions = rayIt->directions;
+//             segIt->second.rays.erase(rayIt);
+//             for(int direction : directions) {
+//                 depropogateLightOrigin(spot + BlockInfo::neighbors[direction], origin, imp, lightMap);
+//             }
+//         }
 
-}
+
+
+//     }
+
+// }
 
 struct spotForQueue {
     int value;
@@ -889,14 +1458,16 @@ void VoxelWorld::propogateLightOriginIteratively(BlockCoord spot, BlockCoord ori
             );
 
             if(chunkCoordOfOrigin != chunkCoordHere) {
+                takenCareOfChunkMutex.lock();
                 auto chunkIt = takenCareOfChunkSpots.find(chunkCoordHere);
                 if(chunkIt != takenCareOfChunkSpots.end()) {
                     imp->insert(chunkIt->second);
                 }
+                takenCareOfChunkMutex.unlock();
             }
 
 
-
+            lightMapMutex.lock();
             auto segIt = lightMap.find(n.spot);
             if (segIt == lightMap.end()) {
                 segIt = lightMap.insert({n.spot, LightSegment()}).first;
@@ -915,11 +1486,13 @@ void VoxelWorld::propogateLightOriginIteratively(BlockCoord spot, BlockCoord ori
             } else if (rayIt->value < n.value) {
                 rayIt->value = n.value;
             }
+            lightMapMutex.unlock();
 
             if (n.value > 1) {
+                lightMapMutex.lock();
                 for (int i = 0; i < BlockInfo::neighbors.size(); ++i) {
                     BlockCoord next = n.spot + BlockInfo::neighbors[i];
-
+                    
                     // Find or create a ray for the neighbor
                     auto nextSegIt = lightMap.find(next);
                     if (nextSegIt == lightMap.end()) {
@@ -946,113 +1519,116 @@ void VoxelWorld::propogateLightOriginIteratively(BlockCoord spot, BlockCoord ori
                             rayIt->directions.push_back(i);
                         }
                     }
+                    
                 }
+                lightMapMutex.unlock();
             }
         }
     }
 }
 
-void VoxelWorld::propogateLightOrigin(BlockCoord spot, BlockCoord origin, int value, std::set<BlockChunk*> *imp, std::unordered_map<BlockCoord, uint32_t, IntTupHash>& memo, std::unordered_map<
-            BlockCoord,
-            LightSegment,
-            IntTupHash
-    >  &lightMap) {
-    if(value > 0) {
+// void VoxelWorld::propogateLightOrigin(BlockCoord spot, BlockCoord origin, int value, std::set<BlockChunk*> *imp, std::unordered_map<BlockCoord, uint32_t, IntTupHash>& memo, std::unordered_map<
+//             BlockCoord,
+//             LightSegment,
+//             IntTupHash
+//     >  &lightMap) {
+//     if(value > 0) {
 
-        ChunkCoord chunkCoordOfOrigin(
-            std::floor(static_cast<float>(origin.x)/chunkWidth),
-            std::floor(static_cast<float>(origin.z)/chunkWidth)
-        );
+//         ChunkCoord chunkCoordOfOrigin(
+//             std::floor(static_cast<float>(origin.x)/chunkWidth),
+//             std::floor(static_cast<float>(origin.z)/chunkWidth)
+//         );
 
-        ChunkCoord chunkCoordHere(
-            std::floor(static_cast<float>(spot.x)/chunkWidth),
-            std::floor(static_cast<float>(spot.z)/chunkWidth)
-        );
+//         ChunkCoord chunkCoordHere(
+//             std::floor(static_cast<float>(spot.x)/chunkWidth),
+//             std::floor(static_cast<float>(spot.z)/chunkWidth)
+//         );
 
-       if(chunkCoordOfOrigin != chunkCoordHere) {
-            auto chunkIt = takenCareOfChunkSpots.find(chunkCoordHere);
-            if(chunkIt != takenCareOfChunkSpots.end()) {
-                imp->insert(chunkIt->second);
-            }
-        }
+//        if(chunkCoordOfOrigin != chunkCoordHere) {
+//             auto chunkIt = takenCareOfChunkSpots.find(chunkCoordHere);
+//             if(chunkIt != takenCareOfChunkSpots.end()) {
+//                 imp->insert(chunkIt->second);
+//             }
+//         }
 
-        auto segIt = lightMap.find(spot);
-        if(segIt == lightMap.end()) {
-            lightMap.insert_or_assign(spot, LightSegment());
-        }
-        segIt = lightMap.find(spot);
+//         auto segIt = lightMap.find(spot);
+//         if(segIt == lightMap.end()) {
+//             lightMap.insert_or_assign(spot, LightSegment());
+//         }
+//         segIt = lightMap.find(spot);
 
-        auto rayIt = std::find_if(segIt->second.rays.begin(), segIt->second.rays.end(), [origin](LightRay& ray){
-            return ray.origin == origin;
-        });
+//         auto rayIt = std::find_if(segIt->second.rays.begin(), segIt->second.rays.end(), [origin](LightRay& ray){
+//             return ray.origin == origin;
+//         });
 
-        //if theres not already a ray of this origin here
-        if(rayIt == segIt->second.rays.end()) {
+//         //if theres not already a ray of this origin here
+//         if(rayIt == segIt->second.rays.end()) {
 
-            int neighborIndex = 0;
-            LightRay thisRay;
-            thisRay.value = value;
-            thisRay.origin = origin;
-            //figure out the directions its going
-            for(BlockCoord& neigh : BlockInfo::neighbors) {
-                uint32_t blockBitsHere = blockAtMemo(spot + neigh, memo);
-                uint32_t blockIDHere = blockBitsHere & BlockInfo::BLOCK_ID_BITS;
-                bool goingHere = (blockIDHere == 0 || 
-                std::find(BlockInfo::transparents.begin(), BlockInfo::transparents.end(), blockIDHere) != BlockInfo::transparents.end() ||
-                std::find(BlockInfo::semiTransparents.begin(), BlockInfo::semiTransparents.end(), blockIDHere) != BlockInfo::semiTransparents.end());
-                if(goingHere) {
-                    thisRay.directions.push_back(neighborIndex);
-                }
-                neighborIndex++;
-            }
+//             int neighborIndex = 0;
+//             LightRay thisRay;
+//             thisRay.value = value;
+//             thisRay.origin = origin;
+//             //figure out the directions its going
+//             for(BlockCoord& neigh : BlockInfo::neighbors) {
+//                 uint32_t blockBitsHere = blockAtMemo(spot + neigh, memo);
+//                 uint32_t blockIDHere = blockBitsHere & BlockInfo::BLOCK_ID_BITS;
+//                 bool goingHere = (blockIDHere == 0 || 
+//                 std::find(BlockInfo::transparents.begin(), BlockInfo::transparents.end(), blockIDHere) != BlockInfo::transparents.end() ||
+//                 std::find(BlockInfo::semiTransparents.begin(), BlockInfo::semiTransparents.end(), blockIDHere) != BlockInfo::semiTransparents.end());
+//                 if(goingHere) {
+//                     thisRay.directions.push_back(neighborIndex);
+//                 }
+//                 neighborIndex++;
+//             }
 
-            segIt->second.rays.push_back(thisRay);
-            for(int dir : thisRay.directions) {
+//             segIt->second.rays.push_back(thisRay);
+//             for(int dir : thisRay.directions) {
 
-                propogateLightOrigin(spot + BlockInfo::neighbors[dir], origin, value - 1, imp, memo, lightMap);
+//                 propogateLightOrigin(spot + BlockInfo::neighbors[dir], origin, value - 1, imp, memo, lightMap);
 
-            }
+//             }
 
-        } else { //if there is a ray of this origin here, then if it is less than our value, bring it up to it, and propogate on.
-            if(rayIt->value < value) {
-                rayIt->value = value;
+//         } else { //if there is a ray of this origin here, then if it is less than our value, bring it up to it, and propogate on.
+//             if(rayIt->value < value) {
+//                 rayIt->value = value;
 
             
-                int neighborIndex = 0;
-                //figure out the directions its going
-                for(BlockCoord& neigh : BlockInfo::neighbors) {
-                    uint32_t blockBitsHere = blockAtMemo(spot + neigh, memo);
-                    uint32_t blockIDHere = blockBitsHere & BlockInfo::BLOCK_ID_BITS;
-                    bool goingHere = (blockIDHere == 0 || 
-                    std::find(BlockInfo::transparents.begin(), BlockInfo::transparents.end(), blockIDHere) != BlockInfo::transparents.end() ||
-                    std::find(BlockInfo::semiTransparents.begin(), BlockInfo::semiTransparents.end(), blockIDHere) != BlockInfo::semiTransparents.end());
-                    if(goingHere) {
-                        if(std::find(rayIt->directions.begin(), rayIt->directions.end(), neighborIndex) == rayIt->directions.end()) {
-                            rayIt->directions.push_back(neighborIndex);
-                        }
-                    }
-                    neighborIndex++;
-                }
+//                 int neighborIndex = 0;
+//                 //figure out the directions its going
+//                 for(BlockCoord& neigh : BlockInfo::neighbors) {
+//                     uint32_t blockBitsHere = blockAtMemo(spot + neigh, memo);
+//                     uint32_t blockIDHere = blockBitsHere & BlockInfo::BLOCK_ID_BITS;
+//                     bool goingHere = (blockIDHere == 0 || 
+//                     std::find(BlockInfo::transparents.begin(), BlockInfo::transparents.end(), blockIDHere) != BlockInfo::transparents.end() ||
+//                     std::find(BlockInfo::semiTransparents.begin(), BlockInfo::semiTransparents.end(), blockIDHere) != BlockInfo::semiTransparents.end());
+//                     if(goingHere) {
+//                         if(std::find(rayIt->directions.begin(), rayIt->directions.end(), neighborIndex) == rayIt->directions.end()) {
+//                             rayIt->directions.push_back(neighborIndex);
+//                         }
+//                     }
+//                     neighborIndex++;
+//                 }
 
-                for(int dir : rayIt->directions) {
+//                 for(int dir : rayIt->directions) {
 
-                    propogateLightOrigin(spot + BlockInfo::neighbors[dir], origin, value - 1, imp, memo, lightMap);
+//                     propogateLightOrigin(spot + BlockInfo::neighbors[dir], origin, value - 1, imp, memo, lightMap);
 
-                }
-            }
+//                 }
+//             }
 
-        }
-    }
-}
+//         }
+//     }
+// }
 
 
 
 void VoxelWorld::lightPassOnChunk(ChunkCoord chunkCoord, std::unordered_map<BlockCoord, uint32_t, IntTupHash>& memo) {
-
+    hashadlightMutex.lock();
+           
     if(hasHadInitialLightPass.find(chunkCoord) == hasHadInitialLightPass.end()) {
         hasHadInitialLightPass.insert_or_assign(chunkCoord, true);
     }
-
+    hashadlightMutex.unlock();
 
 
     std::set<BlockChunk*> implicatedChunks;
@@ -1070,11 +1646,12 @@ void VoxelWorld::lightPassOnChunk(ChunkCoord chunkCoord, std::unordered_map<Bloc
             for(int z = 0; z < chunkWidth; ++z) {
                 for(int y = 0; y < chunkHeight; ++y) {
                     BlockCoord coord(chunkCoord.x * chunkWidth + x, y, chunkCoord.z * chunkWidth + z);
+                    lightMapMutex.lock();
                     auto lightIt = lightMap.find(coord);
                     if(lightIt != lightMap.end()) {
                         for(LightRay& ray : lightIt->second.rays) {
 
-
+                            lightMapMutex.unlock();
                             ChunkCoord chunkCoordOfOrigin(
                                 std::floor(static_cast<float>(ray.origin.x)/chunkWidth),
                                 std::floor(static_cast<float>(ray.origin.z)/chunkWidth)
@@ -1085,16 +1662,19 @@ void VoxelWorld::lightPassOnChunk(ChunkCoord chunkCoord, std::unordered_map<Bloc
                                 BlockCoord originWeRemoving = ray.origin;
 
                                 depropogateLightOriginIteratively(originWeRemoving, &implicatedChunks, lightMap);
-                                if(blockAtMemo(originWeRemoving, memo) == 12) {
+                                if(std::find(BlockInfo::lights.begin(), BlockInfo::lights.end(), blockAtMemo(originWeRemoving, memo) & BlockInfo::BLOCK_ID_BITS) != BlockInfo::lights.end()) {
                                     lightSources.insert(originWeRemoving);
                                 }
                             }
+                            lightMapMutex.lock();
 
                             
                         }
                         
                     }
-                    if(blockAtMemo(coord, memo) == 12) {
+                    lightMapMutex.unlock();
+
+                    if(std::find(BlockInfo::lights.begin(), BlockInfo::lights.end(), blockAtMemo(coord, memo) & BlockInfo::BLOCK_ID_BITS) != BlockInfo::lights.end()) {
                         lightSources.insert(coord);
                     }
                 }
@@ -1126,7 +1706,12 @@ void VoxelWorld::lightPassOnChunk(ChunkCoord chunkCoord, std::unordered_map<Bloc
 
 
 
+void VoxelWorld::checkAboveHeadThreadFunction() {
 
+
+
+
+}
 
 
 
@@ -1325,12 +1910,15 @@ BlockCoord(0, 1, -2),
                             
                             here += BlockCoord(0,1,0);
                             bool doingIt = true;
+                            udmMutex.lock();  
+            
                             auto chunkIt = userDataMap.find(chunkcoord);
                             if(chunkIt != userDataMap.end()) {
                                 if(chunkIt->second.find(here) != chunkIt->second.end()) {
                                     doingIt = false;
                                 }
                             }
+                            udmMutex.unlock();     
                             if(doingIt) {
                                 nudmMutex.lock();
                                 nonUserDataMap.insert_or_assign(here, 6);
@@ -1344,12 +1932,15 @@ BlockCoord(0, 1, -2),
                         for(BlockCoord& coor : leafSpots) {
                             BlockCoord coorHere = here + coor;
                             bool doingIt = true;
+                            udmMutex.lock();  
+            
                             auto chunkIt = userDataMap.find(chunkcoord);
                             if(chunkIt != userDataMap.end()) {
                                 if(chunkIt->second.find(coorHere) != chunkIt->second.end()) {
                                     doingIt = false;
                                 }
                             }
+                            udmMutex.unlock();   
                             if(doingIt) {
                                 ChunkCoord chunkHere(
                                     std::floor(static_cast<float>(coorHere.x)/chunkWidth),
@@ -1362,10 +1953,12 @@ BlockCoord(0, 1, -2),
                                     if(memoIt != memo.end()){
                                         memo.erase(coorHere);
                                     }
+                                    takenCareOfChunkMutex.lock();
                                     auto chunkIt = takenCareOfChunkSpots.find(chunkHere);
                                     if(chunkIt != takenCareOfChunkSpots.end()) {
                                         implicatedChunks.insert(chunkIt->second);
                                     }
+                                    takenCareOfChunkMutex.unlock();
                                 }
                                 nudmMutex.unlock();
                             }
@@ -1401,15 +1994,21 @@ uint32_t VoxelWorld::blockAt(BlockCoord coord) {
         static_cast<int>(std::floor(static_cast<float>(coord.x)/chunkWidth)), 
         static_cast<int>(std::floor(static_cast<float>(coord.z)/chunkWidth))
     );
-
+udmMutex.lock();  
+               
     auto chunkit = userDataMap.find(chunkcoord);
     if(chunkit != userDataMap.end()) {
         auto blockit = chunkit->second.find(coord);
         if(blockit != chunkit->second.end()) {
-            return blockit->second;
+
+            uint32_t b = blockit->second;
+            udmMutex.unlock(); 
+            return b;
+             
         }
     }
 
+ udmMutex.unlock(); 
     if((*currentNoiseFunction)(coord.x, coord.y, coord.z) > 10) {
         if((*currentNoiseFunction)(coord.x, coord.y+10, coord.z) > 10) {
             return 5;
