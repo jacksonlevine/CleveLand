@@ -6,7 +6,7 @@
 A simple electron app that shows posts using tumblr's API and downloads the newest pre-alpha "release" version of the game when you request it.
 
 
-[Download link for launcher](https://drive.google.com/file/d/1uIrMtA6N_YCLok3WR8nVH1lcia0lJGIl/view?usp=sharing)
+[Download link for CleveLand Launcher](https://drive.google.com/file/d/1uIrMtA6N_YCLok3WR8nVH1lcia0lJGIl/view?usp=sharing)
 
 # Known bugs:
 
