@@ -1,2 +1,2 @@
 viewDistance 7
-serverIp 192.168.1.131:6969
+serverIp localhost:6969

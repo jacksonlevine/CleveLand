@@ -29,41 +29,41 @@ using boost::asio::io_context;
 
 
 //PortAudio settings
-const int FRAMESPERBUFFER = 480;
-const int SAMPLERATE = 48000;
+constexpr int FRAMESPERBUFFER = 480;
+constexpr int SAMPLERATE = 48000;
 
 //Network settings
-std::string SERVER_PORT = "6970";
+inline std::string SERVER_PORT = "6970";
 
-int PREFERRED_INPUT_DEVICE = 0;
-int PREFERRED_OUTPUT_DEVICE = 0;
+inline int PREFERRED_INPUT_DEVICE = 0;
+inline int PREFERRED_OUTPUT_DEVICE = 0;
 
 struct AudioPacket {
-    uint32_t servId;
-    uint8_t sequenceNumber;
-    uint8_t incomingBytes;
+    uint32_t servId{};
+    uint8_t sequenceNumber{};
+    uint8_t incomingBytes{};
     std::string id;
-    unsigned char buffer[128];
+    unsigned char buffer[128]{};
 };
 
 struct Person {
     std::string id;
-    uint32_t servId;
+    uint32_t servId{};
     OpusDecoder *decoder;
     RingBuffer rbuf;
-    int opusErr;
+    int opusErr{};
     int deleteTimer;
     udp::endpoint endpoint;
     Person();
 };
 
-Person::Person() {
+inline Person::Person() {
     this->rbuf = RingBuffer(480, 1);
     this->decoder = opus_decoder_create(SAMPLERATE, 1, &this->opusErr);
     this->deleteTimer = 0;
 }
 
-std::vector<Person> allPeople;
+inline std::vector<Person> allPeople;
 
 
 
@@ -73,39 +73,39 @@ std::vector<Person> allPeople;
 
 // const size_t BUFFER_SIZE = 1024;
 // char recv_buffer[BUFFER_SIZE];
-udp::socket* client_socket;
-udp::resolver::results_type server_endpoints;
+inline udp::socket* client_socket;
+inline udp::resolver::results_type server_endpoints;
 
-udp::endpoint remote_endpoint;
-AudioPacket recvPacket;
+inline udp::endpoint remote_endpoint;
+inline AudioPacket recvPacket;
 
-io_context context;
+inline io_context context;
 
-PaStream *sendingStream;
-PaStream *receivingStream;
+inline PaStream *sendingStream;
+inline PaStream *receivingStream;
 
 //Opus stuffies
-OpusEncoder *theFuckinEncoderDude;
+inline OpusEncoder *theFuckinEncoderDude;
 
 PaError startupPortAudio(PaStream *stream, PaStreamCallback *streamCallback, bool input);
 PaError stopChatStreams(PaStream *stream);
 void printDeviceInfo(PaDeviceIndex index);
 void handle_send(const boost::system::error_code& error, std::size_t bytes_transferred);
 
-uint8_t mySequenceNumber = 0;
-std::string myID = get_uuid();
+inline uint8_t mySequenceNumber = 0;
+inline std::string myID = get_uuid();
 
 
 
  
-std::atomic<bool> runChatThread = false;
+inline std::atomic<bool> runChatThread = false;
 
 static int sendingAudioCallback(const void *inputBuffer, void *outputBuffer,
                          unsigned long framesPerBuffer,
                          const PaStreamCallbackTimeInfo* timeInfo,
                          PaStreamCallbackFlags statusFlags,
                          void *userData) {
-    const float *in = (const float*) inputBuffer;
+    const auto in = static_cast<const float*>(inputBuffer);
     //float *out = (float*) outputBuffer;
 
     // for (unsigned long i = 0; i < framesPerBuffer; ++i) { 
@@ -117,7 +117,7 @@ static int sendingAudioCallback(const void *inputBuffer, void *outputBuffer,
         packet.id = myID;
         packet.servId = MY_ID;
 
-        opus_int32 encodedLength = opus_encode_float(
+        const opus_int32 encodedLength = opus_encode_float(
             theFuckinEncoderDude,
             in,
             FRAMESPERBUFFER,
@@ -144,7 +144,7 @@ static int receivingAudioCallback(const void *inputBuffer, void *outputBuffer,
                          const PaStreamCallbackTimeInfo* timeInfo,
                          PaStreamCallbackFlags statusFlags,
                          void *userData) {
-    float *out = (float*) outputBuffer;
+    auto *out = static_cast<float*>(outputBuffer);
 
     if(runChatThread.load()) {
 
@@ -156,11 +156,10 @@ static int receivingAudioCallback(const void *inputBuffer, void *outputBuffer,
 
             volume = volumeByProximity(person.servId);
 
-            
 
-            int bufCount = person.rbuf.count.load();
-            float thisPersonsBuf[480];
-            if(bufCount > 1) {
+
+            if(person.rbuf.count.load() > 1) {
+                float thisPersonsBuf[480];
                 person.rbuf.readOneBuffer(thisPersonsBuf);
                 for(int i = 0; i < 480; ++i) {
                     mixdown[i] = std::min(std::max(mixdown[i] + thisPersonsBuf[i] * volume, -1.0f), 1.0f);
@@ -171,18 +170,14 @@ static int receivingAudioCallback(const void *inputBuffer, void *outputBuffer,
             }
         }
 
-        allPeople.erase(
-            std::remove_if(
-                allPeople.begin(),
-                allPeople.end(),
-                [](const Person& person) {
-                    return person.deleteTimer > 50;  // Condition to remove the person
-                }
-            ), 
-            allPeople.end()
+        std::erase_if(
+            allPeople,
+            [](const Person& person) {
+                return person.deleteTimer > 50;  // Condition to remove the person
+            }
         );
 
-        std::copy(std::begin(mixdown), std::end(mixdown), out);
+        std::ranges::copy(mixdown, out);
     }
 
     return paContinue;
@@ -190,7 +185,7 @@ static int receivingAudioCallback(const void *inputBuffer, void *outputBuffer,
 
 
 
-void handle_send(const boost::system::error_code& error, std::size_t bytes_transferred) {
+inline void handle_send(const boost::system::error_code& error, std::size_t bytes_transferred) {
     if (!error) {
         //std::cout << "Message sent" << std::endl;
     } else {
@@ -201,14 +196,15 @@ void handle_send(const boost::system::error_code& error, std::size_t bytes_trans
 void handle_receive(const boost::system::error_code& error, std::size_t bytes_transferred);
 
 
-void start_receive() {
+inline void start_receive() {
     //printf("Started receive");
     client_socket->async_receive_from(
         boost::asio::buffer(&recvPacket, sizeof(recvPacket)), remote_endpoint,
         handle_receive);
 }
 
-void promptForChoices() {
+inline void promptForChoices()
+{
     std::cout << "Please enter the number corresponding to the input device you want to use:" << '\n';
 
     int numDevices = Pa_GetDeviceCount();
@@ -216,8 +212,7 @@ void promptForChoices() {
         std::cerr << "PortAudio error: " << Pa_GetErrorText(numDevices) << '\n';
     } else {
         for (int i = 0; i < numDevices; i++) {
-            const PaDeviceInfo* deviceInfo = Pa_GetDeviceInfo(i);
-            if (deviceInfo && deviceInfo->maxInputChannels > 0) {
+            if (const PaDeviceInfo* deviceInfo = Pa_GetDeviceInfo(i); deviceInfo && deviceInfo->maxInputChannels > 0) {
                 std::cout << std::to_string(i) << ": " << deviceInfo->name << '\n'; // Debug output
             }
         }
@@ -276,15 +271,14 @@ void promptForChoices() {
 }
 
 
-void handle_receive(const boost::system::error_code& error, std::size_t bytes_transferred) {
+inline void handle_receive(const boost::system::error_code& error, std::size_t bytes_transferred) {
     if (!error && bytes_transferred == sizeof(AudioPacket)) {
 
-        auto &personIt = std::find_if(
-            allPeople.begin(),
-            allPeople.end(),
-            [](const Person& person) {
-                return person.id == recvPacket.id;
-            }
+        auto personIt = std::ranges::find_if(allPeople
+                                             ,
+                                             [](const Person& person) {
+                                                 return person.id == recvPacket.id;
+                                             }
         );
 
         if(personIt == allPeople.end()) {
@@ -316,9 +310,9 @@ void handle_receive(const boost::system::error_code& error, std::size_t bytes_tr
     }
 }
 
-PaError startupPortAudio(PaStream *stream, PaStreamCallback *streamCallback, bool input) {
+inline PaError startupPortAudio(PaStream *stream, PaStreamCallback *streamCallback, bool input) {
 
-    PaError err;// = Pa_Initialize();
+    ;// = Pa_Initialize();
 
     PaStreamParameters inputParameters;
     PaStreamParameters outputParameters;
@@ -327,15 +321,15 @@ PaError startupPortAudio(PaStream *stream, PaStreamCallback *streamCallback, boo
     inputParameters.device = Pa_GetDefaultInputDevice();
     inputParameters.sampleFormat = paFloat32;
     inputParameters.suggestedLatency = Pa_GetDeviceInfo(inputParameters.device)->defaultLowInputLatency;
-    inputParameters.hostApiSpecificStreamInfo = NULL;
+    inputParameters.hostApiSpecificStreamInfo = nullptr;
 
     outputParameters.channelCount = 1;
     outputParameters.device = Pa_GetDefaultOutputDevice();;
     outputParameters.sampleFormat = paFloat32;
     outputParameters.suggestedLatency = Pa_GetDeviceInfo(outputParameters.device)->defaultLowOutputLatency;
-    outputParameters.hostApiSpecificStreamInfo = NULL;
+    outputParameters.hostApiSpecificStreamInfo = nullptr;
 
-    err = Pa_OpenStream(&stream, &inputParameters, &outputParameters, SAMPLERATE, FRAMESPERBUFFER, paClipOff, streamCallback, NULL);
+    PaError err = Pa_OpenStream(&stream, &inputParameters, &outputParameters, SAMPLERATE, FRAMESPERBUFFER, paClipOff, streamCallback, nullptr);
     if (err != paNoError) {
         const char* errorText = Pa_GetErrorText(err);
         std::cerr << "PortAudio error: " << errorText << std::endl;
@@ -350,9 +344,8 @@ PaError startupPortAudio(PaStream *stream, PaStreamCallback *streamCallback, boo
     return err;
 }
 
-PaError stopChatStreams(PaStream *stream) {
-    PaError err;
-    err = Pa_StopStream(sendingStream);
+inline PaError stopChatStreams(PaStream *stream) {
+    PaError err = Pa_StopStream(sendingStream);
     if (err != paNoError) {
         return err;
     }
@@ -377,7 +370,7 @@ PaError stopChatStreams(PaStream *stream) {
     return err;
 }
 
-void printDeviceInfo(PaDeviceIndex index) {
+inline void printDeviceInfo(PaDeviceIndex index) {
     if (index == paNoDevice) {
         std::cout << "No default device." << std::endl;
     } else {
@@ -390,11 +383,11 @@ void printDeviceInfo(PaDeviceIndex index) {
 
 
 
-std::thread networkThread;
+inline std::thread networkThread;
 
 
 
-void connectToChat() {
+inline void connectToChat() {
     runChatThread.store(true);
     static auto networkFunc = [](){
         udp::socket socket(context, udp::endpoint(udp::v4(), 0));
@@ -404,8 +397,8 @@ void connectToChat() {
 
             udp::resolver resolver(context);\
 
-            size_t colonPos = TYPED_IN_SERVER_IP.find(":");
-            std::string server_ip = TYPED_IN_SERVER_IP.substr(0, colonPos);
+            const size_t colonPos = TYPED_IN_SERVER_IP.find(':');
+            const std::string server_ip = TYPED_IN_SERVER_IP.substr(0, colonPos);
 
 
             server_endpoints = resolver.resolve(udp::v4(), server_ip, "6970");
@@ -425,7 +418,7 @@ void connectToChat() {
 }
 
 
-void disconnectFromChat() {
+inline void disconnectFromChat() {
 
     runChatThread.store(false);
 

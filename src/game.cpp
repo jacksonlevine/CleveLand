@@ -126,8 +126,8 @@ Fader audioFaders[FADERNUM] = {
 };
 
 void tickFaders() {
-    for(int i = 0; i < FADERNUM; i++) {
-        audioFaders[i].tick();
+    for(auto & audioFader : audioFaders) {
+        audioFader.tick();
     }
 }
 
@@ -145,7 +145,7 @@ static int musicCallback(const void* inputBuffer, void* outputBuffer,
                          const PaStreamCallbackTimeInfo* timeInfo,
                          PaStreamCallbackFlags statusFlags,
                          void* userData) {
-    float* out = (float*)outputBuffer;
+    auto out = static_cast<float*>(outputBuffer);
 
 
             for (size_t i = 0; i < framesPerBuffer; ++i) {
@@ -170,8 +170,8 @@ static int musicCallback(const void* inputBuffer, void* outputBuffer,
     return paContinue;
 }
 
-std::function<void(int)> playSound = [](int block){
-    int blockID = (block & BlockInfo::BLOCK_ID_BITS);
+std::function<void(int)> playSound = [](const uint32_t block){
+    const uint32_t blockID = (block & BlockInfo::BLOCK_ID_BITS);
     if(blockID == 3) {
         sfs.playNextInSeries(plantPlaceSeries);
         return;
@@ -200,7 +200,7 @@ static int sfxCallback(const void* inputBuffer, void* outputBuffer,
                          const PaStreamCallbackTimeInfo* timeInfo,
                          PaStreamCallbackFlags statusFlags,
                          void* userData) {
-    float* out = (float*)outputBuffer;
+    const auto out = (float*)(outputBuffer);
     std::fill(out, out + framesPerBuffer*2, 0.0f);
     for(RingBuffer * rbuf : sfs.outputBuffers) {
         if(rbuf->count > 0) {
@@ -325,10 +325,10 @@ std::vector<float> loadAudioFile(const std::string& filename) {
 
 
 
-Game::Game() : lastFrame(0), focused(false), camera(nullptr),
+Game::Game() : io_context(), focused(false), camera(nullptr),
 collCage([this](BlockCoord b){
-    uint32_t blockBitsHere = voxelWorld.blockAt(b);
-    uint32_t blockIDHere = blockBitsHere & BlockInfo::BLOCK_ID_BITS;
+    const uint32_t blockBitsHere = voxelWorld.blockAt(b);
+    const uint32_t blockIDHere = blockBitsHere & BlockInfo::BLOCK_ID_BITS;
     if(blockIDHere == 11) {
         if(DoorInfo::getDoorOpenBit(blockBitsHere) == 1) {
             return false;
@@ -342,7 +342,7 @@ collCage([this](BlockCoord b){
     return (blockIDHere != 0 && blockIDHere != 2);
 }),
 user(glm::vec3(0,0,0), glm::vec3(0,0,0)),
-grounded(true), io_context()
+grounded(true), lastFrame(0)
 {
     static std::function<void(float)> setTimeFunc = [this](float t) {
         timeOfDay = t;
@@ -355,25 +355,25 @@ grounded(true), io_context()
 
     songAudio = loadAudioFile("assets/music/clevelandmusic.mp3");
     
-    PaError err;
+
 
     Pa_Initialize();
 
     PaStreamParameters outputParameters;
     outputParameters.device = Pa_GetDefaultOutputDevice(); // Default output device
-    outputParameters.channelCount = channels; // Stereo output
+    outputParameters.channelCount = static_cast<int>(channels); // Stereo output
     outputParameters.sampleFormat = paFloat32; // 32-bit floating-point output
     outputParameters.suggestedLatency = Pa_GetDeviceInfo(outputParameters.device)->defaultLowOutputLatency;
-    outputParameters.hostApiSpecificStreamInfo = NULL;
+    outputParameters.hostApiSpecificStreamInfo = nullptr;
 
-     err = Pa_OpenStream(&sfxStream,
-                        NULL, // No input parameters, as we're only playing audio
+    PaError err = Pa_OpenStream(&sfxStream,
+                        nullptr, // No input parameters, as we're only playing audio
                         &outputParameters, // Output parameters
                         samplerate, // Sample rate
                         480, // Frames per buffer
                         paClipOff, // Stream flags
                         sfxCallback, // Callback function
-                        NULL); // User data
+                        nullptr); // User data
     if (err != paNoError) {
         std::cout << "Error opening sfxStream" << Pa_GetErrorText(err) << "\n";
     }
@@ -385,13 +385,13 @@ grounded(true), io_context()
 
 
     err = Pa_OpenStream(&musicStream,
-                        NULL, // No input parameters, as we're only playing audio
+                        nullptr, // No input parameters, as we're only playing audio
                         &outputParameters, // Output parameters
                         samplerate, // Sample rate
                         480, // Frames per buffer
                         paClipOff, // Stream flags
                         musicCallback, // Callback function
-                        NULL); // User data
+                        nullptr); // User data
     if (err != paNoError) {
         std::cout << "Error opening musicStream" << Pa_GetErrorText(err) << "\n";
     }
@@ -464,8 +464,8 @@ grounded(true), io_context()
 
     // glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE); // Necessary for macOS
 
-    window = glfwCreateWindow(windowWidth, windowHeight, "CleveLand", NULL, NULL);
-    if(window == NULL) {
+    window = glfwCreateWindow(windowWidth, windowHeight, "CleveLand", nullptr, nullptr);
+    if(window == nullptr) {
         std::cout << "ERROR in create window \n";
     }
     glfwMakeContextCurrent(window);
@@ -489,9 +489,8 @@ grounded(true), io_context()
     initializeTextures();
 
 
-    glfwSetCharCallback(window, [](GLFWwindow* win, unsigned int codepoint){
-        Game* instance = static_cast<Game*>(glfwGetWindowUserPointer(win));
-        if (instance) {
+    glfwSetCharCallback(window, [](GLFWwindow* win, const unsigned int codepoint){
+        if (const auto instance = static_cast<Game*>(glfwGetWindowUserPointer(win))) {
             std::lock_guard<std::mutex> guard(GUIMutex);
             if(instance->updateThese.size() > 0) {
                 for(auto [key, guiElement] : instance->updateThese) {
@@ -1999,7 +1998,7 @@ void Game::loadOrCreateSaveGame(const char* path) {
         voxelWorld.worldGenVersion = 2;
         voxelWorld.waterLevel = 40;
         voxelWorld.currentNoiseFunction = &(voxelWorld.worldGenFunctions.at(2));
-        voxelWorld.seed = time(NULL);
+        voxelWorld.seed = time(nullptr);
         voxelWorld.getOffsetFromSeed();
         camera->position = glm::vec3(0,100,0);
         camera->velocity = glm::vec3(0,0,0);
@@ -3367,10 +3366,10 @@ void Game::keyCallback(GLFWwindow *window, int key, int scancode, int action, in
 
     if(key == GLFW_KEY_F11) {
         if(action == 1) {
-            if(glfwGetWindowMonitor(window) == NULL) {
+            if(glfwGetWindowMonitor(window) == nullptr) {
                 glfwSetWindowMonitor(window, glfwGetPrimaryMonitor(), 0, 0, 1280, 720, GLFW_DONT_CARE);
             } else {
-                glfwSetWindowMonitor(window, NULL, 0, 0, 1280, 720, GLFW_DONT_CARE);
+                glfwSetWindowMonitor(window, nullptr, 0, 0, 1280, 720, GLFW_DONT_CARE);
             }
         }
     }
@@ -3421,42 +3420,37 @@ void Game::setFocused(bool focused) {
     this->focused = focused;
     if(focused) {
         glfwSetWindowUserPointer(window, this);
-        glfwSetKeyCallback(window, [](GLFWwindow* w, int key, int scancode, int action, int mods) {
-            Game* instance = static_cast<Game*>(glfwGetWindowUserPointer(w));
-            if (instance) {
+        glfwSetKeyCallback(window, [](GLFWwindow* w, const int key, const int scancode, const int action, const int mods) {
+            if (const auto instance = static_cast<Game*>(glfwGetWindowUserPointer(w))) {
                 instance->keyCallback(w, key, scancode, action, mods);
             }
         });
         glfwSetCursorPosCallback(window, [](GLFWwindow* w, double xpos, double ypos) {
-            Game* instance = static_cast<Game*>(glfwGetWindowUserPointer(w));
-            if (instance) {
+            if (const auto instance = static_cast<Game*>(glfwGetWindowUserPointer(w))) {
                 instance->mouseCallback(w, xpos, ypos);
             }
         });
-        glfwSetMouseButtonCallback(window, [](GLFWwindow* w, int button, int action, int mods) {
-            Game* instance = static_cast<Game*>(glfwGetWindowUserPointer(w));
-            if (instance) {
+        glfwSetMouseButtonCallback(window, [](GLFWwindow* w, const int button, const int action, const int mods) {
+            if (const auto instance = static_cast<Game*>(glfwGetWindowUserPointer(w))) {
                 instance->mouseButtonCallback(w, button, action, mods);
             }
         });
-        glfwSetFramebufferSizeCallback(window, [](GLFWwindow* w, int width, int height) {
-            Game* instance = static_cast<Game*>(glfwGetWindowUserPointer(w));
-            if (instance) {
+        glfwSetFramebufferSizeCallback(window, [](GLFWwindow* w, const int width, const int height) {
+            if (const auto instance = static_cast<Game*>(glfwGetWindowUserPointer(w))) {
                 instance->frameBufferSizeCallback(w, width, height);
             }
         });
-        glfwSetScrollCallback(window, [](GLFWwindow* window, double xoffset, double yoffset){
-            Game* instance = static_cast<Game*>(glfwGetWindowUserPointer(window));
-            if (instance) {
+        glfwSetScrollCallback(window, [](GLFWwindow* window, double xoffset, const double yoffset){
+            if (const auto instance = static_cast<Game*>(glfwGetWindowUserPointer(window))) {
                 //instance->frameBufferSizeCallback(w, width, height);
                 instance->selectedBlockID = std::max(std::min(static_cast<int>(instance->selectedBlockID + yoffset), static_cast<int>(BlockInfo::texs.size()-1)), 1);
             }
         });
     } else {
-        glfwSetKeyCallback(window, NULL);
-        glfwSetCursorPosCallback(window, NULL);
-        glfwSetFramebufferSizeCallback(window, NULL);
-        glfwSetScrollCallback(window, NULL);
+        glfwSetKeyCallback(window, nullptr);
+        glfwSetCursorPosCallback(window, nullptr);
+        glfwSetFramebufferSizeCallback(window, nullptr);
+        glfwSetScrollCallback(window, nullptr);
         camera->firstMouse = true;
     }
 }
@@ -4204,6 +4198,8 @@ void Game::bindBillBoardGeometry(GLuint billposvbo, std::vector<Particle> &billi
         GLint cornerAttrib = glGetAttribLocation(billBoardShader->shaderID, "cornerID");
         glEnableVertexAttribArray(cornerAttrib);
         glVertexAttribPointer(cornerAttrib, 1, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(3 * sizeof(float)));
+
+        
     } else {
         glBindBuffer(GL_ARRAY_BUFFER, billqvbo);
 
@@ -4280,7 +4276,7 @@ void Game::bindBillBoardGeometryNoUpload(GLuint billposvbo) {
             0.1f,  0.1f, 0.0f, 2.0f,  // Corner 2
             -0.1f,  0.1f, 0.0f, 3.0f   // Corner 3
         }; 
-            // Quad vertices
+        // Quad vertices
         glBindBuffer(GL_ARRAY_BUFFER, billqvbo);
         glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), quadVertices, GL_STATIC_DRAW);
 
@@ -5068,8 +5064,8 @@ void Game::drawSky(float top_r, float top_g, float top_b, float top_a,
         GLuint vs_id, fs_id;
         vs_id = glCreateShader(GL_VERTEX_SHADER);
         fs_id = glCreateShader(GL_FRAGMENT_SHADER);
-        glShaderSource(vs_id, 1, &vs_src, NULL);
-        glShaderSource(fs_id, 1, &fs_src, NULL);
+        glShaderSource(vs_id, 1, &vs_src, nullptr);
+        glShaderSource(fs_id, 1, &fs_src, nullptr);
         glCompileShader(vs_id);
 
         GLint success;
@@ -5077,7 +5073,7 @@ void Game::drawSky(float top_r, float top_g, float top_b, float top_a,
         glGetShaderiv(vs_id, GL_COMPILE_STATUS, &success);
         if (!success)
         {
-            glGetShaderInfoLog(vs_id, 512, NULL, infoLog);
+            glGetShaderInfoLog(vs_id, 512, nullptr, infoLog);
             std::cerr << "Vertex shader compilation error: " << infoLog << std::endl;
         }
 
@@ -5087,7 +5083,7 @@ void Game::drawSky(float top_r, float top_g, float top_b, float top_a,
         glGetShaderiv(fs_id, GL_COMPILE_STATUS, &success);
         if (!success)
         {
-            glGetShaderInfoLog(fs_id, 512, NULL, infoLog);
+            glGetShaderInfoLog(fs_id, 512, nullptr, infoLog);
             std::cerr << "Fragment shader compilation error: " << infoLog << std::endl;
         }
 

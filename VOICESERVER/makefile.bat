@@ -1,6 +1,6 @@
 mkdir build
 cd build
-cmake -DCMAKE_TOOLCHAIN_FILE=~/Documents/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows-static ..
+cmake -A x64 -G "Visual Studio 17 2022" -DCMAKE_TOOLCHAIN_FILE=~/Documents/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows-static ..
 cmake --build . --config Release || (
     echo Build failed.
     pause

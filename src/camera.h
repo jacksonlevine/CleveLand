@@ -1,10 +1,7 @@
 #ifndef CAMERA_H
 #define CAMERA_H
 
-#include "soundfxsystem.h"
 #include "game.h"
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
 
 
 
@@ -15,15 +12,15 @@ public:
     float fov;
     glm::vec3 direction;
     glm::vec3 position;
-    glm::vec3 right;
-    glm::vec3 up;
+    glm::vec3 right{};
+    glm::vec3 up{};
 
-    glm::mat4 model;
-    glm::mat4 projection;
-    glm::mat4 view;
-    glm::mat4 mvp;
+    glm::mat4 model{};
+    glm::mat4 projection{};
+    glm::mat4 view{};
+    glm::mat4 mvp{};
 
-    glm::vec3 velocity;
+    glm::vec3 velocity{};
 
 
     inline static int forwardPressed = false;
@@ -52,10 +49,10 @@ public:
     inline static glm::vec3 initialDirection = glm::vec3(0, 0, 1);
     bool focused;
 
-    Camera3D(Game *gs);
+    explicit Camera3D(Game *gs);
 
     void mouseCallback(GLFWwindow *window, double xpos, double ypos);
-    void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods);
+    static void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods);
     void frameBufferSizeCallback(GLFWwindow *window, int width, int height);
 
     void setFocused(bool focus);

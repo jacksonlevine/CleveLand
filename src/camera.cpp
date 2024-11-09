@@ -1,13 +1,11 @@
 #include "camera.h"
 
-Camera3D::Camera3D(Game *gs) : gs(gs), focused(false) {
-    yaw = 0.0f;
-    pitch = 0.0f;
-    fov = 90.0f;
+Camera3D::Camera3D(Game *gs) :
+yaw(0.0f), pitch(0.0f), fov(90.0f),
+direction(glm::vec3(0.0f, 0.0f, 1.0f)),
+position(glm::vec3(0.0f, 100.0f, 0.0f)),
+focused(false), gs(gs) {
 
-    direction = glm::vec3(0.0f, 0.0f, 1.0f);
-
-    position = glm::vec3(0.0f, 100.0f, 0.0f);
 
     right = glm::normalize(glm::cross(glm::vec3(0.0f, 1.0f, 0.0f), direction));
     up = glm::cross(direction, right);
@@ -16,7 +14,7 @@ Camera3D::Camera3D(Game *gs) : gs(gs), focused(false) {
     projection = 
         glm::perspective(
             glm::radians(fov),
-            static_cast<float>(gs->windowWidth)/gs->windowHeight,
+            static_cast<float>(gs->windowWidth)/static_cast<float>(gs->windowHeight),
             _near,
             _far
         );
@@ -42,8 +40,8 @@ void Camera3D::mouseCallback(GLFWwindow *window, double xpos, double ypos) {
     double xOffset = (xpos - lastMouseX) * gs->mouseSensitivity;
     double yOffset = (lastMouseY - ypos) * gs->mouseSensitivity;
 
-    yaw += xOffset;
-    pitch += yOffset;
+    yaw += static_cast<float>(xOffset);
+    pitch += static_cast<float>(yOffset);
 
     if(pitch > 89.0f) {
         pitch = 89.0f;
@@ -102,8 +100,6 @@ void Camera3D::updatePosition() {
 }
 
 glm::vec3 Camera3D::proposePosition() {
-    glm::vec3 proposedPosition;
-
     if(forwardPressed) {
         velocity += (glm::normalize(glm::vec3(1.0, 0.0, 1.0) * direction)  * speedMulitplier ) * static_cast<float>(gs->averageDeltaTime);
     }
@@ -124,15 +120,13 @@ glm::vec3 Camera3D::proposePosition() {
     //     velocity -= (glm::vec3(0.0, 1.0, 0.0) * static_cast<float>(gs->deltaTime)) * speedMulitplier;
     // }
     
-    proposedPosition = position + velocity * (static_cast<float>(gs->averageDeltaTime)* 10.0f);
+    glm::vec3 proposedPosition = position + velocity * (static_cast<float>(gs->averageDeltaTime) * 10.0f);
     velocity /= 1.0f + static_cast<float>(gs->averageDeltaTime) * 10.0f;
     return proposedPosition;
 }
 
 
 glm::vec3 Camera3D::proposeSlowPosition() {
-    glm::vec3 proposedPosition;
-
     if(forwardPressed) {
         velocity += (glm::normalize(glm::vec3(1.0, 0.0, 1.0) * direction)  ) * static_cast<float>(gs->averageDeltaTime);
     }
@@ -153,7 +147,7 @@ glm::vec3 Camera3D::proposeSlowPosition() {
     //     velocity -= (glm::vec3(0.0, 1.0, 0.0) * static_cast<float>(gs->deltaTime)) * speedMulitplier;
     // }
     
-    proposedPosition = position + velocity * (static_cast<float>(gs->averageDeltaTime)* 10.0f);
+    glm::vec3 proposedPosition = position + velocity * (static_cast<float>(gs->averageDeltaTime) * 10.0f);
     velocity /= 1.0f + static_cast<float>(gs->averageDeltaTime) * 10.0f;
     return proposedPosition;
 }
@@ -174,7 +168,7 @@ void Camera3D::frameBufferSizeCallback(GLFWwindow *window, int width, int height
     projection = 
         glm::perspective(
             glm::radians(fov),
-            static_cast<float>(width)/height,
+            static_cast<float>(width)/static_cast<float>(height),
             _near,
             _far
         );
@@ -190,7 +184,7 @@ void Camera3D::setFocused(bool focused) {
     }
 }
 
-void Camera3D::keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods) {
+void Camera3D::keyCallback(GLFWwindow *window, const int key, int scancode, const int action, int mods) {
     if(key == forwardKey) {
         forwardPressed = action;
     }

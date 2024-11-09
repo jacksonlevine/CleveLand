@@ -15,7 +15,7 @@ public:
     void set_center(const glm::vec3 &center);
     void set_center(const glm::vec3 &center, float yextent, float xextent);
     bool intersects(const BoundingBox &other) const;
-    double BoundingBox::get_penetration(const BoundingBox &other) const;
+    double get_penetration(const BoundingBox &other) const;
     glm::vec3 collision_normal;
     glm::vec3 center;
 

@@ -152,7 +152,12 @@ static int receivingAudioCallback(const void *inputBuffer, void *outputBuffer,
         allPeople.end()
     );
 
-    printf("People: %zu \n", allPeople.size());
+    static int allpeoplesize = -1;
+    if(allPeople.size() != allpeoplesize) {
+        allpeoplesize = allPeople.size();
+        printf("People: %zu \n", allPeople.size());
+    }
+    
 
     //std::copy(std::begin(mixdown), std::end(mixdown), out);
 
