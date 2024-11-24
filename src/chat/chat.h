@@ -390,9 +390,9 @@ inline std::thread networkThread;
 inline void connectToChat() {
     runChatThread.store(true);
     static auto networkFunc = [](){
-        udp::socket socket(context, udp::endpoint(udp::v4(), 0));
-        try {
 
+        try {
+            udp::socket socket(context, udp::endpoint(udp::v4(), 0));
             client_socket = &socket;
 
             udp::resolver resolver(context);\

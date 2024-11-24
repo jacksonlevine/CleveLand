@@ -339,6 +339,10 @@ collCage([this](BlockCoord b){
     if(blockIDHere == 14) {
         return false;
     }
+    if(blockIDHere == 23)
+    {
+        return false;
+    }
     return (blockIDHere != 0 && blockIDHere != 2);
 }),
 user(glm::vec3(0,0,0), glm::vec3(0,0,0)),
@@ -425,6 +429,7 @@ grounded(true), lastFrame(0)
     if(err == paNoError) {
         std::cout << "Portaudio initialized." << '\n';
     } else {
+        std::cout << "Portaudio error. " << std::to_string(err) << '\n';
     }
 
     //promptForChoices();
@@ -684,7 +689,7 @@ void Game::stepMovementAndPhysics() {
                 glm::vec3 collCageCenter = camera->position + glm::vec3(0, -1.0, 0);
                 collCage.update_readings(collCageCenter);
 
-            if(inWater || inClimbable) {
+            if(inWater || inClimbable || ONSTAIR) {
 
                 timeFallingScalar = 1.0f;
                 if(!grounded) {
@@ -773,6 +778,13 @@ void Game::stepMovementAndPhysics() {
                         if(wasNGrounded) {
                             playFootstepSound();
                             wasNGrounded = false;
+                        }
+                    }
+                    if(side == LEFT || side == RIGHT || side == FRONT || side == BACK)
+                    {
+                        if(YCAMOFFSET > 0.95f)
+                        {
+                            proposedPos.y = (std::round(proposedPos.y + 1.1f));
                         }
                     }
                     if(side == ROOF)
@@ -1149,7 +1161,9 @@ void Game::drawBackgroundImage() {
         }
         glDrawArrays(GL_TRIANGLES, 0, backgroundImageData.size() / 5);
 }
+bool ONSTAIR = false;
 
+float YCAMOFFSET = 0.0f;
 void Game::stepChunkDraw() {
     
     glUseProgram(worldShader->shaderID);
@@ -1210,8 +1224,8 @@ void Game::stepChunkDraw() {
     );
 
     static bool previouslyInWater  = false;
-
-    uint32_t blockUsersIn = voxelWorld.blockAt(feetCoord) & BlockInfo::BLOCK_ID_BITS;
+    uint32_t buibits = voxelWorld.blockAt(feetCoord);
+    uint32_t blockUsersIn = buibits & BlockInfo::BLOCK_ID_BITS;
     uint32_t blockUsersInLowered = voxelWorld.blockAt(feetCoord2) & BlockInfo::BLOCK_ID_BITS;
 
     if(blockUsersIn == 2) {
@@ -1231,6 +1245,23 @@ void Game::stepChunkDraw() {
         inClimbable = true;
     }
 
+
+
+    static bool wasInStair = blockUsersIn == 23;
+
+    if(blockUsersIn == 23)
+    {
+        wasInStair = true;
+    }
+    if(wasInStair && blockUsersIn != 23)
+    {
+        camera->position.y += YCAMOFFSET;
+        YCAMOFFSET = 0.0f;
+        wasInStair = false;
+    }
+
+
+
     if(blockUsersInLowered != 14) {
         inClimbable = false;
     }
@@ -1239,6 +1270,32 @@ void Game::stepChunkDraw() {
     {
         inWater = false;
         previouslyInWater = false;
+    }
+
+    if(blockUsersIn == 23)
+    {
+        auto direction = BlockInfo::getDirectionBits(buibits);
+        if(direction == 0)
+        {
+            YCAMOFFSET = (camera->position.z - std::round(camera->position.z)) + 1.0f;
+        } else
+            if(direction == 1)
+            {
+                YCAMOFFSET = 1.0f - (camera->position.x - std::round(camera->position.x));
+            } else
+                if(direction == 2)
+                {
+                    YCAMOFFSET = 1.0f - (camera->position.z - std::round(camera->position.z));
+                } else
+                    if(direction == 3)
+                    {
+                        YCAMOFFSET = (camera->position.x - std::round(camera->position.x)) + 1.0f;
+                    }
+        ONSTAIR = true;
+    } else
+    {
+        YCAMOFFSET = 0.0f;
+        ONSTAIR = false;
     }
 
 
@@ -1253,6 +1310,11 @@ void Game::stepChunkDraw() {
     GLuint srloc = glGetUniformLocation(worldShader->shaderID, "sunrise");
 
     glUniform1f(srloc, sunriseFactor);
+
+
+    GLuint yoffsetcam = glGetUniformLocation(worldShader->shaderID, "ycamoffset");
+
+    glUniform1f(yoffsetcam, YCAMOFFSET);
 
     GLuint uwLoc = glGetUniformLocation(worldShader->shaderID, "underWater");
     glUniform1f(uwLoc, underWaterView);
@@ -2329,7 +2391,7 @@ void Game::goToMultiplayerWorld() {
 
     if(connected) {
 
-        connectToChat();
+        //connectToChat();
 
 
         
@@ -2991,6 +3053,57 @@ if(inMultiplayer)  {
                     
                 
             } else
+                if(selectedBlockID == 23) {
+                    static std::vector<BlockCoord> neighborAxes = {
+                        BlockCoord(1,0,0),
+                        BlockCoord(0,0,1),
+                        BlockCoord(1,0,0),
+                        BlockCoord(0,0,1),
+                    };
+
+
+                    uint32_t stairID = 23;
+
+                    float diffX = camera->position.x - placePoint.x;
+                    float diffZ = camera->position.z - placePoint.z;
+
+                    int direction = 0;
+
+                    if (std::abs(diffX) > std::abs(diffZ)) {
+                        // The player is primarily aligned with the X-axis
+                        direction = diffX > 0 ? /*Plus X*/1 : /*Minus X*/3;
+                    } else {
+                        // The player is primarily aligned with the Z-axis
+                        direction = diffZ > 0 ? /*Plus Z*/2 : /*Minus Z*/0;
+                    }
+
+                    BlockInfo::setDirectionBits(stairID, direction);
+
+
+                    // voxelWorld.udmMutex.lock();
+
+                    //                     voxelWorld.userDataMap.at(chunkToReb).insert_or_assign(placePoint, chestID);
+                    // voxelWorld.udmMutex.unlock();
+                    if(inMultiplayer)  {
+                        (*mpBlockSetFunc)(placePoint.x, placePoint.y, placePoint.z, stairID);
+                    } else {
+                        voxelWorld.setBlock(placePoint, stairID);
+                        auto chunkIt = voxelWorld.takenCareOfChunkSpots.find(chunkToReb);
+                        if(chunkIt != voxelWorld.takenCareOfChunkSpots.end()) {
+
+                            BlockChunk *chunk = chunkIt->second;
+
+
+                            while(!voxelWorld.deferredChunkQueue.push(chunk)) {
+
+                            }
+
+                        }
+                    }
+
+
+
+                } else
             if(selectedBlockID == 21 || selectedBlockID == 22) {
                 static std::vector<BlockCoord> neighborAxes = {
                     BlockCoord(1,0,0),
@@ -3616,6 +3729,7 @@ void Game::initializeShaders() {
             uniform vec3 camPos;
             uniform float ambientBrightMult;
             uniform float viewDistance;
+uniform float ycamoffset;
             void main()
             {
                 
@@ -3623,7 +3737,7 @@ void Game::initializeShaders() {
                 float ambBright = ambientBrightMult * ambientBright;
 
                 float distance = pow(distance(position, camPos)/(5), 2)/5.0f;
-                gl_Position = mvp * vec4(position , 1.0);
+                gl_Position = mvp * vec4(position - vec3(0.0, ycamoffset, 0.0) , 1.0);
 
                 float bright = min(16.0f, blockBright + ambBright);
 
@@ -3651,6 +3765,8 @@ void Game::initializeShaders() {
 
             uniform float sunset;
             uniform float sunrise;
+
+
 
             float similarity(vec3 dir1, vec3 dir2) {
                 return (dot(normalize(dir1), normalize(dir2)) + 1.0) * 0.5;

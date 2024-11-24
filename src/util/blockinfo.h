@@ -35,6 +35,7 @@ public:
         0.3f,//torch,
         1.0f, //sign,
         1.0f, //bigsign
+        1.0f, //stair
     };
     inline static std::vector<std::vector<TextureFace>> texs = {
         {TextureFace(0,0),//top
@@ -147,6 +148,12 @@ public:
         {TextureFace(10,1),//bigsign 22
         TextureFace(10,1),
         TextureFace(10,1),
+        },
+
+
+        {TextureFace(7,1),//stair 23
+        TextureFace(7,1),
+        TextureFace(7,1),
         }
     };
 
@@ -155,7 +162,7 @@ public:
     };
 
     inline static std::vector<int> semiTransparents = {
-        7, 11, 14, 19, 20, 21, 22
+        7, 11, 14, 19, 20, 21, 22, 23
     };
 
     inline static std::vector<int> lights = {

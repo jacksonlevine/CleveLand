@@ -45,6 +45,9 @@ extern std::string VERSIONSTRING;
 
 extern SoundFXSystem sfs;
 
+extern bool ONSTAIR;
+
+extern float YCAMOFFSET;
 
 class Camera3D;
 

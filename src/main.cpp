@@ -14,18 +14,27 @@
 int main() {
     //::cout << "Please enter your username: ";
     //std::getline(std::cin, USERNAME);
-    load_text("versionstring.txt", VERSIONSTRING);
 
-    USERNAME = "Test name";
+    try
+    {
+        load_text("versionstring.txt", VERSIONSTRING);
 
-    Game game;
+        USERNAME = "Test name";
 
-    //saveAndLoadWorldTest();
 
-    while(!glfwWindowShouldClose(game.window)) {
-        game.runStep();
+        Game game;
+
+        //saveAndLoadWorldTest();
+
+        while(!glfwWindowShouldClose(game.window)) {
+            game.runStep();
+        }
+
+        glfwTerminate();
+        glfwDestroyWindow(game.window);
+    } catch(std::exception e)
+    {
+        std::cout << "Error: " << e.what() << "\n";
     }
-    
-    glfwTerminate();
-    glfwDestroyWindow(game.window);
+
 }
