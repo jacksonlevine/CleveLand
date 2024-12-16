@@ -140,7 +140,6 @@ struct NameMessage {
     int length;
 };
 
-NameMessage createNameMessage(int id, std::string name, size_t length);
 
 void clientStringToPlayerList(std::vector<OtherPlayer> &out, std::string in);
 

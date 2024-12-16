@@ -51,8 +51,17 @@ extern float YCAMOFFSET;
 
 class Camera3D;
 
+
+
+
+
+
 class Game {
 public:
+
+    inline static float introTextAlpha = 0.0f;
+    inline static float introTextTimer = 0.0f;
+
 
     std::map<std::string, GUIElement*> updateThese;
     std::atomic<float> camRot;
@@ -269,6 +278,7 @@ public:
     void goToSettingsMenu();
 
     void goToSignTypeMenu(BlockCoord signPos);
+    void renderText(const std::string& message, float x, float y, float scale, float alpha);
 
     inline static bool changingViewDistance = false;
 
@@ -302,8 +312,67 @@ public:
 
     inline static bool inMultiplayer = false;
 
+    inline void drawTextOnScreen(const char* message)
+    {
+        std::cout <<"PRINT SOMETHING " << std::endl;
+
+        std::cout << "ABout to make vector \n";
+        std::vector<float> displayData;
+        std::cout << "Made vector \n";
+
+        std::cout << "ABout to get window width height \n";
+        float letHeight = (32.0f/ windowHeight);
+        float letWidth = (32.0f/ windowWidth);
+
+        std::cout << "Got window width height \n";
+
+        std::cout << "ABout to get strlen \n";
+        float lettersCount = std::strlen(message);
+        std::cout << "Got strlen " << std::to_string(lettersCount) << " \n";
+
+
+        float totletwid = letWidth * lettersCount;
+        glm::vec2 letterStart(-totletwid/2, -letHeight/2 + 0.2f);
+
+        GlyphFace glyph;
+        std::cout << "ABout to  build disp data \n";
+        for(int i = 0; i < lettersCount; i++) {
+            glyph.setCharCode(static_cast<int>(message[i]));
+            glm::vec2 thisLetterStart(letterStart.x + i*letWidth, letterStart.y);
+            displayData.insert(displayData.end(), {
+                thisLetterStart.x, thisLetterStart.y,                     glyph.bl.x, glyph.bl.y, -1.0f,
+                thisLetterStart.x, thisLetterStart.y+letHeight,           glyph.tl.x, glyph.tl.y, -1.0f,
+                thisLetterStart.x+letWidth, thisLetterStart.y+letHeight, glyph.tr.x, glyph.tr.y, -1.0f,
+
+                thisLetterStart.x+letWidth, thisLetterStart.y+letHeight, glyph.tr.x, glyph.tr.y, -1.0f,
+                thisLetterStart.x+letWidth, thisLetterStart.y,           glyph.br.x, glyph.br.y, -1.0f,
+                thisLetterStart.x, thisLetterStart.y,                     glyph.bl.x, glyph.bl.y, -1.0f
+            });
+        }
+
+        std::cout << "ABout to buffer \n";
+        static GLuint vbo2 = 0;
+        if(vbo2 == 0) {
+            glGenBuffers(1, &vbo2);
+        }
+        std::cout << "ABout to gbind \n";
+        Game::bindMenuGeometry(vbo2,
+        displayData.data(),
+        displayData.size());
+        std::cout << "ABout to tex and draw \n";
+        glBindTexture(GL_TEXTURE_2D, menuTexture);
+        glDrawArrays(GL_TRIANGLES, 0, displayData.size()/5);
+
+    }
+
     Game();
 private:
     double lastFrame;
 };
+
+
+
+
+
+
 #endif

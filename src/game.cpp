@@ -339,10 +339,10 @@ collCage([this](BlockCoord b){
     if(blockIDHere == 14) {
         return false;
     }
-    if(blockIDHere == 23)
-    {
-        return false;
-    }
+    // if(blockIDHere == 23)
+    // {
+    //     return false;
+    // }
     return (blockIDHere != 0 && blockIDHere != 2);
 }),
 user(glm::vec3(0,0,0), glm::vec3(0,0,0)),
@@ -896,6 +896,84 @@ float similarity(glm::vec3 dir1, glm::vec3 dir2) {
     return (glm::dot(glm::normalize(dir1), glm::normalize(dir2)) + 1.0) * 0.5;
 }
 
+void Game::renderText(const std::string& message, float x, float y, float scale = 1.0f, float alpha = 1.0f) {
+    // Validate prerequisites
+    if (!menuShader || menuShader->shaderID == 0) {
+        std::cerr << "Error: Menu shader not initialized" << std::endl;
+        return;
+    }
+
+    if (menuTexture == 0) {
+        std::cerr << "Error: Menu texture not initialized" << std::endl;
+        return;
+    }
+
+    // Ensure OpenGL is in the right state
+    glUseProgram(menuShader->shaderID);
+    glBindTexture(GL_TEXTURE_2D, menuTexture);
+
+    std::vector<float> displayData;
+
+    // Adjust for window scaling
+    float letHeight = (32.0f * scale) / windowHeight;
+    float letWidth = (32.0f * scale) / windowWidth;
+    float lettersCount = message.length();
+    float totletwid = letWidth * lettersCount;
+
+    // Optional: Allow custom positioning, default to center
+    glm::vec2 letterStart(
+        x != 0.0f ? x : -totletwid/2,
+        y != 0.0f ? y : -letHeight/2 + 0.2f
+    );
+
+    GlyphFace glyph;
+    float currentY = 0.0f;
+
+    for(int i = 0; i < lettersCount; i++) {
+
+        if(message[i] == '\n')
+        {
+            currentY -= letHeight * 1.5f;
+        } else
+        {
+            glyph.setCharCode(static_cast<int>(message[i]));
+            glm::vec2 thisLetterStart(letterStart.x + i*letWidth, letterStart.y + currentY);
+
+            displayData.insert(displayData.end(), {
+                thisLetterStart.x, thisLetterStart.y,                     glyph.bl.x, glyph.bl.y, -1.0f,
+                thisLetterStart.x, thisLetterStart.y+letHeight,           glyph.tl.x, glyph.tl.y, -1.0f,
+                thisLetterStart.x+letWidth, thisLetterStart.y+letHeight, glyph.tr.x, glyph.tr.y, -1.0f,
+
+                thisLetterStart.x+letWidth, thisLetterStart.y+letHeight, glyph.tr.x, glyph.tr.y, -1.0f,
+                thisLetterStart.x+letWidth, thisLetterStart.y,           glyph.br.x, glyph.br.y, -1.0f,
+                thisLetterStart.x, thisLetterStart.y,                     glyph.bl.x, glyph.bl.y, -1.0f
+            });
+        }
+
+    }
+
+    GLuint alphaLoc = glGetUniformLocation(menuShader->shaderID, "alpha");
+    glUniform1f(alphaLoc, alpha);
+
+
+    // Use a static VBO to avoid repeated buffer generation
+    static GLuint vbo = 0;
+    if(vbo == 0) {
+        glGenBuffers(1, &vbo);
+    }
+
+    // Bind geometry and draw
+    bindMenuGeometry(vbo, displayData.data(), displayData.size());
+    glDrawArrays(GL_TRIANGLES, 0, displayData.size()/5);
+
+    glUniform1f(alphaLoc, 1.0f);
+
+
+}
+
+
+
+
 void Game::draw() {
 
     #ifdef TIME_RENDER
@@ -913,7 +991,7 @@ void Game::draw() {
             voxelWorld.numberOfSamples = 0;
         }
     #endif
-    
+
     if(VAO == 0) {
         glGenVertexArrays(1, &VAO);
         glBindVertexArray(VAO);
@@ -979,7 +1057,8 @@ void Game::draw() {
         GLuint coeLocation = glGetUniformLocation(menuShader->shaderID, "clickedOnElement");
         glUniform1f(coeLocation, clickedOnElement);
 
-
+        GLuint alphaLoc = glGetUniformLocation(menuShader->shaderID, "alpha");
+        glUniform1f(alphaLoc, 1.0f);
 
         if(mainMenu) {
 
@@ -1076,6 +1155,19 @@ void Game::draw() {
 
     }
 
+
+    if(introTextAlpha > 0.0f)
+    {
+        renderText("It is 1796.", 0.0f, 0.0f, 1.5f, introTextAlpha);
+        renderText("The site of Cleveland is nothing but open land along the Cuyahoga River.", 0.0f, -0.05f, 1.0f, introTextAlpha);
+        renderText("Rolling hills and open land stretch in every direction.", 0.0f, -0.1f, 1.0f, introTextAlpha);
+        renderText("Use the scroll wheel to select blocks,", 0.0f, -0.15f, 1.0f, introTextAlpha);
+        renderText("and create the first structures of a new settlement.", 0.0f, -0.2f, 1.0f, introTextAlpha);
+
+
+    }
+
+
     if(!inGame) {
         drawBackgroundImage();
     }
@@ -1124,6 +1216,9 @@ void Game::draw() {
         std::cout << "Rendering took " << timeElapsed / 1000000.0 << " milliseconds" << std::endl;
     }
     #endif
+
+
+
 
 
     glfwSwapBuffers(window);
@@ -1247,18 +1342,18 @@ void Game::stepChunkDraw() {
 
 
 
-    static bool wasInStair = blockUsersIn == 23;
-
-    if(blockUsersIn == 23)
-    {
-        wasInStair = true;
-    }
-    if(wasInStair && blockUsersIn != 23)
-    {
-        camera->position.y += YCAMOFFSET;
-        YCAMOFFSET = 0.0f;
-        wasInStair = false;
-    }
+    // static bool wasInStair = blockUsersIn == 23;
+    //
+    // if(blockUsersIn == 23)
+    // {
+    //     wasInStair = true;
+    // }
+    // if(wasInStair && blockUsersIn != 23)
+    // {
+    //     camera->position.y += YCAMOFFSET;
+    //     YCAMOFFSET = 0.0f;
+    //     wasInStair = false;
+    // }
 
 
 
@@ -1272,31 +1367,31 @@ void Game::stepChunkDraw() {
         previouslyInWater = false;
     }
 
-    if(blockUsersIn == 23)
-    {
-        auto direction = BlockInfo::getDirectionBits(buibits);
-        if(direction == 0)
-        {
-            YCAMOFFSET = (camera->position.z - std::round(camera->position.z)) + 1.0f;
-        } else
-            if(direction == 1)
-            {
-                YCAMOFFSET = 1.0f - (camera->position.x - std::round(camera->position.x));
-            } else
-                if(direction == 2)
-                {
-                    YCAMOFFSET = 1.0f - (camera->position.z - std::round(camera->position.z));
-                } else
-                    if(direction == 3)
-                    {
-                        YCAMOFFSET = (camera->position.x - std::round(camera->position.x)) + 1.0f;
-                    }
-        ONSTAIR = true;
-    } else
-    {
-        YCAMOFFSET = 0.0f;
-        ONSTAIR = false;
-    }
+    // if(blockUsersIn == 23)
+    // {
+    //     auto direction = BlockInfo::getDirectionBits(buibits);
+    //     if(direction == 0)
+    //     {
+    //         YCAMOFFSET = (camera->position.z - std::round(camera->position.z)) + 1.0f;
+    //     } else
+    //         if(direction == 1)
+    //         {
+    //             YCAMOFFSET = 1.0f - (camera->position.x - std::round(camera->position.x));
+    //         } else
+    //             if(direction == 2)
+    //             {
+    //                 YCAMOFFSET = 1.0f - (camera->position.z - std::round(camera->position.z));
+    //             } else
+    //                 if(direction == 3)
+    //                 {
+    //                     YCAMOFFSET = (camera->position.x - std::round(camera->position.x)) + 1.0f;
+    //                 }
+    //     ONSTAIR = true;
+    // } else
+    // {
+    //     YCAMOFFSET = 0.0f;
+    //     ONSTAIR = false;
+    // }
 
 
     GLuint ambBrightMultLoc = glGetUniformLocation(worldShader->shaderID, "ambientBrightMult");
@@ -1564,6 +1659,18 @@ void Game::stepChunkDraw() {
         float progress = (initialChunksRendered) / (numMustLoad);
         displayLoadScreen("Loading world", progress, true);
     } else {
+        introTextTimer += deltaTime;
+        if(introTextTimer < 10.0f)
+        {
+            introTextAlpha = glm::min(introTextAlpha + static_cast<float>(deltaTime), 1.0f);
+
+        } else
+        {
+            introTextAlpha = glm::max(0.0f, introTextAlpha - (float)deltaTime);
+        }
+
+
+
         auto meshesView = registry.view<MeshComponent>();
         for(const entt::entity e : meshesView) {
             MeshComponent &m = registry.get<MeshComponent>(e);
@@ -3690,6 +3797,8 @@ void Game::initializeShaders() {
             uniform sampler2D ourTexture;
             uniform float mousedOverElement;
             uniform float clickedOnElement;
+
+            uniform float alpha;
             void main() {
                 FragColor = texture(ourTexture, TexCoord);
                 if(FragColor.a < 0.1) {
@@ -3709,6 +3818,7 @@ void Game::initializeShaders() {
                 if(elementID == -98.0f) {
                     FragColor = FragColor - vec4(0.3, 0.3, 0.3, 0.0);
                 }
+                FragColor.a = FragColor.a * alpha;
             }
         )glsl",
         "menuShader"

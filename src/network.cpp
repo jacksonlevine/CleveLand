@@ -41,15 +41,6 @@ Message createMessage(MessageType type, float x, float y, float z, uint32_t info
 }
 
 
-NameMessage createNameMessage(int id, std::string name, size_t length) {
-    NameMessage msg = {0};
-    int index = 0;
-    for(char &c : name) {
-        msg.data[index] = c;
-        index++;
-    }
-    return msg;
-}
 
 void TCPClient::start() {
     std::filesystem::create_directories(std::filesystem::path("multiplayer"));
