@@ -11,7 +11,8 @@ file(GLOB_RECURSE SOURCES "src/*.cpp")
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
-add_executable(main ${SOURCES})
+add_executable(main ${SOURCES}
+        src/timetarget.h)
 
 # MSVC specific configurations
 if(MSVC)
@@ -26,7 +27,7 @@ if(MSVC)
         "/SAFESEH:NO" 
         "/NODEFAULTLIB:kernel32.lib" 
         "/OPT:REF" 
-        "/SUBSYSTEM:WINDOWS"
+        # "/SUBSYSTEM:WINDOWS"
     )
 endif()
 

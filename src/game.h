@@ -109,8 +109,12 @@ public:
     std::unique_ptr<Shader> worldShader;
     std::unique_ptr<Shader> wireFrameShader;
     std::unique_ptr<Shader> billBoardShader;
+    std::unique_ptr<Shader> planetBillboardShader;
     std::unique_ptr<Shader> blockOverlayShader;
     std::unique_ptr<Shader> playerShader;
+
+    void drawCelestialBodies();
+
     
     GLuint menuTexture;
     GLuint menuBackgroundTexture;
@@ -301,7 +305,7 @@ public:
     inline static int leaning = 0;
 
     inline static float timeOfDay = 0.0f;
-    inline static float dayLength = 900.0f;
+    inline static float dayLength = 30.0f;
 
     inline static float sunsetFactor = 0.0f;
     inline static float sunriseFactor = 0.0f;

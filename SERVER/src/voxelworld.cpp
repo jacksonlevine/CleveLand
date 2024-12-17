@@ -182,7 +182,7 @@ void VoxelWorld::loadOrCreateSaveGame(const char* path) {
             int localIndex = 0;
             while(linestream >> word) {
                 if(lineIndex == 0) {
-                    timeOfDay = std::stof(word);
+                    TIMETARGET = std::stof(word);
                 }
                 localIndex++;
             }

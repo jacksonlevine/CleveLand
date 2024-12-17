@@ -653,7 +653,7 @@ public:
     }
 private:
     std::string path;
-    inline static float dayLength = 900.0f;
+    inline static float dayLength = 30.0f;
     TCPServer* servoMax;
 };
 
