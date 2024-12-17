@@ -1076,7 +1076,12 @@ void Game::draw() {
     }
     if(introTextTimer > 0.0f)
     {
-        timeOfDay = timeOfDay + ((TIMETARGET - timeOfDay) * 0.25f * deltaTime) ;
+        float difference = fmod((TIMETARGET - timeOfDay + dayLength), dayLength);
+        if (difference > dayLength * 0.5f) {
+            difference -= dayLength;
+        }
+        timeOfDay += difference * 0.25f * deltaTime;
+        timeOfDay = fmod(timeOfDay + dayLength, dayLength); // Ensure timeOfDay stays within 0 to dayLength
     }
 
     //std::cout << "timeOfDay: "<< std::to_string(timeOfDay) << "\n";
