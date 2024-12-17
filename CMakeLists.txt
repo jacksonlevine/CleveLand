@@ -27,7 +27,7 @@ if(MSVC)
         "/SAFESEH:NO" 
         "/NODEFAULTLIB:kernel32.lib" 
         "/OPT:REF" 
-        # "/SUBSYSTEM:WINDOWS"
+        "/SUBSYSTEM:WINDOWS"
     )
 endif()
 

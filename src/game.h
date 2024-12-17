@@ -306,7 +306,7 @@ public:
     inline static int leaning = 0;
 
     inline static float timeOfDay = 0.0f;
-    inline static float dayLength = 30.0f;
+    inline static float dayLength = 900.0f;
 
     inline static float sunsetFactor = 0.0f;
     inline static float sunriseFactor = 0.0f;

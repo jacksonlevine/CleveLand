@@ -31,7 +31,7 @@ class VoxelWorld {
     inline static int worldGenVersion = 2;
 
     inline static float timeOfDay = 0.0f;
-    inline static float dayLength = 30.0f;
+    inline static float dayLength = 900.0f;
 
     inline static int chunkWidth = 16;
     inline static int chunkHeight = 128;
