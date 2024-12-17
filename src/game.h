@@ -117,6 +117,7 @@ public:
 
     
     GLuint menuTexture;
+    GLuint celestialBodiesTexture;
     GLuint menuBackgroundTexture;
     GLuint splashTexture;
     GLuint splashTexture2;

@@ -298,26 +298,63 @@ void Game::footstepTimer() {
 
 }
 
+#include <cstdlib>
+#include <ctime>
+
+
 void Game::drawCelestialBodies()
 {
-    // Assuming you have a vector or array of celestial bodies
-    std::vector<glm::vec3> positions = {
-        glm::vec3(0.0f, 150.0f, 0.0f),
-        // Add more positions as needed
+
+
+    typedef struct CelestialBody
+    {
+        glm::vec3 position;
+        glm::vec3 rotation;
+        float index;
     };
+    // Assuming you have a vector or array of celestial bodies
+    static std::vector<CelestialBody> positions = {
+        CelestialBody{glm::vec3(0.0f, 75.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), 0.0f},
+        CelestialBody{glm::vec3(0.0f, 150.0f, 0.0f), glm::vec3(3.14159265358979323846264338327f, 0.0f, 0.0f), 1.0f},
+
+
+
+
+    };
+
 
     static GLuint vao = 0;
     static GLuint vvbo = 0;
     static GLuint instvbo = 0;
 
+    if(vao == 0)
+    {
+        for(int i = 0; i < 100; i++)
+        {
+            glm::vec2 posit((float)rand() / (float)RAND_MAX, (float)rand() / (float)RAND_MAX);
+            float x = posit.x * 2000.0f - 1000.0f; // X-axis distributed from -2000 to 2000
+            float z = posit.y * 2000.0f - 1000.0f; // Z-axis distributed from -2000 to 2000
+            float distanceFromCenter = sqrt(x * x + z * z);
+            float maxDistance = sqrt(1000.0f * 1000.0f + 1000.0f * 1000.0f); // Maximum possible distance from (0, 0)
+            float y = 2000.0f * (1.0f - 1.0f * (distanceFromCenter / maxDistance)); // Y decreases as distance increases
+
+            positions.push_back(
+                CelestialBody{glm::vec3(x, y, z), glm::vec3(3.14159265358979323846264338327f, 0.0f, 0.0f), 0.0f}
+            );
+        }
+    }
+
     float halfsize = 5.0f;
-    float vertices[16] = {
+    float vertices[32] = {
         -halfsize,  0.0f, halfsize, 3.0f,
         halfsize,  0.0f, halfsize, 2.0f,
         halfsize, 0.0f, -halfsize, 1.0f,
         -halfsize, 0.0f, -halfsize, 0.0f,
 
-
+        -halfsize, 0.0f, -halfsize, 0.0f,
+        halfsize, 0.0f, -halfsize, 1.0f,
+        halfsize,  0.0f, halfsize, 2.0f,
+        -halfsize,  0.0f, halfsize, 3.0f,
 
     };
 
@@ -342,14 +379,21 @@ void Game::drawCelestialBodies()
 
         // Instance buffer
         glBindBuffer(GL_ARRAY_BUFFER, instvbo);
-        glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
+        glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(CelestialBody), (void*)0);
         glVertexAttribDivisor(2, 1);
         glEnableVertexAttribArray(2);
+        glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, sizeof(CelestialBody), (void*)sizeof(glm::vec3));
+        glVertexAttribDivisor(3, 1);
+        glEnableVertexAttribArray(3);
+
+        glVertexAttribPointer(4, 1, GL_FLOAT, GL_FALSE, sizeof(CelestialBody), (void*)(sizeof(glm::vec3)*2));
+        glVertexAttribDivisor(4, 1);
+        glEnableVertexAttribArray(4);
     }
 
     // Update instance buffer with current positions
     glBindBuffer(GL_ARRAY_BUFFER, instvbo);
-    glBufferData(GL_ARRAY_BUFFER, positions.size() * sizeof(glm::vec3), positions.data(), GL_DYNAMIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, positions.size() * (sizeof(CelestialBody)), positions.data(), GL_DYNAMIC_DRAW);
 
     glBindVertexArray(vao);
 
@@ -366,7 +410,7 @@ void Game::drawCelestialBodies()
     glUniform1f(rotLoc, (std::fmod((timeOfDay - (dayLength/2.0f)), dayLength) / dayLength) * (2.0f * 3.1415926535897932384626433832795028841971693993751f));
 
     // Draw instanced arrays
-    glDrawArraysInstanced(GL_TRIANGLE_FAN, 0, 4, positions.size());
+    glDrawArraysInstanced(GL_TRIANGLE_FAN, 0, 8, positions.size());
 
     // Optional: clean up
     glBindVertexArray(0);
@@ -628,11 +672,11 @@ grounded(true), lastFrame(0)
                 
                 voxelWorld.runStep(deltaTime);
                 TIMETARGET = std::fmod(TIMETARGET + deltaTime, dayLength);
-                ambientBrightnessMult = std::max(0.05f, std::min(1.0f, gaussian(timeOfDay, dayLength/2.0f, dayLength/2.0f) * 1.3f));
+                ambientBrightnessMult = std::max(0.05f, std::min(1.0f, gaussian(timeOfDay, dayLength/1.75f, dayLength/2.0f) * 1.3f));
                 //std::cout << std::to_string(ambientBrightnessMult) << "\n";
 
                 sunsetFactor = gaussian(timeOfDay, dayLength*(3.0f/4.0f), dayLength/16.0f);
-                sunriseFactor = gaussian(timeOfDay, dayLength/6.0f, dayLength/16.0f);
+                sunriseFactor = gaussian(timeOfDay, dayLength/3.6f, dayLength/16.0f);
                 // Calculate the distance from timeOfDay to 0 and dayLength
                 float distanceToZero = timeOfDay;
                 float distanceToDayLength = dayLength - timeOfDay;
@@ -1242,7 +1286,7 @@ void Game::draw() {
         }
 
     }
-
+    glBindTexture(GL_TEXTURE_2D, celestialBodiesTexture);
     drawCelestialBodies();
 
 
@@ -4267,6 +4311,8 @@ uniform float ycamoffset;
             layout(location = 0) in vec3 vertexPosition; // Quad vertex positions
             layout(location = 1) in float cornerID;    // Corner ID of quad
             layout(location = 2) in vec3 instancePosition;
+            layout(location = 3) in vec3 instanceRotation;
+            layout(location = 4) in float pIndex;
 
 
             out vec2 tcoord;
@@ -4298,9 +4344,12 @@ uniform float ycamoffset;
             }
 
             void main() {
-
+                mat4 instanceRot = getRotationMatrix(instanceRotation.x, instanceRotation.y, instanceRotation.z);
                 mat4 globalRotation = getRotationMatrix(rot, 0.0, 0.0);
-                vec3 rotatedInstancePosition = (globalRotation * vec4(instancePosition, 1.0)).xyz;
+
+                vec3 instanceRotatedPosition = (instanceRot * vec4(instancePosition, 1.0)).xyz;
+
+                vec3 rotatedInstancePosition = (globalRotation * vec4(instanceRotatedPosition, 1.0)).xyz;
 
                 vec3 rotatedVertexPosition = (globalRotation * vec4(vertexPosition, 1.0)).xyz;
 
@@ -4322,16 +4371,17 @@ uniform float ycamoffset;
 
 
 
-                vec2 baseUV = vec2(0.0, 0.0);
+                vec2 baseUV = vec2(0.0 + (pIndex * 0.5), 0.0);
+
                 // Selecting UV based on cornerID
                 if (cornerID == 0.0) {
                     tcoord = baseUV;
                 } else if (cornerID == 1.0) {
-                    tcoord = vec2(baseUV.x + 1.0f, baseUV.y);
+                    tcoord = vec2(baseUV.x + 0.5f, baseUV.y);
                 } else if (cornerID == 2.0) {
-                    tcoord = vec2(baseUV.x + 1.0f, baseUV.y - 1.0);
+                    tcoord = vec2(baseUV.x + 0.5f, baseUV.y + 0.5);
                 } else if (cornerID == 3.0) {
-                    tcoord = vec2(baseUV.x, baseUV.y - 1.0);
+                    tcoord = vec2(baseUV.x, baseUV.y + 0.5);
                 }
             }
         )glsl",
@@ -5436,6 +5486,29 @@ void Game::initializeTextures() {
         std::cout << "Failed to load texture mobs" << std::endl;
     }
     stbi_image_free(data);
+
+
+
+
+    glGenTextures(1, &celestialBodiesTexture);
+    glBindTexture(GL_TEXTURE_2D, celestialBodiesTexture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+    data = stbi_load("assets/bodies.png", &width, &height, &nrChannels, 0);
+    if (data)
+    {
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+        glGenerateMipmap(GL_TEXTURE_2D);
+    }
+    else
+    {
+        std::cout << "Failed to load texture celestial bodies" << std::endl;
+    }
+    stbi_image_free(data);
+
 }
 
 void Game::drawSky(float top_r, float top_g, float top_b, float top_a,
