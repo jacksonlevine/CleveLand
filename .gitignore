@@ -6,6 +6,8 @@ token.json
 tumblr_email.txt
 tumblr_password.txt
 /cmake-build-release-visual-studio
+/cmake-build-release
+/cmake-build-debug
 
 ############################################################
 # Visual Studio - Start
